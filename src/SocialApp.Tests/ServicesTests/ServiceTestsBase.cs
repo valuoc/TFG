@@ -17,6 +17,7 @@ public abstract class ServiceTestsBase
     protected FollowersService FollowersService;
     
     private AccountDatabase _accountDatabase;
+    private ProfileDatabase _profileDatabase;
     private SessionDatabase _sessionDatabase;
     private FollowersDatabase _followerDatabase;
     
@@ -42,14 +43,16 @@ public abstract class ServiceTestsBase
         );
         
         _accountDatabase = new AccountDatabase(_cosmosClient, "cosmosdbpoc", "user");
+        _profileDatabase = new ProfileDatabase(_cosmosClient, "cosmosdbpoc", "user");
         _sessionDatabase = new SessionDatabase(_cosmosClient, "cosmosdbpoc", "user");
         _followerDatabase = new FollowersDatabase(_cosmosClient, "cosmosdbpoc", "user");
-        
-        AccountService = new AccountService(_accountDatabase);
+
+        AccountService = new AccountService(_accountDatabase, _profileDatabase);
         SessionService = new SessionService(_sessionDatabase);
         FollowersService = new FollowersService(_followerDatabase);
         
         await _accountDatabase.InitializeAsync();
+        await _profileDatabase.InitializeAsync();
         await _sessionDatabase.InitializeAsync();
         await _followerDatabase.InitializeAsync();
     }

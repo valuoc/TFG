@@ -8,6 +8,6 @@ public record SessionDocument(string SessionId, string UserId, string DisplayNam
     public static DocumentKey Key(string sessionId)
     {
         var pk = "session:"+sessionId;
-        return new DocumentKey(pk, pk);
+        return new DocumentKey(pk, "session");
     }
 }

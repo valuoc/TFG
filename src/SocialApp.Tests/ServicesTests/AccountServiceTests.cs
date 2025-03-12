@@ -5,6 +5,7 @@ using SocialApp.WebApi.Features.Services;
 
 namespace SocialApp.Tests.ServicesTests;
 
+[Order(1)]
 public class AccountServiceTests : ServiceTestsBase
 {
     [Test, Order(1)]
@@ -17,15 +18,15 @@ public class AccountServiceTests : ServiceTestsBase
         var id2 = await AccountService.RegisterAsync($"{userName2}@xxx.com", userName2, "Display"+userName2, "pass", OperationContext.None());
         Console.WriteLine(id2);
 
-        var user = await AccountService.FindAccountAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         var sessionId = await SessionService.StarSessionAsync(user, OperationContext.None());
         Console.WriteLine(sessionId);
         user = await SessionService.GetSessionAsync(sessionId, OperationContext.None());
         Console.WriteLine(user.UserId);
         Console.WriteLine(user);
         
-        //await SessionService.EndSessionAsync(sessionId, OperationContext.None());
-        //await SessionService.EndSessionAsync(sessionId, OperationContext.None());
+        await SessionService.EndSessionAsync(sessionId, OperationContext.None());
+        await SessionService.EndSessionAsync(sessionId, OperationContext.None());
     }
 
     [Test, Order(2)]
@@ -36,7 +37,7 @@ public class AccountServiceTests : ServiceTestsBase
         context.FailOnSignal("pending-account", CreateCosmoException());
         Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
-        var user = await AccountService.FindAccountAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
         var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
@@ -54,7 +55,7 @@ public class AccountServiceTests : ServiceTestsBase
         var error = Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass2", context));
         Assert.That(error.Error, Is.EqualTo(AccountError.EmailAlreadyRegistered));
         
-        var user = await AccountService.FindAccountAsync($"{userName}@xxx.com", "pass2", OperationContext.None());
+        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass2", OperationContext.None());
         Assert.IsNull(user);
         
         var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
@@ -69,7 +70,7 @@ public class AccountServiceTests : ServiceTestsBase
         context.FailOnSignal("email-lock", CreateCosmoException());
         Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
-        var user = await AccountService.FindAccountAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
         var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
@@ -87,7 +88,7 @@ public class AccountServiceTests : ServiceTestsBase
         var error = Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx2.com", userName, "Display" + userName, "pass", context));
         Assert.That(error.Error, Is.EqualTo(AccountError.HandleAlreadyRegistered));
         
-        var user = await AccountService.FindAccountAsync($"{userName}@xxx2.com", "pass", OperationContext.None());
+        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx2.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
         var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
@@ -102,7 +103,7 @@ public class AccountServiceTests : ServiceTestsBase
         context.FailOnSignal("handle-lock", CreateCosmoException());
         Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
-        var user = await AccountService.FindAccountAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
         var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
@@ -121,7 +122,7 @@ public class AccountServiceTests : ServiceTestsBase
             context.FailOnSignal(signal, CreateCosmoException());
             Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
-            var user = await AccountService.FindAccountAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+            var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
             Assert.IsNull(user);
         
             var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
@@ -138,7 +139,7 @@ public class AccountServiceTests : ServiceTestsBase
         var accountId = await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context);
         Assert.That(accountId, Is.Not.Null);
         
-        var user = await AccountService.FindAccountAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNotNull(user);
         
         var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);

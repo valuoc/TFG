@@ -8,6 +8,6 @@ public record AccountHandleDocument(string Handle, string UserId)
     public static DocumentKey Key(string handle)
     {
         var pk = "handle:"+handle;
-        return new DocumentKey(pk, pk);
+        return new DocumentKey(pk, "handle");
     }
 }

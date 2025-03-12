@@ -9,6 +9,6 @@ public record FollowerListDocument(string UserId)
     
     public static DocumentKey Key(string userId)
     {
-        return new DocumentKey($"account:{userId}", "follower_list");
+        return new DocumentKey($"user:{userId}", "follower_list");
     }
 }

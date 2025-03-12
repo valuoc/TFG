@@ -9,6 +9,6 @@ public record FollowingListDocument(string UserId)
     public Dictionary<string, FollowingStatus>? Following { get; set; }
     public static DocumentKey Key(string userId)
     {
-        return new DocumentKey($"account:{userId}", "following_list");
+        return new DocumentKey($"user:{userId}", "following_list");
     }
 }
