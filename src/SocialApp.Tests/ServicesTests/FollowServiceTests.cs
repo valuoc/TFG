@@ -20,11 +20,12 @@ public class FollowServiceTests: ServiceTestsBase
         await FollowersService.RemoveAsync(user1.UserId, user2.UserId, OperationContext.None());
     }
 
-    private async Task<User> CreateUserAsync()
+    private async Task<UserSession> CreateUserAsync()
     {
         var userName = Guid.NewGuid().ToString("N");
         var id1 = await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display"+userName, "pass", OperationContext.None());
-        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
-        return user ?? throw new InvalidOperationException("Cannot find user");
+        var profile = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        
+        return profile != null ? new UserSession(profile.UserId, profile.DisplayName, profile.Handle) : throw new InvalidOperationException("Cannot find user");
     }
 }

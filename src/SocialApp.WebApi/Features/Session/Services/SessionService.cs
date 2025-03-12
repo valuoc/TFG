@@ -7,7 +7,7 @@ using SocialApp.WebApi.Features.Session.Exceptions;
 
 namespace SocialApp.WebApi.Features.Session.Services;
 
-public record User(string UserId, string DisplayName, string Handle);
+public record UserSession(string UserId, string DisplayName, string Handle);
 
 public class SessionService
 {
@@ -21,9 +21,9 @@ public class SessionService
         _sessionDatabase = sessionDatabase;
     }
 
-    public async ValueTask<string> StarSessionAsync(User user, OperationContext context)
+    public async ValueTask<string> StarSessionAsync(UserSession userSession, OperationContext context)
     {
-        var session = new SessionDocument(Guid.NewGuid().ToString("N"), user.UserId, user.DisplayName, user.Handle)
+        var session = new SessionDocument(Guid.NewGuid().ToString("N"), userSession.UserId, userSession.DisplayName, userSession.Handle)
         {
             Ttl = _sessionLengthSeconds
         };
@@ -39,7 +39,7 @@ public class SessionService
         }
     }
 
-    public async ValueTask<User?> GetSessionAsync(string sessionId, OperationContext context)
+    public async ValueTask<UserSession?> GetSessionAsync(string sessionId, OperationContext context)
     {
         try
         {
@@ -52,7 +52,7 @@ public class SessionService
             if(response.Resource.Ttl < _sessionLengthSeconds / 4) // TODO: Patch ?
                 await sessions.ReplaceItemAsync(response.Resource with { Ttl = _sessionLengthSeconds}, sessionId, requestOptions:_noResponseContent, cancellationToken: context.Cancellation);
         
-            return new User(response.Resource.UserId, response.Resource.DisplayName, response.Resource.Handle);
+            return new UserSession(response.Resource.UserId, response.Resource.DisplayName, response.Resource.Handle);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

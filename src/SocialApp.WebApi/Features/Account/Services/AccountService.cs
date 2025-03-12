@@ -4,7 +4,6 @@ using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Account.Databases;
 using SocialApp.WebApi.Features.Account.Documents;
 using SocialApp.WebApi.Features.Account.Exceptions;
-using User = SocialApp.WebApi.Features.Session.Services.User;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
@@ -126,7 +125,7 @@ public class AccountService
         
     }
 
-    public async ValueTask<User?> LoginWithPasswordAsync(string email, string password, OperationContext context)
+    public async ValueTask<ProfileDocument?> LoginWithPasswordAsync(string email, string password, OperationContext context)
     {
         try
         {
@@ -145,7 +144,7 @@ public class AccountService
                 return null;
             }
 
-            return new User(profileResponse.Resource.UserId, profileResponse.Resource.DisplayName, profileResponse.Resource.Handle);
+            return profileResponse.Resource;
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

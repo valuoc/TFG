@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features.Account.Exceptions;
 using SocialApp.WebApi.Features.Services;
+using SocialApp.WebApi.Features.Session.Services;
 
 namespace SocialApp.Tests.ServicesTests;
 
@@ -18,10 +19,10 @@ public class AccountServiceTests : ServiceTestsBase
         var id2 = await AccountService.RegisterAsync($"{userName2}@xxx.com", userName2, "Display"+userName2, "pass", OperationContext.None());
         Console.WriteLine(id2);
 
-        var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
-        var sessionId = await SessionService.StarSessionAsync(user, OperationContext.None());
+        var profile = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        var sessionId = await SessionService.StarSessionAsync(new UserSession(profile.UserId, profile.DisplayName, profile.Handle), OperationContext.None());
         Console.WriteLine(sessionId);
-        user = await SessionService.GetSessionAsync(sessionId, OperationContext.None());
+        var user = await SessionService.GetSessionAsync(sessionId, OperationContext.None());
         Console.WriteLine(user.UserId);
         Console.WriteLine(user);
         
