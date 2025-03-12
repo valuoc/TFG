@@ -22,6 +22,9 @@ public abstract class ServiceTestsBase
     private FollowersDatabase _followerDatabase;
     
     private CosmosClient _cosmosClient;
+
+    private readonly string _container = "user";
+    private readonly string _databaseId = "cosmosdbpoc";
     
     [SetUp]
     public async Task Setup()
@@ -42,10 +45,10 @@ public abstract class ServiceTestsBase
             applicationName
         );
         
-        _accountDatabase = new AccountDatabase(_cosmosClient, "cosmosdbpoc", "user");
-        _profileDatabase = new ProfileDatabase(_cosmosClient, "cosmosdbpoc", "user");
-        _sessionDatabase = new SessionDatabase(_cosmosClient, "cosmosdbpoc", "user");
-        _followerDatabase = new FollowersDatabase(_cosmosClient, "cosmosdbpoc", "user");
+        _accountDatabase = new AccountDatabase(_cosmosClient, _databaseId, _container);
+        _profileDatabase = new ProfileDatabase(_cosmosClient, _databaseId, _container);
+        _sessionDatabase = new SessionDatabase(_cosmosClient, _databaseId, _container);
+        _followerDatabase = new FollowersDatabase(_cosmosClient, _databaseId, _container);
 
         AccountService = new AccountService(_accountDatabase, _profileDatabase);
         SessionService = new SessionService(_sessionDatabase);
@@ -60,6 +63,7 @@ public abstract class ServiceTestsBase
     [TearDown]
     public async Task TearDown()
     {
+        await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
         _cosmosClient.Dispose();
     }
 }

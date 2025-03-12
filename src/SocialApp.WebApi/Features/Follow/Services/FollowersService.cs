@@ -13,6 +13,22 @@ public sealed class FollowersService
     public FollowersService(FollowersDatabase database)
         => _database = database;
 
+    public async ValueTask<IReadOnlyList<string>> GetFollowingsAsync(string userId, OperationContext context)
+    {
+        var container = _database.GetContainer();
+        
+        var followingResponse = await GetFollowingResponseAsync(container, userId, context.Cancellation);
+        return followingResponse?.Resource?.Following?.Where(x => x.Value == FollowingStatus.Ready).Select(x => x.Key).ToList() ?? [];
+    }
+    
+    public async ValueTask<IReadOnlyList<string>> GetFollowersAsync(string userId, OperationContext context)
+    {
+        var container = _database.GetContainer();
+        
+        var followerResponse = await GetFollowerResponseAsync(container, userId, context.Cancellation);
+        return followerResponse?.Resource?.Followers?.ToList() ?? [];
+    }
+    
     public async ValueTask AddAsync(string followerId, string followedId, OperationContext context)
     {
         var container = _database.GetContainer();
@@ -35,7 +51,7 @@ public sealed class FollowersService
         followings = followingResponse.Resource;
         
         var followerResponse = await GetFollowerResponseAsync(container, followedId, context.Cancellation);
-        var followers = followerResponse?.Resource ?? new FollowerListDocument(followerId);
+        var followers = followerResponse?.Resource ?? new FollowerListDocument(followedId);
         followers.Followers ??= new HashSet<string>();
 
         if (followers.Followers.Add(followerId))
@@ -46,7 +62,7 @@ public sealed class FollowersService
                 IfMatchEtag = followerResponse?.ETag
             }, cancellationToken: context.Cancellation);
         }
-        followings.Following[followerId] = FollowingStatus.Ready;
+        followings.Following[followedId] = FollowingStatus.Ready;
         await container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions()
         {
             EnableContentResponseOnWrite = false,
@@ -87,8 +103,8 @@ public sealed class FollowersService
                 IfMatchEtag = followerResponse?.ETag
             }, cancellationToken: context.Cancellation);
         }
-        
-        followings.Following[followerId] = FollowingStatus.Ready;
+
+        followings.Following.Remove(followedId);
         await container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions()
         {
             EnableContentResponseOnWrite = false,
