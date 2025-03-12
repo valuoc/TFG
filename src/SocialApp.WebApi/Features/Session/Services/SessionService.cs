@@ -35,7 +35,7 @@ public class SessionService
         }
         catch (CosmosException e)
         {
-            throw new SessionSocialAppException(SessionError.UnexpectedError, e);
+            throw new SessionException(SessionError.UnexpectedError, e);
         }
     }
 
@@ -56,11 +56,11 @@ public class SessionService
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {
-            throw new SessionSocialAppException(SessionError.InvalidSession, e);
+            throw new SessionException(SessionError.InvalidSession, e);
         }
         catch (CosmosException e)
         {
-            throw new SessionSocialAppException(SessionError.UnexpectedError, e);
+            throw new SessionException(SessionError.UnexpectedError, e);
         }
     }
 
@@ -79,7 +79,7 @@ public class SessionService
         }
         catch (CosmosException e)
         {
-            throw new SessionSocialAppException(SessionError.UnexpectedError, e);
+            throw new SessionException(SessionError.UnexpectedError, e);
         }
     }
 }

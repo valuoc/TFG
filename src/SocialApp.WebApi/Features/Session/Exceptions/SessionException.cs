@@ -9,14 +9,14 @@ public enum SessionError
     InvalidSession
 }
 
-public sealed class SessionSocialAppException : SocialAppException
+public sealed class SessionException : SocialAppException
 {
     public SessionError Error { get; }
 
-    public SessionSocialAppException(SessionError error) 
+    public SessionException(SessionError error) 
         : this(error, null) { }
 
-    public SessionSocialAppException(SessionError error, Exception? innerException) 
+    public SessionException(SessionError error, Exception? innerException) 
         : base(error.ToString(), innerException)
     {
         Error = error;

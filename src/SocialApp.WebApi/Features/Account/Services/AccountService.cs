@@ -55,7 +55,7 @@ public class AccountService
         }
         catch (CosmosException e)
         {
-            throw new AccountSocialAppException(AccountError.UnexpectedError, e);
+            throw new AccountException(AccountError.UnexpectedError, e);
         }
 
         var emailLock = new AccountEmailDocument(email, userId){ Ttl = 5_000};
@@ -66,11 +66,11 @@ public class AccountService
         }
         catch (CosmosException e) when ( e.StatusCode == HttpStatusCode.Conflict)
         {
-            throw new AccountSocialAppException(AccountError.EmailAlreadyRegistered, e);
+            throw new AccountException(AccountError.EmailAlreadyRegistered, e);
         }
         catch (CosmosException e)
         {
-            throw new AccountSocialAppException(AccountError.UnexpectedError, e);
+            throw new AccountException(AccountError.UnexpectedError, e);
         }
         
         var handleLock = new AccountHandleDocument(handle, userId){ Ttl = 5_000};
@@ -82,11 +82,11 @@ public class AccountService
         }
         catch (CosmosException e) when ( e.StatusCode == HttpStatusCode.Conflict)
         {
-            throw new AccountSocialAppException(AccountError.HandleAlreadyRegistered, e);
+            throw new AccountException(AccountError.HandleAlreadyRegistered, e);
         }
         catch (CosmosException e)
         {
-            throw new AccountSocialAppException(AccountError.UnexpectedError, e);
+            throw new AccountException(AccountError.UnexpectedError, e);
         }
 
         
@@ -120,7 +120,7 @@ public class AccountService
         }
         catch (CosmosException e)
         {
-            throw new AccountSocialAppException(AccountError.UnexpectedError, e);
+            throw new AccountException(AccountError.UnexpectedError, e);
         }
         
     }
@@ -152,7 +152,7 @@ public class AccountService
         }
         catch (CosmosException e)
         {
-            throw new AccountSocialAppException(AccountError.UnexpectedError, e);
+            throw new AccountException(AccountError.UnexpectedError, e);
         }
     }
 

@@ -8,14 +8,14 @@ public enum AccountError
     EmailAlreadyRegistered,
     HandleAlreadyRegistered
 }
-public sealed class AccountSocialAppException : SocialAppException
+public sealed class AccountException : SocialAppException
 {
     public AccountError Error { get; }
 
-    public AccountSocialAppException(AccountError error) 
+    public AccountException(AccountError error) 
         : this(error, null) { }
 
-    public AccountSocialAppException(AccountError error, Exception? innerException) 
+    public AccountException(AccountError error, Exception? innerException) 
         : base(error.ToString(), innerException)
     {
         Error = error;

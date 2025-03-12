@@ -36,7 +36,7 @@ public class AccountServiceTests : ServiceTestsBase
         var userName = Guid.NewGuid().ToString("N");
         var context = OperationContext.None();
         context.FailOnSignal("pending-account", CreateCosmoException());
-        Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
+        Assert.ThrowsAsync<AccountException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
@@ -53,7 +53,7 @@ public class AccountServiceTests : ServiceTestsBase
         await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context);
             
         context = OperationContext.None();
-        var error = Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass2", context));
+        var error = Assert.ThrowsAsync<AccountException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass2", context));
         Assert.That(error.Error, Is.EqualTo(AccountError.EmailAlreadyRegistered));
         
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass2", OperationContext.None());
@@ -69,7 +69,7 @@ public class AccountServiceTests : ServiceTestsBase
         var context = OperationContext.None();
         var userName = Guid.NewGuid().ToString("N");
         context.FailOnSignal("email-lock", CreateCosmoException());
-        Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
+        Assert.ThrowsAsync<AccountException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
@@ -86,7 +86,7 @@ public class AccountServiceTests : ServiceTestsBase
         await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context);
             
         context = OperationContext.None();
-        var error = Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx2.com", userName, "Display" + userName, "pass", context));
+        var error = Assert.ThrowsAsync<AccountException>(async () => await AccountService.RegisterAsync($"{userName}@xxx2.com", userName, "Display" + userName, "pass", context));
         Assert.That(error.Error, Is.EqualTo(AccountError.HandleAlreadyRegistered));
         
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx2.com", "pass", OperationContext.None());
@@ -102,7 +102,7 @@ public class AccountServiceTests : ServiceTestsBase
         var context = OperationContext.None();
         var userName = Guid.NewGuid().ToString("N");
         context.FailOnSignal("handle-lock", CreateCosmoException());
-        Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
+        Assert.ThrowsAsync<AccountException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
@@ -121,7 +121,7 @@ public class AccountServiceTests : ServiceTestsBase
             var context = OperationContext.None();
             var userName = Guid.NewGuid().ToString("N");
             context.FailOnSignal(signal, CreateCosmoException());
-            Assert.ThrowsAsync<AccountSocialAppException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
+            Assert.ThrowsAsync<AccountException>(async () => await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display" + userName, "pass", context));
 
             var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
             Assert.IsNull(user);

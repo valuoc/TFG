@@ -7,14 +7,14 @@ public enum FollowerError
     UnexpectedError
 }
 
-public sealed class FollowerSocialAppException : SocialAppException
+public sealed class FollowerException : SocialAppException
 {
     public FollowerError Error { get; }
 
-    public FollowerSocialAppException(FollowerError error) 
+    public FollowerException(FollowerError error) 
         : this(error, null) { }
 
-    public FollowerSocialAppException(FollowerError error, Exception? innerException) 
+    public FollowerException(FollowerError error, Exception? innerException) 
         : base(error.ToString(), innerException)
     {
         Error = error;
