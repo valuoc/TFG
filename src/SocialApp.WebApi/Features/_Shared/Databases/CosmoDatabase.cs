@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -21,23 +22,32 @@ public abstract class CosmoDatabase
     {
         Database database = await CosmosClient.CreateDatabaseIfNotExistsAsync(DatabaseId);
         Console.WriteLine("Created Database: {0}\n", database.Id);
+        var indexingPolicy = new IndexingPolicy()
+        {
+            IndexingMode = IndexingMode.Consistent,
+            Automatic = true,
+            ExcludedPaths = { new ExcludedPath() { Path = "/*" } },
+            IncludedPaths = {},
+        };
+        foreach(var includedPath in GetIndexedPaths())
+            indexingPolicy.IncludedPaths.Add(includedPath);
+        
         Container container = await database.CreateContainerIfNotExistsAsync(new ContainerProperties
         {
             Id = ContainerId,
             PartitionKeyPath = "/pk",
-            IndexingPolicy = new IndexingPolicy()
-            {
-                IndexingMode = IndexingMode.Consistent,
-                Automatic = true,
-                ExcludedPaths = { new ExcludedPath() { Path = "/*" } },
-                IncludedPaths = { },
-            },
+            IndexingPolicy = indexingPolicy,
             DefaultTimeToLive = -1,
             PartitionKeyDefinitionVersion = PartitionKeyDefinitionVersion.V2,
         });
         Console.WriteLine("Created Container: {0}\n", container.Id);
     }
-    
+
+    protected virtual IEnumerable<IncludedPath> GetIndexedPaths()
+    {
+        yield break;
+    }
+
     public Container GetContainer()
     {
         return CosmosClient.GetContainer(DatabaseId, ContainerId);

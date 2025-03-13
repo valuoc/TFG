@@ -10,3 +10,47 @@ email:abc/password_login
 user:123/profile
 user:123/following_list
 user:123/follower_list
+
+posts:
+    user:123/post-20250101-121500-xxxx
+        - id: xxx
+        - date: 20250101-121500
+        - parent: null
+        - content: text
+    user:123/post-20250101-121500-xxxx-counts
+        - comment: 1
+        - likes: 1
+        - repost: 1
+        - visits: 1
+
+reply:
+    user:124/post-yyyy-20250101-121500
+    replicates to:
+        user:123/comment-xxxx-20250101-121500-yyyy
+            - origin: user:123/post-20250101-121500-xxxx
+    updates:
+        user:123/comment-xxxx-20250101-121500-yyyy-counts
+        
+ - latest posts without comments
+    user:123/post-* (where type:post)
+    
+ - post with comments
+    user:123/post-123-*
+    
+ user:123/post:123
+ user:123/post:123:counts 
+    user:123/post:123:comment:222
+        user:122/post:222
+    user:123/post:123:comment:333
+        user:133/post:333
+    user:123/post:123:comment:444
+        user:144/post:444
+    
+user:122/post:222 (comment: user:123/post:123:comment:222)
+user:122/post:222_counts
+user:133/post:333
+user:133/post:333_counts
+user:144/post:444
+user:144/post:444_counts
+    
+handle/20250101101010

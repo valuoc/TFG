@@ -101,6 +101,10 @@ public sealed class FollowersService
                 IfMatchEtag = followingResponse?.ETag
             }, cancellationToken: context.Cancellation);
         }
+        catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            throw new FollowerException(FollowerError.ConcurrencyFailure, e);
+        }
         catch (CosmosException e)
         {
             throw new FollowerException(FollowerError.UnexpectedError, e);
@@ -153,6 +157,10 @@ public sealed class FollowersService
                 EnableContentResponseOnWrite = false,
                 IfMatchEtag = followingResponse?.ETag
             }, cancellationToken: context.Cancellation);
+        }
+        catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            throw new FollowerException(FollowerError.ConcurrencyFailure, e);
         }
         catch (CosmosException e)
         {

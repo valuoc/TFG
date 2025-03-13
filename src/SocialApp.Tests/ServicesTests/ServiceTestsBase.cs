@@ -2,6 +2,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using SocialApp.WebApi.Features.Account.Databases;
 using SocialApp.WebApi.Features.Account.Services;
+using SocialApp.WebApi.Features.Content.Databases;
 using SocialApp.WebApi.Features.Databases;
 using SocialApp.WebApi.Features.Follow.Databases;
 using SocialApp.WebApi.Features.Follow.Services;
@@ -20,11 +21,12 @@ public abstract class ServiceTestsBase
     private ProfileDatabase _profileDatabase;
     private SessionDatabase _sessionDatabase;
     private FollowersDatabase _followerDatabase;
+    private ContentDatabase _contentDatabase;
     
     private CosmosClient _cosmosClient;
 
-    private readonly string _container = "user";
-    private readonly string _databaseId = "cosmosdbpoc";
+    private readonly string _container = "test";
+    private readonly string _databaseId = "socialapp";
     
     [SetUp]
     public async Task Setup()
@@ -49,21 +51,20 @@ public abstract class ServiceTestsBase
         _profileDatabase = new ProfileDatabase(_cosmosClient, _databaseId, _container);
         _sessionDatabase = new SessionDatabase(_cosmosClient, _databaseId, _container);
         _followerDatabase = new FollowersDatabase(_cosmosClient, _databaseId, _container);
+        _contentDatabase = new ContentDatabase(_cosmosClient, _databaseId, _container);
 
         AccountService = new AccountService(_accountDatabase, _profileDatabase);
         SessionService = new SessionService(_sessionDatabase);
         FollowersService = new FollowersService(_followerDatabase);
         
-        await _accountDatabase.InitializeAsync();
-        await _profileDatabase.InitializeAsync();
-        await _sessionDatabase.InitializeAsync();
-        await _followerDatabase.InitializeAsync();
+        // Content indexes /pk, /id and /type
+        await _contentDatabase.InitializeAsync();
     }
     
     [TearDown]
     public async Task TearDown()
     {
-        await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
+        //await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
         _cosmosClient.Dispose();
     }
 }

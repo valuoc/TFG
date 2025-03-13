@@ -4,7 +4,8 @@ namespace SocialApp.WebApi.Features.Follow.Exceptions;
 
 public enum FollowerError
 {
-    UnexpectedError
+    UnexpectedError,
+    ConcurrencyFailure,
 }
 
 public sealed class FollowerException : SocialAppException
