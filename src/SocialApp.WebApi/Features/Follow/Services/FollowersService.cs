@@ -64,7 +64,7 @@ public sealed class FollowersService
             var followingResponse = await GetFollowingResponseAsync(container, followerId, context.Cancellation);
             var followings = followingResponse?.Resource ?? new FollowingListDocument(followerId);
             followings.Following ??= new();
-            await PrunePendingAsync(followings, container, context);
+            await ReconcilePendingAsync(followings, container, context);
         
             var exists = followings.Following.TryGetValue(followedId, out var status);
             if (exists && status == FollowingStatus.Ready)
@@ -121,7 +121,7 @@ public sealed class FollowersService
             if (!exists)
                 return;
 
-            await PrunePendingAsync(followings, container, context);
+            await ReconcilePendingAsync(followings, container, context);
             followings.Following[followedId] = FollowingStatus.PendingRemove;
         
             context.Signal("remove-following-as-pending");
@@ -160,7 +160,7 @@ public sealed class FollowersService
         }
     }
 
-    private async Task PrunePendingAsync(FollowingListDocument following, Container follows, OperationContext context)
+    private async Task ReconcilePendingAsync(FollowingListDocument following, Container follows, OperationContext context)
     {
         foreach (var userId in following.Following.Keys)
         {
