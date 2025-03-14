@@ -4,10 +4,9 @@ using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Session.Databases;
 using SocialApp.WebApi.Features.Session.Documents;
 using SocialApp.WebApi.Features.Session.Exceptions;
+using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Session.Services;
-
-public record UserSession(string UserId, string DisplayName, string Handle);
 
 public class SessionService
 {

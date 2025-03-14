@@ -1,8 +1,5 @@
-using System.Net;
-using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features.Follow.Exceptions;
 using SocialApp.WebApi.Features.Services;
-using SocialApp.WebApi.Features.Session.Services;
 
 namespace SocialApp.Tests.ServicesTests;
 
@@ -112,16 +109,4 @@ public class FollowServiceTests: ServiceTestsBase
         followings1 = await FollowersService.GetFollowingsAsync(user1.UserId, OperationContext.None());
         Assert.That(followings1.Count, Is.EqualTo(2));
     }
-    
-    private async Task<UserSession> CreateUserAsync()
-    {
-        var userName = Guid.NewGuid().ToString("N");
-        await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display"+userName, "pass", OperationContext.None());
-        var profile = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
-        
-        return profile != null ? new UserSession(profile.UserId, profile.DisplayName, profile.Handle) : throw new InvalidOperationException("Cannot find user");
-    }
-    
-    private static CosmosException CreateCosmoException(HttpStatusCode code = HttpStatusCode.InternalServerError)
-        => new(code.ToString(), code, (int)code, Guid.NewGuid().ToString(), 2);
 }

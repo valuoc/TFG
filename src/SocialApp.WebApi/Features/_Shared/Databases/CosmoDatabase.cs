@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -52,6 +51,9 @@ public abstract class CosmoDatabase
     {
         return CosmosClient.GetContainer(DatabaseId, ContainerId);
     }
+    
+    public T? Deserialize<T>(JsonElement json)
+        => json.Deserialize<T>(CosmosClient.ClientOptions.UseSystemTextJsonSerializerWithOptions);
     
     private static JsonSerializerOptions CreateJsonSerializerOptions()
         => new()

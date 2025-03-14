@@ -1,8 +1,6 @@
-using System.Net;
-using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features.Account.Exceptions;
 using SocialApp.WebApi.Features.Services;
-using SocialApp.WebApi.Features.Session.Services;
+using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.Tests.ServicesTests;
 
@@ -146,7 +144,4 @@ public class AccountServiceTests : ServiceTestsBase
         var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
         Assert.That(deleted, Is.EqualTo(0));
     }
-    
-    private static CosmosException CreateCosmoException(HttpStatusCode code = HttpStatusCode.InternalServerError)
-        => new(code.ToString(), code, (int)code, Guid.NewGuid().ToString(), 2);
 }

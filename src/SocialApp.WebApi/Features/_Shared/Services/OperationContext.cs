@@ -5,6 +5,7 @@ public sealed class OperationContext
     private string _failOperation;
     private Exception? _failException;
     private bool _shouldFail;
+    private DateTimeOffset? _fixedTime;
     
     private CancellationToken _cancellation;
     public CancellationToken Cancellation
@@ -16,14 +17,15 @@ public sealed class OperationContext
             return _cancellation; 
         }
     }
+    
+    public DateTimeOffset UtcNow 
+        => _fixedTime ?? DateTimeOffset.UtcNow;
 
     public static OperationContext None() => new(CancellationToken.None);
 
     public OperationContext(CancellationToken cancel)
-    {
-        _cancellation = cancel;
-    }
-    
+        => _cancellation = cancel;
+
     public void SuppressCancellation()
         => _cancellation = CancellationToken.None;
 
@@ -35,4 +37,7 @@ public sealed class OperationContext
         _failOperation = operation;
         _failException = exception;
     }
+    
+    public void SetTime(DateTimeOffset time)
+        => _fixedTime = time;
 }
