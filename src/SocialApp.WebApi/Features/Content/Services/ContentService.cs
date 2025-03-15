@@ -107,8 +107,9 @@ public sealed class ContentService
     {
         var keyFrom = PostDocument.KeyPostItemsStart(userId, postId);
         var keyTo = PostDocument.KeyPostItemsEnd(userId, postId);
-        
-        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end order by u.id desc offset 0 limit @limit")
+
+        const string sql = "select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end order by u.id desc offset 0 limit @limit";
+        var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyFrom.Pk)
             .WithParameter("@id", keyFrom.Id)
             .WithParameter("@id_end", keyTo.Id)
@@ -145,7 +146,9 @@ public sealed class ContentService
         var key = CommentDocument.Key(userId, postId, commentId);
         var keyTo = PostDocument.KeyPostItemsStart(userId, postId);
 
-        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id < @id and u.id > @id_end order by u.id desc offset 0 limit @limit")
+        const string sql = "select * from u where u.pk = @pk and u.id < @id and u.id > @id_end order by u.id desc offset 0 limit @limit";
+        
+        var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
             .WithParameter("@id", key.Id)
             .WithParameter("@id_end", keyTo.Id)
@@ -168,11 +171,21 @@ public sealed class ContentService
         return commentModels;
     }
     
-    public async ValueTask<IReadOnlyList<Post>> GetAllPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async ValueTask<IReadOnlyList<Post>> GetUserPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
         var key = PostDocument.KeyPostsEnd(userId);
+
+        const string sql = @"
+            select * 
+            from u 
+            where u.pk = @pk 
+              and u.id < @id 
+              and u.type in (@typePost, @typePostCounts) 
+              and is_null(u.commentUserId)
+            order by u.id desc 
+            offset 0 limit @limit";
         
-        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id < @id and u.type in (@typePost, @typePostCounts) order by u.id desc offset 0 limit @limit")
+        var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
             .WithParameter("@id", afterPostId == null ? key.Id : PostDocument.Key(userId, afterPostId).Id)
             .WithParameter("@typePost", nameof(PostDocument))

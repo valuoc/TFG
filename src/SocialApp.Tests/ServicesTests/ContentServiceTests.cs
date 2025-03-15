@@ -136,6 +136,7 @@ public class ContentServiceTests: ServiceTestsBase
     {
         var now = DateTimeOffset.UtcNow;
         var user1 = await CreateUserAsync();
+        var user2 = await CreateUserAsync();
         
         var moments = Enumerable
             .Range(0, 10)
@@ -149,21 +150,27 @@ public class ContentServiceTests: ServiceTestsBase
             var context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moment));
             var post1Id = await ContentService.CreatePostAsync(user1, moment.ToString(), context);
+
+            if (i % 3 == 0)
+            {
+                var post12d = await ContentService.CreatePostAsync(user2, moment.ToString(), context);
+                await ContentService.CommentAsync(user1, user2.UserId, post12d, moment + "reply!!", context);
+            }
         }
 
-        var posts = await ContentService.GetAllPostsAsync(user1.UserId, null, 5, OperationContext.None());
+        var posts = await ContentService.GetUserPostsAsync(user1.UserId, null, 5, OperationContext.None());
         Assert.That(posts, Is.Not.Null);
         Assert.That(posts.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
             Assert.That(posts[i].Content, Is.EqualTo((10 - i).ToString()));
         
-        posts = await ContentService.GetAllPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
+        posts = await ContentService.GetUserPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
         Assert.That(posts, Is.Not.Null);
         Assert.That(posts.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
             Assert.That(posts[i].Content, Is.EqualTo((5 - i).ToString()));
         
-        posts = await ContentService.GetAllPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
+        posts = await ContentService.GetUserPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
         Assert.That(posts, Is.Not.Null);
         Assert.That(posts.Count, Is.EqualTo(0));
     }
