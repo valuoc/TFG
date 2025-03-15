@@ -111,4 +111,23 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments, Is.Empty);
     }
+    
+    [Test, Order(4)]
+    public async Task Content_Comment_Counts_Populate()
+    {
+        var user1 = await CreateUserAsync();
+        var user2 = await CreateUserAsync();
+
+        var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
+        var post2Id = await ContentService.CommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
+        var post3Id = await ContentService.CommentAsync(user1, user2.UserId, post2Id, "Grandchild", OperationContext.None());
+        
+        var post1 = await ContentService.GetPostAsync(user1.UserId, post1Id, 5, OperationContext.None());
+        Assert.That(post1.CommentCount, Is.EqualTo(1));
+        Assert.That(post1.LastComments[0].CommentCount, Is.EqualTo(1));
+        
+        var post2 = await ContentService.GetPostAsync(user2.UserId, post2Id, 5, OperationContext.None());
+        Assert.That(post2.CommentCount, Is.EqualTo(1));
+        Assert.That(post2.LastComments[0].CommentCount, Is.EqualTo(0));
+    }
 }

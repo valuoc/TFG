@@ -16,13 +16,11 @@ public sealed class ContentService
     private static readonly TransactionalBatchPatchItemRequestOptions _noPatchResponse = new() {EnableContentResponseOnWrite = false};
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
     private static readonly TransactionalBatchItemRequestOptions _noResponse = new() { EnableContentResponseOnWrite = false };
+    private static readonly PatchItemRequestOptions _patchItemNoResponse = new PatchItemRequestOptions() { EnableContentResponseOnWrite = false};
     
     private readonly ContentDatabase _contentDb;
-
     public ContentService(ContentDatabase contentDb)
-    {
-        _contentDb = contentDb;
-    }
+        => _contentDb = contentDb;
 
     public async ValueTask<string> CreatePostAsync(UserSession user, string content, OperationContext context)
     {
@@ -39,6 +37,7 @@ public sealed class ContentService
     
     public async ValueTask<string> CommentAsync(UserSession user, string parentUserId, string parentPostId, string content, OperationContext context)
     {
+        // Creates own Post
         var post = new PostDocument(user.UserId, Ulid.NewUlid(context.UtcNow).ToString(), content, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
         var postCounts = new PostCountsDocument(user.UserId, post.PostId, 0, 0, 0, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
         var contents = _contentDb.GetContainer();
@@ -49,15 +48,32 @@ public sealed class ContentService
         var response = await batch.ExecuteAsync(context.Cancellation);
         ThrowErrorIfTransactionFailed(ContentError.CreateCommentPostFailure, response);
         
+        // Creates Comment in parent post
         var comment = new CommentDocument(user.UserId, post.PostId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime);
         var commentCounts = new CommentCountsDocument(user.UserId, post.PostId, parentUserId, parentPostId, 0, 0, 0, context.UtcNow.UtcDateTime);
         batch = contents.CreateTransactionalBatch(new PartitionKey(comment.Pk));
         batch.CreateItem(comment, _noResponse);
         batch.CreateItem(commentCounts, _noResponse);
-        batch.PatchItem(PostCountsDocument.Key(parentUserId, parentPostId).Id, [PatchOperation.Increment( $"/{nameof(CommentCountsDocument.CommentCount)}", 1)]);
+        batch.PatchItem(PostCountsDocument.Key(parentUserId, parentPostId).Id, [PatchOperation.Increment( $"/{nameof(CommentCountsDocument.CommentCount)}", 1)], _noPatchResponse);
         
         response = await batch.ExecuteAsync(context.Cancellation);
         ThrowErrorIfTransactionFailed(ContentError.CreateCommentFailure, response);
+        
+        // If parent is a comment in other post, it needs to update its comment count
+        var parentKey = PostDocument.Key(parentUserId, parentPostId);
+        var parent = await contents.ReadItemAsync<PostDocument>(parentKey.Id, new PartitionKey(parentKey.Pk), cancellationToken: context.Cancellation);
+        if (!string.IsNullOrWhiteSpace(parent?.Resource?.CommentPostId) && !string.IsNullOrWhiteSpace(parent?.Resource?.CommentUserId))
+        {
+            var parentCommentCountsKey = CommentCountsDocument.Key(parent.Resource.CommentUserId, parent.Resource.CommentPostId, parentPostId);
+            await contents.PatchItemAsync<CommentCountsDocument>
+            (
+                parentCommentCountsKey.Id, 
+                new PartitionKey(parentCommentCountsKey.Pk), 
+                [PatchOperation.Increment($"/{nameof(CommentCountsDocument.CommentCount)}",1)],
+                _patchItemNoResponse,
+                cancellationToken: context.Cancellation
+            );
+        }
         
         return post.PostId;
     }
@@ -196,16 +212,15 @@ public sealed class ContentService
 
     private static async Task IncreaseViewsAsync(PostDocument post, Container contents, OperationContext context)
     {
-        DocumentKey keyFrom;
         // TODO: Defer
         // Increase views
-        keyFrom = PostCountsDocument.Key(post.UserId, post.PostId);
+        var keyFrom = PostCountsDocument.Key(post.UserId, post.PostId);
         await contents.PatchItemAsync<PostDocument>
         (
             keyFrom.Id,
             new PartitionKey(keyFrom.Pk),
             [PatchOperation.Increment($"/{nameof(PostCountsDocument.ViewCount)}", 1)],
-            new PatchItemRequestOptions() { EnableContentResponseOnWrite = false }, 
+            _patchItemNoResponse, 
             context.Cancellation
         );
     }
