@@ -4,7 +4,10 @@ namespace SocialApp.WebApi.Features.Content.Exceptions;
 
 public enum ContentError
 {
-    UnexpectedError
+    UnexpectedError,
+    CreatePostFailure,
+    CreateCommentPostFailure,
+    CreateCommentFailure
 }
 
 public sealed class ContentException : SocialAppException

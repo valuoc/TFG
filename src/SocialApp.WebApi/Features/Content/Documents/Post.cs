@@ -2,36 +2,43 @@ using SocialApp.WebApi.Features.Documents;
 
 namespace SocialApp.WebApi.Features.Content.Documents;
 
-public record PostDocument(string UserId, string PostId, string Content, string? CommentUserId, string? CommentPostId) 
+public record PostDocument(string UserId, string PostId, string Content, DateTime LastModify, string? CommentUserId, string? CommentPostId) 
     : Document(Key(UserId, PostId))
 {
     public static DocumentKey Key(string userId, string postId)
     {
         var pk = "user:"+userId;
-        var id = "post:"+postId;
+        var id = $"post:{postId}:post";
+        return new DocumentKey(pk, id);
+    }
+    
+    public static DocumentKey KeyFrom(string userId, string postId)
+    {
+        var pk = "user:"+userId;
+        var id = $"post:{postId}";
         return new DocumentKey(pk, id);
     }
 
-    public static DocumentKey KeyLimit(string userId, string postId)
+    public static DocumentKey KeyEnd(string userId, string postId)
     {
         var pk = "user:"+userId;
-        var id = $"post:{postId}:coz"; // z as limit
+        var id = $"post:{postId}:z"; // z as limit
         return new DocumentKey(pk, id);
     }
 }
 
-public record PostCountsDocument(string UserId, string PostId, int LikeCount, int CommentCount, int ViewCount, string? CommentUserId, string? CommentPostId) 
+public record PostCountsDocument(string UserId, string PostId, int LikeCount, int CommentCount, int ViewCount, DateTime LastModify, string? CommentUserId, string? CommentPostId) 
     : Document(Key(UserId, PostId))
 {
     public static DocumentKey Key(string userId, string postId)
     {
         var pk = "user:"+userId;
-        var id = $"post:{postId}:counts";
+        var id = $"post:{postId}:post_counts";
         return new DocumentKey(pk, id);
     }
 }
 
-public record CommentDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, string Content) 
+public record CommentDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, string Content, DateTime LastModify) 
     : Document(Key(ParentUserId, ParentPostId, PostId))
 {
     public static DocumentKey Key(string parentUserId, string parentPostId, string commentId)
@@ -42,7 +49,7 @@ public record CommentDocument(string UserId, string PostId, string ParentUserId,
     }
 }
 
-public record CommentCountsDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, int LikeCount, int CommentCount, int ViewCount) 
+public record CommentCountsDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, int LikeCount, int CommentCount, int ViewCount, DateTime LastModify) 
     : Document(Key(ParentUserId, ParentPostId, PostId))
 {
     public static DocumentKey Key(string parentUserId, string parentPostId, string commentId)

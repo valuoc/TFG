@@ -2,41 +2,48 @@ using SocialApp.WebApi.Features.Content.Documents;
 
 namespace SocialApp.WebApi.Features.Content.Models;
 
-public sealed class PostWithComments
+public sealed class Post
 {
     public string UserId { get; set; }
     public string PostId  { get; set; }
     public string Content { get; set; }
-    public List<PostComment> Comments { get; set; }
+    public DateTime LastModify { get; set; }
+    public List<Comment> LastComments { get; set; }
     public int ViewCount { get; set; }
     public int CommentCount { get; set; }
     public int LikeCount { get; set; }
 
-    public static PostWithComments? From(PostDocument? post)
+    public static Post From(PostDocument? post)
     {
-        return new PostWithComments()
+        return new Post()
         {
             UserId = post.UserId,
             PostId = post.PostId,
             Content = post.Content,
-            Comments = new List<PostComment>()
+            LastModify = post.LastModify,
+            LastComments = new List<Comment>()
         };
     }
 }
 
-public sealed class PostComment
+public sealed class Comment
 {
     public string UserId { get; set; }
     public string PostId  { get; set; }
     public string Content { get; set; }
+    public DateTime LastModify { get; set; }
+    public int ViewCount { get; set; }
+    public int CommentCount { get; set; }
+    public int LikeCount { get; set; }
     
-    public static PostComment From(CommentDocument comment)
+    public static Comment From(CommentDocument comment)
     {
-        return new PostComment()
+        return new Comment()
         {
             UserId = comment.UserId,
             PostId = comment.PostId,
-            Content = comment.Content
+            Content = comment.Content,
+            LastModify = comment.LastModify
         };
     }
 }

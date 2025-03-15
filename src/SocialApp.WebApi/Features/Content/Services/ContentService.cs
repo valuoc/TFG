@@ -1,8 +1,11 @@
+using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features.Content.Databases;
 using SocialApp.WebApi.Features.Content.Documents;
+using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Features.Content.Models;
+using SocialApp.WebApi.Features.Documents;
 using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Session.Models;
 
@@ -10,8 +13,9 @@ namespace SocialApp.WebApi.Features.Content.Services;
 
 public sealed class ContentService
 {
+    private static readonly TransactionalBatchPatchItemRequestOptions _noPatchResponse = new() {EnableContentResponseOnWrite = false};
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
-    private static readonly TransactionalBatchItemRequestOptions _noResponse = new TransactionalBatchItemRequestOptions() { EnableContentResponseOnWrite = false };
+    private static readonly TransactionalBatchItemRequestOptions _noResponse = new() { EnableContentResponseOnWrite = false };
     
     private readonly ContentDatabase _contentDb;
 
@@ -22,34 +26,53 @@ public sealed class ContentService
 
     public async ValueTask<string> CreatePostAsync(UserSession user, string content, OperationContext context)
     {
-        var post = new PostDocument(user.UserId, Ulid.NewUlid().ToString(), content, null, null);
-        var postCounts = new PostCountsDocument(user.UserId, post.PostId, 0, 0, 1, null, null);
+        var post = new PostDocument(user.UserId, Ulid.NewUlid(context.UtcNow).ToString(), content, context.UtcNow.UtcDateTime, null, null);
+        var postCounts = new PostCountsDocument(user.UserId, post.PostId, 0, 0, 0, context.UtcNow.UtcDateTime, null, null);
         var contents = _contentDb.GetContainer();
         var batch = contents.CreateTransactionalBatch(new PartitionKey(post.Pk));
         batch.CreateItem(post);
         batch.CreateItem(postCounts);
-        await batch.ExecuteAsync(context.Cancellation);
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        ThrowErrorIfTransactionFailed(ContentError.CreatePostFailure, response);
         return post.PostId;
     }
     
     public async ValueTask<string> CommentAsync(UserSession user, string parentUserId, string parentPostId, string content, OperationContext context)
     {
-        var post = new PostDocument(user.UserId, Ulid.NewUlid(context.UtcNow).ToString(), content, parentUserId, parentPostId);
-        var postCounts = new PostCountsDocument(user.UserId, post.PostId, 0, 0, 1, parentUserId, parentPostId);
+        var post = new PostDocument(user.UserId, Ulid.NewUlid(context.UtcNow).ToString(), content, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
+        var postCounts = new PostCountsDocument(user.UserId, post.PostId, 0, 0, 0, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
         var contents = _contentDb.GetContainer();
         var batch = contents.CreateTransactionalBatch(new PartitionKey(post.Pk));
         batch.CreateItem(post, _noResponse);
         batch.CreateItem(postCounts, _noResponse);
-        await batch.ExecuteAsync(context.Cancellation);
         
-        var comment = new CommentDocument(user.UserId, post.PostId, parentUserId, parentPostId, content);
-        var commentCounts = new CommentCountsDocument(user.UserId, post.PostId, parentUserId, parentPostId, 0, 0, 1);
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        ThrowErrorIfTransactionFailed(ContentError.CreateCommentPostFailure, response);
+        
+        var comment = new CommentDocument(user.UserId, post.PostId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime);
+        var commentCounts = new CommentCountsDocument(user.UserId, post.PostId, parentUserId, parentPostId, 0, 0, 0, context.UtcNow.UtcDateTime);
         batch = contents.CreateTransactionalBatch(new PartitionKey(comment.Pk));
         batch.CreateItem(comment, _noResponse);
         batch.CreateItem(commentCounts, _noResponse);
-        await batch.ExecuteAsync(context.Cancellation);
+        batch.PatchItem(PostCountsDocument.Key(parentUserId, parentPostId).Id, [PatchOperation.Increment( $"/{nameof(CommentCountsDocument.CommentCount)}", 1)]);
+        
+        response = await batch.ExecuteAsync(context.Cancellation);
+        ThrowErrorIfTransactionFailed(ContentError.CreateCommentFailure, response);
         
         return post.PostId;
+    }
+
+    private static void ThrowErrorIfTransactionFailed(ContentError error, TransactionalBatchResponse response)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            for (var i = 0; i < response.Count; i++)
+            {
+                var sub = response[i];
+                if (sub.StatusCode != HttpStatusCode.FailedDependency)
+                    throw new ContentException(error, new CosmosException($"{error}. Batch failed at position [{i}]: {sub.StatusCode}. {response.ErrorMessage}", sub.StatusCode, 0, i.ToString(), 0));
+            }
+        }
     }
 
     private object? Discriminate(JsonElement item)
@@ -60,22 +83,26 @@ public sealed class ContentService
             nameof(PostDocument) => _contentDb.Deserialize<PostDocument>(item),
             nameof(CommentDocument) => _contentDb.Deserialize<CommentDocument>(item),
             nameof(PostCountsDocument) => _contentDb.Deserialize<PostCountsDocument>(item),
+            nameof(CommentCountsDocument) => _contentDb.Deserialize<CommentCountsDocument>(item),
             _ => null
         };
     }
 
-    public async ValueTask<PostWithComments?> GetPostAsync(string userId, string postId, OperationContext context)
+    public async ValueTask<Post?> GetPostAsync(string userId, string postId, OperationContext context)
     {
-        var key = PostDocument.Key(userId, postId);
-        var keyLimit = PostDocument.KeyLimit(userId, postId);
+        var keyFrom = PostDocument.KeyFrom(userId, postId);
+        var keyTo = PostDocument.KeyEnd(userId, postId);
         var contents = _contentDb.GetContainer();
 
-        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end")
-            .WithParameter("@pk", key.Pk)
-            .WithParameter("@id", key.Id)
-            .WithParameter("@id_end", keyLimit.Id);
+        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end order by u.id desc")
+            .WithParameter("@pk", keyFrom.Pk)
+            .WithParameter("@id", keyFrom.Id)
+            .WithParameter("@id_end", keyTo.Id);
 
-        PostWithComments? model = null;
+        PostDocument? post = null;
+        PostCountsDocument? postCounts = null;
+        List<CommentDocument>? comments = null;
+        List<CommentCountsDocument>? commentCounts = null;
         
         using var itemIterator = contents.GetItemQueryIterator<JsonElement>(query);
 
@@ -88,22 +115,67 @@ public sealed class ContentService
 
                 switch (document)
                 {
-                    case PostDocument post:
-                        model = PostWithComments.From(post);
+                    case PostDocument postDocument:
+                        post = postDocument;
                         break;
+                    
                     case PostCountsDocument counts:
-                        model.ViewCount = counts.ViewCount;
-                        model.CommentCount = counts.CommentCount;
-                        model.LikeCount = counts.LikeCount;
+                        postCounts = counts;
                         break;
-                    case CommentDocument comment:
-                        model.Comments.Add(PostComment.From(comment));
+                    
+                    case CommentDocument commentDocument:
+                        comments ??= new List<CommentDocument>();
+                        comments.Add(commentDocument);
+                        break;
+                    
+                    case CommentCountsDocument counts:
+                        commentCounts ??= new List<CommentCountsDocument>();
+                        commentCounts.Add(counts);
                         break;
                 }
             }
         }
 
-        return model;
+        if (post != null) 
+        {
+            var model = Post.From(post);
+            model.CommentCount = postCounts.CommentCount;
+            model.ViewCount = postCounts.ViewCount +1;
+            model.LikeCount = postCounts.LikeCount;
+
+            if (comments != null)
+            {
+                for (var i = 0; i < comments.Count; i++)
+                {
+                    var comment = Comment.From(comments[i]);
+                    comment.CommentCount = commentCounts[i].CommentCount;
+                    comment.ViewCount = commentCounts[i].ViewCount;
+                    comment.LikeCount = commentCounts[i].LikeCount;
+                    model.LastComments.Add(comment);
+                }
+                model.LastComments.Reverse();
+            }
+            await IncreaseViewsAsync(post, contents, context);
+            return model;
+        }
+        
+        return null;
+    }
+
+    private static async Task IncreaseViewsAsync(PostDocument post, Container contents, OperationContext context)
+    {
+        DocumentKey keyFrom;
+        // TODO: Defer
+        // Increase views
+        keyFrom = PostCountsDocument.Key(post.UserId, post.PostId);
+        await contents.PatchItemAsync<PostDocument>
+        (
+            keyFrom.Id,
+            new PartitionKey(keyFrom.Pk),
+            [PatchOperation.Increment($"/{nameof(PostCountsDocument.ViewCount)}", 1)],
+            new PatchItemRequestOptions() { EnableContentResponseOnWrite = false }, 
+            context.Cancellation
+        );
     }
 
     public ValueTask<IReadOnlyList<string>> GetAllPostsAsync(string userId, OperationContext context)
