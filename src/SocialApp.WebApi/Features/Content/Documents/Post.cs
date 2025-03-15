@@ -12,14 +12,21 @@ public record PostDocument(string UserId, string PostId, string Content, DateTim
         return new DocumentKey(pk, id);
     }
     
-    public static DocumentKey KeyItemsStart(string userId, string postId)
+    public static DocumentKey KeyPostsEnd(string userId)
+    {
+        var pk = "user:"+userId;
+        var id = "post:z";
+        return new DocumentKey(pk, id);
+    }
+    
+    public static DocumentKey KeyPostItemsStart(string userId, string postId)
     {
         var pk = "user:"+userId;
         var id = $"post:{postId}";
         return new DocumentKey(pk, id);
     }
 
-    public static DocumentKey KeyItemsEnd(string userId, string postId)
+    public static DocumentKey KeyPostItemsEnd(string userId, string postId)
     {
         var pk = "user:"+userId;
         var id = $"post:{postId}:z"; // z as limit

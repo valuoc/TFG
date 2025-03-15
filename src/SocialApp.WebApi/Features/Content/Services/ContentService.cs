@@ -5,7 +5,6 @@ using SocialApp.WebApi.Features.Content.Databases;
 using SocialApp.WebApi.Features.Content.Documents;
 using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Features.Content.Models;
-using SocialApp.WebApi.Features.Documents;
 using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Session.Models;
 
@@ -103,8 +102,112 @@ public sealed class ContentService
             _ => null
         };
     }
+    
+    public async ValueTask<Post?> GetPostAsync(string userId, string postId, int lastCommentCount, OperationContext context)
+    {
+        var keyFrom = PostDocument.KeyPostItemsStart(userId, postId);
+        var keyTo = PostDocument.KeyPostItemsEnd(userId, postId);
+        
+        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end order by u.id desc offset 0 limit @limit")
+            .WithParameter("@pk", keyFrom.Pk)
+            .WithParameter("@id", keyFrom.Id)
+            .WithParameter("@id_end", keyTo.Id)
+            .WithParameter("@limit", 2 + lastCommentCount * 2 );
 
-    private async Task<(PostDocument?, PostCountsDocument?, List<CommentDocument>?, List<CommentCountsDocument>?)> ResolveContentQueryAsync(Container contents, QueryDefinition postQuery, OperationContext context)
+        var contents = _contentDb.GetContainer();
+        var (post, postCounts, comments, commentCounts) = await ResolveContentQueryAsync(contents, query, context);
+
+        if (post == null)
+            return null;
+        
+        var model = Post.From(post);
+        model.CommentCount = postCounts.CommentCount;
+        model.ViewCount = postCounts.ViewCount +1;
+        model.LikeCount = postCounts.LikeCount;
+
+        if (comments != null)
+        {
+            for (var i = 0; i < comments.Count; i++)
+            {
+                var comment = Comment.From(comments[i]);
+                var commentCount = commentCounts[i];
+                Comment.Apply(comment, commentCount);
+                model.LastComments.Add(comment);
+            }
+            model.LastComments.Reverse();
+        }
+        await IncreaseViewsAsync(post, contents, context);
+        return model;
+    }
+    
+    public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
+    {
+        var key = CommentDocument.Key(userId, postId, commentId);
+        var keyTo = PostDocument.KeyPostItemsStart(userId, postId);
+
+        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id < @id and u.id > @id_end order by u.id desc offset 0 limit @limit")
+            .WithParameter("@pk", key.Pk)
+            .WithParameter("@id", key.Id)
+            .WithParameter("@id_end", keyTo.Id)
+            .WithParameter("@limit", lastCommentCount * 2);
+
+        var contents = _contentDb.GetContainer();
+        var (_, _, comments, commentCounts) = await ResolveContentQueryAsync(contents, query, context);
+        if (comments == null)
+            return Array.Empty<Comment>();
+
+        var commentModels = new List<Comment>(comments.Count);
+        for (var i = 0; i < comments.Count; i++)
+        {
+            var comment = Comment.From(comments[i]);
+            var commentCount = commentCounts[i];
+            Comment.Apply(comment, commentCount);
+            commentModels.Add(comment);
+        }
+        commentModels.Reverse();
+        return commentModels;
+    }
+    
+    public async ValueTask<IReadOnlyList<Post>> GetAllPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    {
+        var key = PostDocument.KeyPostsEnd(userId);
+        
+        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id < @id and u.type in (@typePost, @typePostCounts) order by u.id desc offset 0 limit @limit")
+            .WithParameter("@pk", key.Pk)
+            .WithParameter("@id", afterPostId == null ? key.Id : PostDocument.Key(userId, afterPostId).Id)
+            .WithParameter("@typePost", nameof(PostDocument))
+            .WithParameter("@typePostCounts", nameof(PostCountsDocument))
+            .WithParameter("@limit", limit * 2);
+
+        var contents = _contentDb.GetContainer();
+        var (posts, postCounts) = await ResolvePostContentQueryAsync(contents, query, context);
+        if (posts == null)
+            return Array.Empty<Post>();
+        
+        var postsModels = new List<Post>(posts.Count);
+        for (var i = 0; i < posts.Count; i++)
+        {
+            var post = Post.From(posts[i]);
+            postsModels.Add(post);
+        }
+        return postsModels;
+    }
+
+    private static async Task IncreaseViewsAsync(PostDocument post, Container contents, OperationContext context)
+    {
+        // TODO: Defer
+        // Increase views
+        var keyFrom = PostCountsDocument.Key(post.UserId, post.PostId);
+        await contents.PatchItemAsync<PostDocument>
+        (
+            keyFrom.Id,
+            new PartitionKey(keyFrom.Pk),
+            [PatchOperation.Increment($"/{nameof(PostCountsDocument.ViewCount)}", 1)],
+            _patchItemNoResponse, 
+            context.Cancellation
+        );
+    }
+        private async Task<(PostDocument?, PostCountsDocument?, List<CommentDocument>?, List<CommentCountsDocument>?)> ResolveContentQueryAsync(Container contents, QueryDefinition postQuery, OperationContext context)
     {
         PostDocument? post = null;
         PostCountsDocument? postCounts = null;
@@ -144,89 +247,36 @@ public sealed class ContentService
         }
         return (post, postCounts, comments, commentCounts);
     }
-
-    public async ValueTask<Post?> GetPostAsync(string userId, string postId, int lastCommentCount, OperationContext context)
-    {
-        var keyFrom = PostDocument.KeyItemsStart(userId, postId);
-        var keyTo = PostDocument.KeyItemsEnd(userId, postId);
-        
-        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end order by u.id desc offset 0 limit @limit")
-            .WithParameter("@pk", keyFrom.Pk)
-            .WithParameter("@id", keyFrom.Id)
-            .WithParameter("@id_end", keyTo.Id)
-            .WithParameter("@limit", 2 + lastCommentCount * 2 );
-
-        var contents = _contentDb.GetContainer();
-        var (post, postCounts, comments, commentCounts) = await ResolveContentQueryAsync(contents, query, context);
-
-        if (post == null)
-            return null;
-        
-        var model = Post.From(post);
-        model.CommentCount = postCounts.CommentCount;
-        model.ViewCount = postCounts.ViewCount +1;
-        model.LikeCount = postCounts.LikeCount;
-
-        if (comments != null)
-        {
-            for (var i = 0; i < comments.Count; i++)
-            {
-                var comment = Comment.From(comments[i]);
-                var commentCount = commentCounts[i];
-                Comment.Apply(comment, commentCount);
-                model.LastComments.Add(comment);
-            }
-            model.LastComments.Reverse();
-        }
-        await IncreaseViewsAsync(post, contents, context);
-        return model;
-    }
     
-    public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
+    private async Task<(List<PostDocument>?, List<PostCountsDocument>?)> ResolvePostContentQueryAsync(Container contents, QueryDefinition postQuery, OperationContext context)
     {
-        var key = CommentDocument.Key(userId, postId, commentId);
-        var keyTo = PostDocument.KeyItemsStart(userId, postId);
+        List<PostDocument>? posts = null;
+        List<PostCountsDocument>? postCounts = null;
+        
+        using var itemIterator = contents.GetItemQueryIterator<JsonElement>(postQuery);
 
-        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id < @id and u.id > @id_end order by u.id desc offset 0 limit @limit")
-            .WithParameter("@pk", key.Pk)
-            .WithParameter("@id", key.Id)
-            .WithParameter("@id_end", keyTo.Id)
-            .WithParameter("@limit", lastCommentCount * 2);
-
-        var contents = _contentDb.GetContainer();
-        var (_, _, comments, commentCounts) = await ResolveContentQueryAsync(contents, query, context);
-        if (comments == null)
-            return Array.Empty<Comment>();
-
-        var commentModels = new List<Comment>(comments.Count);
-        for (var i = 0; i < comments.Count; i++)
+        while (itemIterator.HasMoreResults)
         {
-            var comment = Comment.From(comments[i]);
-            var commentCount = commentCounts[i];
-            Comment.Apply(comment, commentCount);
-            commentModels.Add(comment);
+            var items = await itemIterator.ReadNextAsync(context.Cancellation);
+            foreach (var item in items)
+            {
+                var document = Discriminate(item);
+
+                switch (document)
+                {
+                    case PostDocument postDocument:
+                        posts ??= new List<PostDocument>();
+                        posts.Add(postDocument);
+                        break;
+                    
+                    case PostCountsDocument counts:
+                        postCounts ??= new List<PostCountsDocument>();
+                        postCounts.Add(counts);
+                        break;
+                }
+            }
         }
-        commentModels.Reverse();
-        return commentModels;
+        return (posts, postCounts);
     }
 
-    private static async Task IncreaseViewsAsync(PostDocument post, Container contents, OperationContext context)
-    {
-        // TODO: Defer
-        // Increase views
-        var keyFrom = PostCountsDocument.Key(post.UserId, post.PostId);
-        await contents.PatchItemAsync<PostDocument>
-        (
-            keyFrom.Id,
-            new PartitionKey(keyFrom.Pk),
-            [PatchOperation.Increment($"/{nameof(PostCountsDocument.ViewCount)}", 1)],
-            _patchItemNoResponse, 
-            context.Cancellation
-        );
-    }
-
-    public ValueTask<IReadOnlyList<string>> GetAllPostsAsync(string userId, OperationContext context)
-    {
-        return ValueTask.FromResult((IReadOnlyList<string>)new List<string>().AsReadOnly());
-    }
 }

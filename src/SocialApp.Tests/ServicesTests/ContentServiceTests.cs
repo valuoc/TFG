@@ -130,4 +130,41 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(post2.CommentCount, Is.EqualTo(1));
         Assert.That(post2.LastComments[0].CommentCount, Is.EqualTo(0));
     }
+    
+    [Test, Order(5)]
+    public async Task Content_Paginate_Posts()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var user1 = await CreateUserAsync();
+        
+        var moments = Enumerable
+            .Range(0, 10)
+            .Select(i => i + 1)
+            .OrderBy(x => Guid.NewGuid())
+            .ToArray();
+
+        for (var i = 0; i < moments.Length; i++)
+        {
+            var moment = moments[i];
+            var context = new OperationContext(CancellationToken.None);
+            context.SetTime(now.AddSeconds(moment));
+            var post1Id = await ContentService.CreatePostAsync(user1, moment.ToString(), context);
+        }
+
+        var posts = await ContentService.GetAllPostsAsync(user1.UserId, null, 5, OperationContext.None());
+        Assert.That(posts, Is.Not.Null);
+        Assert.That(posts.Count, Is.EqualTo(5));
+        for (var i = 0; i < 5; i++)
+            Assert.That(posts[i].Content, Is.EqualTo((10 - i).ToString()));
+        
+        posts = await ContentService.GetAllPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
+        Assert.That(posts, Is.Not.Null);
+        Assert.That(posts.Count, Is.EqualTo(5));
+        for (var i = 0; i < 5; i++)
+            Assert.That(posts[i].Content, Is.EqualTo((5 - i).ToString()));
+        
+        posts = await ContentService.GetAllPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
+        Assert.That(posts, Is.Not.Null);
+        Assert.That(posts.Count, Is.EqualTo(0));
+    }
 }
