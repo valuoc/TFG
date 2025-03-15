@@ -46,4 +46,11 @@ public sealed class Comment
             LastModify = comment.LastModify
         };
     }
+    
+    public static void Apply(Comment comment, CommentCountsDocument commentCount)
+    {
+        comment.CommentCount = commentCount.CommentCount;
+        comment.ViewCount = commentCount.ViewCount;
+        comment.LikeCount = commentCount.LikeCount;
+    }
 }

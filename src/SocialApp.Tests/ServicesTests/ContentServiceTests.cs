@@ -12,7 +12,7 @@ public class ContentServiceTests: ServiceTestsBase
 
         var post1Id = await ContentService.CreatePostAsync(user1, "This is a post.", OperationContext.None());
 
-        var post1 = await ContentService.GetPostAsync(user1.UserId, post1Id, OperationContext.None());
+        var post1 = await ContentService.GetPostAsync(user1.UserId, post1Id, 5, OperationContext.None());
 
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.ViewCount, Is.EqualTo(1));
@@ -32,27 +32,27 @@ public class ContentServiceTests: ServiceTestsBase
         var commentId = await ContentService.CommentAsync(user2, user1.UserId, post1Id, "This is a comment.", OperationContext.None());
         
         // Comment is a post on its own
-        var post2 = await ContentService.GetPostAsync(user2.UserId, commentId, OperationContext.None());
+        var post2 = await ContentService.GetPostAsync(user2.UserId, commentId, 5, OperationContext.None());
         Assert.That(post2, Is.Not.Null);
         Assert.That(post2.ViewCount, Is.EqualTo(1));
         Assert.That(post2.CommentCount, Is.EqualTo(0));
         Assert.That(post2.Content, Is.EqualTo("This is a comment."));
         
         // Comment appears as comment
-        var post1 = await ContentService.GetPostAsync(user1.UserId, post1Id, OperationContext.None());
+        var post1 = await ContentService.GetPostAsync(user1.UserId, post1Id, 5, OperationContext.None());
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.CommentCount, Is.EqualTo(1));
         Assert.That(post1.Content, Is.EqualTo("This is a post."));
         
         commentId = await ContentService.CommentAsync(user1, user1.UserId, post1Id, "This is a self-reply.", OperationContext.None());
         
-        post1 = await ContentService.GetPostAsync(user1.UserId, commentId, OperationContext.None());
+        post1 = await ContentService.GetPostAsync(user1.UserId, commentId, 5, OperationContext.None());
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.ViewCount, Is.EqualTo(1));
         Assert.That(post1.CommentCount, Is.EqualTo(0));
         Assert.That(post1.Content, Is.EqualTo("This is a self-reply."));
         
-        post1 = await ContentService.GetPostAsync(user1.UserId, post1Id, OperationContext.None());
+        post1 = await ContentService.GetPostAsync(user1.UserId, post1Id, 5, OperationContext.None());
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.ViewCount, Is.EqualTo(2));
         Assert.That(post1.CommentCount, Is.EqualTo(2));
@@ -61,7 +61,7 @@ public class ContentServiceTests: ServiceTestsBase
     }
 
     [Test, Order(3)]
-    public async Task Content_Comment_Is_Sorted()
+    public async Task Content_Comment_Is_SortedAndPaginated()
     {
         var now = DateTimeOffset.UtcNow;
         
@@ -88,15 +88,27 @@ public class ContentServiceTests: ServiceTestsBase
             await ContentService.CommentAsync(moment%2==0?user2:user3, user1.UserId, post1Id, moment.ToString(), context);
         }
 
-        var post = await ContentService.GetPostAsync(user1.UserId, post1Id, OperationContext.None());
+        var post = await ContentService.GetPostAsync(user1.UserId, post1Id, 5, OperationContext.None());
         Assert.That(post, Is.Not.Null);
-        for (var i = 1; i <= 10; i++)
-        {
-            Assert.That(post.LastComments[i-1].Content, Is.EqualTo(i.ToString()));
-        }
+        Assert.That(post.LastComments.Count, Is.EqualTo(5));
+        Assert.That(post.CommentCount, Is.EqualTo(10));
+        for (var i = 0; i < 5; i++)
+            Assert.That(post.LastComments[i].Content, Is.EqualTo((i+6).ToString()));
         
-        /*
-         where c.pk = "user:53041ffd44414ba1b5ad970b832b4afd" and c.id >= "post:01JPCKYQZCEVS14QCWGC810K7Q" and c.id < "post:01JPCKYQZCEVS14QCWGC810K7Q:z" order by c.id desc
-         */
+        var prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, post1Id, post.LastComments[0].PostId, 2, OperationContext.None());
+        Assert.That(prevComments, Is.Not.Null);
+        Assert.That(prevComments.Count, Is.EqualTo(2));
+        for (var i = 0; i < 2; i++)
+            Assert.That(prevComments[i].Content, Is.EqualTo((i+4).ToString()));
+        
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, post1Id, prevComments[0].PostId, 3, OperationContext.None());
+        Assert.That(prevComments, Is.Not.Null);
+        Assert.That(prevComments.Count, Is.EqualTo(3));
+        for (var i = 0; i < 3; i++)
+            Assert.That(prevComments[i].Content, Is.EqualTo((i+1).ToString()));
+        
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, post1Id, prevComments[0].PostId, 3, OperationContext.None());
+        Assert.That(prevComments, Is.Not.Null);
+        Assert.That(prevComments, Is.Empty);
     }
 }
