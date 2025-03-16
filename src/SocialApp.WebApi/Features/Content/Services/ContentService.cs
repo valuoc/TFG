@@ -78,12 +78,13 @@ public sealed class ContentService
         );
         if (!string.IsNullOrWhiteSpace(updated.CommentUserId))
         {
-            var commentKey = CommentDocument.Key(updated.CommentUserId, updated.CommentPostId, updated.PostId);
-            await contents.PatchItemAsync<CommentDocument>
+            var comment = await GetCommentDocumentAsync(updated.CommentUserId, updated.CommentPostId, updated.PostId, context);
+            comment = comment with { Content = content };
+            await contents.ReplaceItemAsync
             (
-                commentKey.Id, new PartitionKey(commentKey.Pk),
-                [PatchOperation.Set("/content", content)],
-                _patchItemNoResponse,
+                comment,
+                comment.Id, new PartitionKey(comment.Pk),
+                new ItemRequestOptions() { IfMatchEtag = comment.ETag, EnableContentResponseOnWrite = false },
                 context.Cancellation
             );
         }
@@ -166,11 +167,18 @@ public sealed class ContentService
         return postsModels;
     }
     
-    private async Task<CommentDocument> GetCommentDocumentAsync(string userId, string postId, string commentId, OperationContext context)
+    private async Task<CommentDocument?> GetCommentDocumentAsync(string userId, string postId, string commentId, OperationContext context)
     {
         var contents = _contentDb.GetContainer();
         var key = CommentDocument.Key(userId, postId, commentId);
-        return await contents.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
+        var response = await contents.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
+        if(response.Resource != null)
+        {
+            var comment = response.Resource;
+            comment.ETag = response.ETag;
+            return comment;
+        }
+        return null;
     }
     
     private static async Task ClearPendingCommentAsync(Container contents, PendingCommentsDocument pending, string postId, OperationContext context)
@@ -320,7 +328,7 @@ public sealed class ContentService
             .WithParameter("@pk", keyFrom.Pk)
             .WithParameter("@id", keyFrom.Id);
         
-        var (post, postCounts, comments, commentCounts) = await ResolvePostWithCommentsQueryAsync(contents, query, context);
+        var (post, _, _, _) = await ResolvePostWithCommentsQueryAsync(contents, query, context);
         if (post == null)
         {
             var recoverd = await TryRecoverPostDocumentsAsync(contents, userId, postId, context);
