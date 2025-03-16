@@ -30,7 +30,7 @@ public class ContentServiceTests: ServiceTestsBase
         
         var user2 = await CreateUserAsync();
         
-        var commentId = await ContentService.CommentAsync(user2, user1.UserId, post1Id, "This is a comment.", OperationContext.None());
+        var commentId = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "This is a comment.", OperationContext.None());
         
         // Comment is a post on its own
         var post2 = await ContentService.GetPostAsync(user2, commentId, 5, OperationContext.None());
@@ -45,7 +45,7 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(post1.CommentCount, Is.EqualTo(1));
         Assert.That(post1.Content, Is.EqualTo("This is a post."));
         
-        commentId = await ContentService.CommentAsync(user1, user1.UserId, post1Id, "This is a self-reply.", OperationContext.None());
+        commentId = await ContentService.CreateCommentAsync(user1, user1.UserId, post1Id, "This is a self-reply.", OperationContext.None());
         
         post1 = await ContentService.GetPostAsync(user1, commentId, 5, OperationContext.None());
         Assert.That(post1, Is.Not.Null);
@@ -86,7 +86,7 @@ public class ContentServiceTests: ServiceTestsBase
             var moment = moments[i];
             context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moment));
-            await ContentService.CommentAsync(moment%2==0?user2:user3, user1.UserId, post1Id, moment.ToString(), context);
+            await ContentService.CreateCommentAsync(moment%2==0?user2:user3, user1.UserId, post1Id, moment.ToString(), context);
         }
 
         var post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
@@ -120,8 +120,8 @@ public class ContentServiceTests: ServiceTestsBase
         var user2 = await CreateUserAsync();
 
         var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
-        var post2Id = await ContentService.CommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
-        var post3Id = await ContentService.CommentAsync(user1, user2.UserId, post2Id, "Grandchild", OperationContext.None());
+        var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
+        var post3Id = await ContentService.CreateCommentAsync(user1, user2.UserId, post2Id, "Grandchild", OperationContext.None());
         
         var post1 = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post1.CommentCount, Is.EqualTo(1));
@@ -155,7 +155,7 @@ public class ContentServiceTests: ServiceTestsBase
             if (i % 3 == 0)
             {
                 var post12d = await ContentService.CreatePostAsync(user2, moment.ToString(), context);
-                await ContentService.CommentAsync(user1, user2.UserId, post12d, moment + "reply!!", context);
+                await ContentService.CreateCommentAsync(user1, user2.UserId, post12d, moment + "reply!!", context);
             }
         }
 
@@ -185,11 +185,28 @@ public class ContentServiceTests: ServiceTestsBase
         var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
         var context = OperationContext.None();
         context.FailOnSignal("create-comment-post", CreateCosmoException());
-        Assert.ThrowsAsync<ContentException>( () => ContentService.CommentAsync(user2, user1.UserId, post1Id, "Child", context).AsTask());
+        Assert.ThrowsAsync<ContentException>( () => ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", context).AsTask());
         
         var post  = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
         var commentPost = await ContentService.GetPostAsync(user2, post.LastComments[0].PostId, 5, OperationContext.None());
         Assert.That(commentPost, Is.Not.Null);
         Assert.That(commentPost.Content, Is.EqualTo("Child"));
+    }
+    
+    [Test, Order(7)]
+    public async Task Content_Can_Update()
+    {
+        var user1 = await CreateUserAsync();
+        var user2 = await CreateUserAsync();
+
+        var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
+        var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
+        await ContentService.UpdatePostAsync(user2, post2Id, "Updated!", OperationContext.None());
+        
+        var post1 = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        Assert.That(post1.LastComments[0].Content, Is.EqualTo("Updated!"));
+        
+        var post2 = await ContentService.GetPostAsync(user2, post2Id, 5, OperationContext.None());
+        Assert.That(post2.Content, Is.EqualTo("Updated!"));
     }
 }

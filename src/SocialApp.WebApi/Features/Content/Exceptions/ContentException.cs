@@ -7,7 +7,8 @@ public enum ContentError
     UnexpectedError,
     CreatePostFailure,
     CreateCommentPostFailure,
-    CreateCommentFailure
+    CreateCommentFailure,
+    ContentNotFound
 }
 
 public sealed class ContentException : SocialAppException

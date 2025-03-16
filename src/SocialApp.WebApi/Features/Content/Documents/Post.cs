@@ -12,7 +12,7 @@ public record PostDocument(string UserId, string PostId, string Content, DateTim
         return new DocumentKey(pk, id);
     }
     
-    public static DocumentKey KeyPostsEnd(string userId)
+    public static DocumentKey KeyUserPostsEnd(string userId)
     {
         var pk = "user:"+userId;
         var id = "post:z";
