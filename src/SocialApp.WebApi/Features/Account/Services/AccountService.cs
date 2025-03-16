@@ -4,6 +4,7 @@ using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Account.Databases;
 using SocialApp.WebApi.Features.Account.Documents;
 using SocialApp.WebApi.Features.Account.Exceptions;
+using SocialApp.WebApi.Features.Content.Documents;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
@@ -12,6 +13,7 @@ public class AccountService
     private readonly AccountDatabase _accountDb;
     private readonly ProfileDatabase _profileDb;
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
+    private static readonly TransactionalBatchItemRequestOptions _transactionNoResponse = new() { EnableContentResponseOnWrite = false };
     
     public AccountService(AccountDatabase accountDb, ProfileDatabase profileDb)
     {
@@ -105,7 +107,10 @@ public class AccountService
             var profile = new ProfileDocument(userId, displayName, email, handle);
             context.Signal("create-profile");
             var profiles = _profileDb.GetContainer();
-            await profiles.CreateItemAsync(profile,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+            var batch = profiles.CreateTransactionalBatch(new PartitionKey(profile.Pk));
+            batch.CreateItem(profile, requestOptions: _transactionNoResponse);
+            batch.CreateItem(new PendingCommentsDocument(userId), _transactionNoResponse);
+            await batch.ExecuteAsync(context.Cancellation);
             
             context.Signal("complete-user");
             await accounts.ReplaceItemAsync(user with { Status = AccountStatus.Completed}, user.Id, new PartitionKey(user.Pk), _noResponseContent, context.Cancellation);
@@ -225,6 +230,15 @@ public class AccountService
             {
                 var profileKey = ProfileDocument.Key(pending.UserId);
                 await profiles.DeleteItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), _noResponseContent, cancel);
+            }
+            catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+            {
+            }
+            
+            try
+            {
+                var pendingComments = PendingCommentsDocument.Key(pending.UserId);
+                await profiles.DeleteItemAsync<PendingCommentsDocument>(pendingComments.Id, new PartitionKey(pendingComments.Pk), _noResponseContent, cancel);
             }
             catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {

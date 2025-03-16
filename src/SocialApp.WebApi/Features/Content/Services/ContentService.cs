@@ -23,41 +23,123 @@ public sealed class ContentService
 
     public async ValueTask<string> CreatePostAsync(UserSession user, string content, OperationContext context)
     {
-        var post = new PostDocument(user.UserId, Ulid.NewUlid(context.UtcNow).ToString(), content, context.UtcNow.UtcDateTime, null, null);
-        var postCounts = new PostCountsDocument(user.UserId, post.PostId, 0, 0, 0, context.UtcNow.UtcDateTime, null, null);
+        var postId = Ulid.NewUlid(context.UtcNow).ToString();
         var contents = _contentDb.GetContainer();
-        var batch = contents.CreateTransactionalBatch(new PartitionKey(post.Pk));
-        batch.CreateItem(post);
-        batch.CreateItem(postCounts);
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        ThrowErrorIfTransactionFailed(ContentError.CreatePostFailure, response);
-        return post.PostId;
+        await CreatePostAsync(contents, user, null, null, postId, content, context);
+        return postId;
     }
     
     public async ValueTask<string> CommentAsync(UserSession user, string parentUserId, string parentPostId, string content, OperationContext context)
     {
-        // Creates own Post
-        var post = new PostDocument(user.UserId, Ulid.NewUlid(context.UtcNow).ToString(), content, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
-        var postCounts = new PostCountsDocument(user.UserId, post.PostId, 0, 0, 0, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
+        try
+        {
+            var postId = Ulid.NewUlid(context.UtcNow).ToString();
+            var contents = _contentDb.GetContainer();
+
+            var pending = await RegisterPendingCommentAsync(contents, user, parentUserId, parentPostId, postId, context);
+            context.Signal("create-comment");
+            await CreateCommentInParentPostAsync(contents, user, parentUserId, parentPostId, content, postId, context);
+            context.Signal("create-comment-post");
+            await CreatePostAsync(contents, user, parentUserId, parentPostId, postId, content, context);
+            context.Signal("update-parent-post");
+            await UpdateParentPostCommentCountsAsync(contents, parentUserId, parentPostId, context);
+            context.Signal("clear-pending-comment");
+            await ClearPendingCommentAsync(contents, pending, postId, context);
+            return postId;
+        }
+        catch (ContentException)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
+    }
+    
+    public async ValueTask<Post?> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
+    {
         var contents = _contentDb.GetContainer();
-        var batch = contents.CreateTransactionalBatch(new PartitionKey(post.Pk));
-        batch.CreateItem(post, _noResponse);
-        batch.CreateItem(postCounts, _noResponse);
         
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        ThrowErrorIfTransactionFailed(ContentError.CreateCommentPostFailure, response);
-        
-        // Creates Comment in parent post
-        var comment = new CommentDocument(user.UserId, post.PostId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime);
-        var commentCounts = new CommentCountsDocument(user.UserId, post.PostId, parentUserId, parentPostId, 0, 0, 0, context.UtcNow.UtcDateTime);
-        batch = contents.CreateTransactionalBatch(new PartitionKey(comment.Pk));
-        batch.CreateItem(comment, _noResponse);
-        batch.CreateItem(commentCounts, _noResponse);
-        batch.PatchItem(PostCountsDocument.Key(parentUserId, parentPostId).Id, [PatchOperation.Increment( $"/{nameof(CommentCountsDocument.CommentCount)}", 1)], _noPatchResponse);
-        
-        response = await batch.ExecuteAsync(context.Cancellation);
-        ThrowErrorIfTransactionFailed(ContentError.CreateCommentFailure, response);
-        
+        var model = await TryGetPostFromDbAsync(user.UserId, postId, lastCommentCount, context, contents);
+        if(model == null)
+        {
+            var pendingComments = await GetPendingCommentAsync(contents, user.UserId, context);
+            var pending = pendingComments?.Items?.SingleOrDefault(x => x.PostId == postId);
+            if (pending != null)
+            {
+                var comment = await GetCommentAsync(pending.ParentUserId, pending.ParentPostId, pending.PostId, context);
+                // If pending is retried, parent counts could be updated more than once. 
+                await UpdateParentPostCommentCountsAsync(contents, pending.ParentUserId, pending.ParentPostId, context);
+                var postDocument = await CreatePostAsync(contents, user, pending.ParentUserId, pending.ParentPostId, postId, comment.Content, context);
+                await ClearPendingCommentAsync(contents, pendingComments!, postId, context);
+                
+                // Becasue it was missing, it cannot have comments, views or likes
+                return Post.From(postDocument);
+            }
+            return null;
+        }
+        else
+        {
+            await IncreaseViewsAsync(user.UserId, postId, contents, context);
+        }
+
+        return model;
+    }
+
+    private async Task<CommentDocument> GetCommentAsync(string userId, string postId, string commentId, OperationContext context)
+    {
+        var contents = _contentDb.GetContainer();
+        var key = CommentDocument.Key(userId, postId, commentId);
+        return await contents.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
+    }
+    
+    private static async Task ClearPendingCommentAsync(Container contents, PendingCommentsDocument pending, string postId, OperationContext context)
+    {
+        var index = pending.Items.Select((c, i) => (c, i)).First(x => x.c.PostId == postId).i;
+        await contents.PatchItemAsync<PendingCommentsDocument>
+        (
+            pending.Id, new PartitionKey(pending.Pk),
+            [PatchOperation.Remove($"/items/{index}")], // patch is case sensitive
+            new PatchItemRequestOptions()
+            {
+                EnableContentResponseOnWrite = false,
+                IfMatchEtag = pending.ETag
+            },
+            cancellationToken: context.Cancellation
+        );
+    }
+
+    private static async Task<PendingCommentsDocument> RegisterPendingCommentAsync(Container contents, UserSession user, string parentUserId, string parentPostId, string postId, OperationContext context)
+    {
+        var pendingKey = PendingCommentsDocument.Key(user.UserId);
+        var pendingComment = new PendingComment(user.UserId, postId, parentUserId, parentPostId, PendingCommentOperation.Add);
+        var pendingCommentResponse = await contents.PatchItemAsync<PendingCommentsDocument>
+        (
+            pendingKey.Id, new PartitionKey(pendingKey.Pk),
+            [PatchOperation.Add("/items/-", pendingComment)], // patch is case sensitive
+            cancellationToken: context.Cancellation
+        );
+        var pending = pendingCommentResponse.Resource;
+        pending.ETag = pendingCommentResponse.ETag;
+        return pending;
+    }
+    
+    private static async Task<PendingCommentsDocument> GetPendingCommentAsync(Container contents, string userId, OperationContext context)
+    {
+        var pendingKey = PendingCommentsDocument.Key(userId);
+        var pendingCommentResponse = await contents.ReadItemAsync<PendingCommentsDocument>
+        (
+            pendingKey.Id, new PartitionKey(pendingKey.Pk),
+            cancellationToken: context.Cancellation
+        );
+        var pending = pendingCommentResponse.Resource;
+        pending.ETag = pendingCommentResponse.ETag;
+        return pending;
+    }
+
+    private static async Task UpdateParentPostCommentCountsAsync(Container contents, string parentUserId, string parentPostId, OperationContext context)
+    {
         // If parent is a comment in other post, it needs to update its comment count
         var parentKey = PostDocument.Key(parentUserId, parentPostId);
         var parent = await contents.ReadItemAsync<PostDocument>(parentKey.Id, new PartitionKey(parentKey.Pk), cancellationToken: context.Cancellation);
@@ -73,8 +155,32 @@ public sealed class ContentService
                 cancellationToken: context.Cancellation
             );
         }
+    }
+
+    private static async Task<PostDocument> CreatePostAsync(Container contents, UserSession user, string? parentUserId, string? parentPostId, string postId, string content, OperationContext context)
+    {
+        var post = new PostDocument(user.UserId, postId, content, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
+        var postCounts = new PostCountsDocument(user.UserId, postId, 0, 0, 0, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
+        var batch = contents.CreateTransactionalBatch(new PartitionKey(post.Pk));
+        batch.CreateItem(post, _noResponse);
+        batch.CreateItem(postCounts, _noResponse);
         
-        return post.PostId;
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        ThrowErrorIfTransactionFailed(ContentError.CreateCommentPostFailure, response);
+        return post;
+    }
+
+    private static async Task CreateCommentInParentPostAsync(Container contents, UserSession user, string parentUserId, string parentPostId, string content, string postId, OperationContext context)
+    {
+        var comment = new CommentDocument(user.UserId, postId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime);
+        var commentCounts = new CommentCountsDocument(user.UserId, postId, parentUserId, parentPostId, 0, 0, 0, context.UtcNow.UtcDateTime);
+        var batch = contents.CreateTransactionalBatch(new PartitionKey(comment.Pk));
+        batch.CreateItem(comment, _noResponse);
+        batch.CreateItem(commentCounts, _noResponse);
+        batch.PatchItem(PostCountsDocument.Key(parentUserId, parentPostId).Id, [PatchOperation.Increment( $"/{nameof(CommentCountsDocument.CommentCount)}", 1)], _noPatchResponse);
+        
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        ThrowErrorIfTransactionFailed(ContentError.CreateCommentFailure, response);
     }
 
     private static void ThrowErrorIfTransactionFailed(ContentError error, TransactionalBatchResponse response)
@@ -102,8 +208,8 @@ public sealed class ContentService
             _ => null
         };
     }
-    
-    public async ValueTask<Post?> GetPostAsync(string userId, string postId, int lastCommentCount, OperationContext context)
+
+    private async Task<Post?> TryGetPostFromDbAsync(string userId, string postId, int lastCommentCount, OperationContext context, Container contents)
     {
         var keyFrom = PostDocument.KeyPostItemsStart(userId, postId);
         var keyTo = PostDocument.KeyPostItemsEnd(userId, postId);
@@ -114,8 +220,7 @@ public sealed class ContentService
             .WithParameter("@id", keyFrom.Id)
             .WithParameter("@id_end", keyTo.Id)
             .WithParameter("@limit", 2 + lastCommentCount * 2 );
-
-        var contents = _contentDb.GetContainer();
+        
         var (post, postCounts, comments, commentCounts) = await ResolveContentQueryAsync(contents, query, context);
 
         if (post == null)
@@ -137,10 +242,9 @@ public sealed class ContentService
             }
             model.LastComments.Reverse();
         }
-        await IncreaseViewsAsync(post, contents, context);
+
         return model;
     }
-    
     public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
     {
         var key = CommentDocument.Key(userId, postId, commentId);
@@ -170,7 +274,6 @@ public sealed class ContentService
         commentModels.Reverse();
         return commentModels;
     }
-    
     public async ValueTask<IReadOnlyList<Post>> GetUserPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
         var key = PostDocument.KeyPostsEnd(userId);
@@ -205,12 +308,11 @@ public sealed class ContentService
         }
         return postsModels;
     }
-
-    private static async Task IncreaseViewsAsync(PostDocument post, Container contents, OperationContext context)
+    private static async Task IncreaseViewsAsync(string userId, string postId, Container contents, OperationContext context)
     {
         // TODO: Defer
         // Increase views
-        var keyFrom = PostCountsDocument.Key(post.UserId, post.PostId);
+        var keyFrom = PostCountsDocument.Key(userId, postId);
         await contents.PatchItemAsync<PostDocument>
         (
             keyFrom.Id,
@@ -220,7 +322,7 @@ public sealed class ContentService
             context.Cancellation
         );
     }
-        private async Task<(PostDocument?, PostCountsDocument?, List<CommentDocument>?, List<CommentCountsDocument>?)> ResolveContentQueryAsync(Container contents, QueryDefinition postQuery, OperationContext context)
+    private async Task<(PostDocument?, PostCountsDocument?, List<CommentDocument>?, List<CommentCountsDocument>?)> ResolveContentQueryAsync(Container contents, QueryDefinition postQuery, OperationContext context)
     {
         PostDocument? post = null;
         PostCountsDocument? postCounts = null;
@@ -260,7 +362,6 @@ public sealed class ContentService
         }
         return (post, postCounts, comments, commentCounts);
     }
-    
     private async Task<(List<PostDocument>?, List<PostCountsDocument>?)> ResolvePostContentQueryAsync(Container contents, QueryDefinition postQuery, OperationContext context)
     {
         List<PostDocument>? posts = null;

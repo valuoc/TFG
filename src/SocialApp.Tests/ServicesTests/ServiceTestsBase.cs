@@ -70,7 +70,7 @@ public abstract class ServiceTestsBase
     [TearDown]
     public async Task TearDown()
     {
-        //await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
+        await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
         _cosmosClient.Dispose();
     }
     

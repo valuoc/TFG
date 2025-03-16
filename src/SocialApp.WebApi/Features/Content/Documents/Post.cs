@@ -66,3 +66,18 @@ public record CommentCountsDocument(string UserId, string PostId, string ParentU
         return new DocumentKey(pk, id);
     }
 }
+
+public enum PendingCommentOperation { Add, Delete}
+public record PendingComment(string UserId, string PostId, string ParentUserId, string ParentPostId, PendingCommentOperation Operation);
+public record PendingCommentsDocument(string UserId) 
+    : Document(Key(UserId))
+{
+    public PendingComment[] Items { get; set; } = [];
+    
+    public static DocumentKey Key(string userId)
+    {
+        var pk = "user:"+userId;
+        var id = "pending_posts";
+        return new DocumentKey(pk, id);
+    }
+}
