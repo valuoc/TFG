@@ -16,4 +16,9 @@ public sealed class ContentDatabase : CosmoDatabase
             Path = "/type/?",
         };
     }
+
+    public ContentContainer GetContentContainer()
+    {
+        return new ContentContainer(GetContainer(), this);
+    }
 }
