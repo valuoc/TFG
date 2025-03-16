@@ -39,7 +39,7 @@ public class AccountServiceTests : ServiceTestsBase
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
-        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
+        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, OperationContext.None());
         Assert.That(deleted, Is.EqualTo(0));
     }
 
@@ -57,7 +57,7 @@ public class AccountServiceTests : ServiceTestsBase
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass2", OperationContext.None());
         Assert.IsNull(user);
         
-        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
+        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, OperationContext.None());
         Assert.That(deleted, Is.EqualTo(1));
     }
     
@@ -72,7 +72,7 @@ public class AccountServiceTests : ServiceTestsBase
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
-        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
+        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, OperationContext.None());
         Assert.That(deleted, Is.EqualTo(1));
     }
     
@@ -90,7 +90,7 @@ public class AccountServiceTests : ServiceTestsBase
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx2.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
-        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
+        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, OperationContext.None());
         Assert.That(deleted, Is.EqualTo(1));
     }
 
@@ -105,7 +105,7 @@ public class AccountServiceTests : ServiceTestsBase
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNull(user);
         
-        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
+        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, OperationContext.None());
         Assert.That(deleted, Is.EqualTo(1));
     }
     
@@ -124,7 +124,7 @@ public class AccountServiceTests : ServiceTestsBase
             var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
             Assert.IsNull(user);
         
-            var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
+            var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, OperationContext.None());
             Assert.That(deleted, Is.EqualTo(1));
         }
     }
@@ -141,7 +141,7 @@ public class AccountServiceTests : ServiceTestsBase
         var user = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         Assert.IsNotNull(user);
         
-        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, CancellationToken.None);
+        var deleted = await AccountService.RemovedExpiredPendingAccountsAsync(TimeSpan.Zero, OperationContext.None());
         Assert.That(deleted, Is.EqualTo(0));
     }
 }

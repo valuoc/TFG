@@ -25,7 +25,7 @@ public abstract class ServiceTestsBase
     protected ContentService ContentService;
     
     private AccountDatabase _accountDatabase;
-    private ProfileDatabase _profileDatabase;
+    private UserDatabase _userDatabase;
     private SessionDatabase _sessionDatabase;
     private FollowersDatabase _followerDatabase;
     private ContentDatabase _contentDatabase;
@@ -56,12 +56,12 @@ public abstract class ServiceTestsBase
         );
         
         _accountDatabase = new AccountDatabase(_cosmosClient, _databaseId, _container);
-        _profileDatabase = new ProfileDatabase(_cosmosClient, _databaseId, _container);
+        _userDatabase = new UserDatabase(_cosmosClient, _databaseId, _container);
         _sessionDatabase = new SessionDatabase(_cosmosClient, _databaseId, _container);
         _followerDatabase = new FollowersDatabase(_cosmosClient, _databaseId, _container);
         _contentDatabase = new ContentDatabase(_cosmosClient, _databaseId, _container);
 
-        AccountService = new AccountService(_accountDatabase, _profileDatabase);
+        AccountService = new AccountService(_accountDatabase, _userDatabase);
         SessionService = new SessionService(_sessionDatabase);
         FollowersService = new FollowersService(_followerDatabase);
         ContentService = new ContentService(_contentDatabase);
