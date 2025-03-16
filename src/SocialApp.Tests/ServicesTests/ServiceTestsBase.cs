@@ -17,6 +17,8 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
+    protected bool RemoveContainerAfterTests = true;
+    
     protected AccountService AccountService;
     protected SessionService SessionService;
     protected FollowersService FollowersService;
@@ -32,6 +34,7 @@ public abstract class ServiceTestsBase
 
     private readonly string _container = "test";
     private readonly string _databaseId = "socialapp";
+    
     
     [SetUp]
     public async Task Setup()
@@ -70,7 +73,8 @@ public abstract class ServiceTestsBase
     [TearDown]
     public async Task TearDown()
     {
-        //await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
+        if(RemoveContainerAfterTests)
+            await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
         _cosmosClient.Dispose();
     }
     

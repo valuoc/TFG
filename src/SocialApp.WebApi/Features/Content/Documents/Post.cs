@@ -2,7 +2,7 @@ using SocialApp.WebApi.Features.Documents;
 
 namespace SocialApp.WebApi.Features.Content.Documents;
 
-public record PostDocument(string UserId, string PostId, string Content, DateTime LastModify, string? CommentUserId, string? CommentPostId) 
+public record PostDocument(string UserId, string PostId, string Content, DateTime LastModify, int Version, string? CommentUserId, string? CommentPostId) 
     : Document(Key(UserId, PostId))
 {
     public static DocumentKey Key(string userId, string postId)
@@ -34,7 +34,7 @@ public record PostDocument(string UserId, string PostId, string Content, DateTim
     }
 }
 
-public record PostCountsDocument(string UserId, string PostId, int LikeCount, int CommentCount, int ViewCount, DateTime LastModify, string? CommentUserId, string? CommentPostId) 
+public record PostCountsDocument(string UserId, string PostId, int LikeCount, int CommentCount, int ViewCount, string? CommentUserId, string? CommentPostId) 
     : Document(Key(UserId, PostId))
 {
     public static DocumentKey Key(string userId, string postId)
@@ -45,7 +45,7 @@ public record PostCountsDocument(string UserId, string PostId, int LikeCount, in
     }
 }
 
-public record CommentDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, string Content, DateTime LastModify) 
+public record CommentDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, string Content, DateTime LastModify, int Version) 
     : Document(Key(ParentUserId, ParentPostId, PostId))
 {
     public static DocumentKey Key(string parentUserId, string parentPostId, string commentId)
@@ -56,7 +56,7 @@ public record CommentDocument(string UserId, string PostId, string ParentUserId,
     }
 }
 
-public record CommentCountsDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, int LikeCount, int CommentCount, int ViewCount, DateTime LastModify) 
+public record CommentCountsDocument(string UserId, string PostId, string ParentUserId, string ParentPostId, int LikeCount, int CommentCount, int ViewCount) 
     : Document(Key(ParentUserId, ParentPostId, PostId))
 {
     public static DocumentKey Key(string parentUserId, string parentPostId, string commentId)
@@ -67,7 +67,7 @@ public record CommentCountsDocument(string UserId, string PostId, string ParentU
     }
 }
 
-public enum PendingCommentOperation { Add, Delete}
+public enum PendingCommentOperation { Add, Update, Delete}
 public record PendingComment(string UserId, string PostId, string ParentUserId, string ParentPostId, PendingCommentOperation Operation);
 public record PendingCommentsDocument(string UserId) 
     : Document(Key(UserId))

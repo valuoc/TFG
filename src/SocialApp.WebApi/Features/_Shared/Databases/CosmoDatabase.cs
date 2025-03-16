@@ -21,11 +21,11 @@ public abstract class CosmoDatabase
     {
         Database database = await CosmosClient.CreateDatabaseIfNotExistsAsync(DatabaseId);
         Console.WriteLine("Created Database: {0}\n", database.Id);
-        var indexingPolicy = new IndexingPolicy()
+        var indexingPolicy = new IndexingPolicy
         {
             IndexingMode = IndexingMode.Consistent,
             Automatic = true,
-            ExcludedPaths = { new ExcludedPath() { Path = "/*" } },
+            ExcludedPaths = { new ExcludedPath { Path = "/*" } },
             IncludedPaths = {},
         };
         foreach(var includedPath in GetIndexedPaths())
@@ -68,7 +68,7 @@ public abstract class CosmoDatabase
         => new(
             endpoint, 
             authKey, 
-            new CosmosClientOptions()
+            new CosmosClientOptions
             {
                 ConnectionMode = ConnectionMode.Direct,
                 ApplicationName = applicationName,

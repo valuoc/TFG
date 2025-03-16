@@ -73,7 +73,7 @@ public sealed class FollowersService
             followings.Following[followedId] = FollowingStatus.PendingAdd;
         
             context.Signal("add-following-as-pending");
-            followingResponse = await container.UpsertItemAsync(followings, requestOptions: new ItemRequestOptions()
+            followingResponse = await container.UpsertItemAsync(followings, requestOptions: new ItemRequestOptions
             {
                 EnableContentResponseOnWrite = true,
                 IfMatchEtag = followingResponse?.ETag
@@ -87,7 +87,7 @@ public sealed class FollowersService
             if (followers.Followers.Add(followerId))
             {
                 context.Signal("add-follower");
-                await container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions()
+                await container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions
                 {
                     EnableContentResponseOnWrite = false,
                     IfMatchEtag = followerResponse?.ETag
@@ -95,7 +95,7 @@ public sealed class FollowersService
             }
             followings.Following[followedId] = FollowingStatus.Ready;
             context.Signal("add-following");
-            await container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions()
+            await container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions
             {
                 EnableContentResponseOnWrite = false,
                 IfMatchEtag = followingResponse?.ETag
@@ -129,7 +129,7 @@ public sealed class FollowersService
             followings.Following[followedId] = FollowingStatus.PendingRemove;
         
             context.Signal("remove-following-as-pending");
-            followingResponse = await container.UpsertItemAsync(followings, requestOptions: new ItemRequestOptions()
+            followingResponse = await container.UpsertItemAsync(followings, requestOptions: new ItemRequestOptions
             {
                 EnableContentResponseOnWrite = true,
                 IfMatchEtag = followingResponse?.ETag
@@ -143,7 +143,7 @@ public sealed class FollowersService
             if (followers.Followers.Remove(followerId))
             {
                 context.Signal("remove-follower");
-                await container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions()
+                await container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions
                 {
                     EnableContentResponseOnWrite = false,
                     IfMatchEtag = followerResponse?.ETag
@@ -152,7 +152,7 @@ public sealed class FollowersService
 
             followings.Following.Remove(followedId);
             context.Signal("remove-following");
-            await container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions()
+            await container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions
             {
                 EnableContentResponseOnWrite = false,
                 IfMatchEtag = followingResponse?.ETag

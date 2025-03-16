@@ -39,7 +39,7 @@ public sealed class ContentService
             var postId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = _contentDb.GetContainer();
 
-            var pending = await RegisterPendingCommentAsync(contents, user, parentUserId, parentPostId, postId, context);
+            var pending = await RegisterPendingCommentAsync(contents, user, parentUserId, parentPostId, postId, PendingCommentOperation.Add, context);
             context.Signal("create-comment");
             await CreateCommentInParentPostAsync(contents, user, parentUserId, parentPostId, content, postId, context);
             context.Signal("create-comment-post");
@@ -67,29 +67,48 @@ public sealed class ContentService
         var document = await TryGetPostDocumentAsync(contents, user.UserId, postId, context);
         if(document == null)
             throw new ContentException(ContentError.ContentNotFound);
+        
+        PendingCommentsDocument? pending = null;
+        if (!string.IsNullOrWhiteSpace(document.CommentUserId))
+            pending = await RegisterPendingCommentAsync(contents, user, document.CommentUserId, document.CommentPostId, postId, PendingCommentOperation.Add, context);
 
-        var updated = document with { Content = content };
+        var updated = document with { Content = content, Version = document.Version + 1 };
         await contents.ReplaceItemAsync
         (
             updated,
             updated.Id, new PartitionKey(updated.Pk),
-            new ItemRequestOptions() { IfMatchEtag = updated.ETag, EnableContentResponseOnWrite = false },
+            new ItemRequestOptions
+            {
+                IfMatchEtag = updated.ETag, 
+                EnableContentResponseOnWrite = false
+            },
             context.Cancellation
         );
-        if (!string.IsNullOrWhiteSpace(updated.CommentUserId))
+
+        if (pending != null)
         {
-            var comment = await GetCommentDocumentAsync(updated.CommentUserId, updated.CommentPostId, updated.PostId, context);
-            comment = comment with { Content = content };
-            await contents.ReplaceItemAsync
-            (
-                comment,
-                comment.Id, new PartitionKey(comment.Pk),
-                new ItemRequestOptions() { IfMatchEtag = comment.ETag, EnableContentResponseOnWrite = false },
-                context.Cancellation
-            );
+            await UpdateCommentAsync(contents, updated, context);
+            await ClearPendingCommentAsync(contents, pending, postId, context);
         }
     }
-    
+
+    private async Task UpdateCommentAsync(Container contents, PostDocument updated, OperationContext context)
+    {
+        var comment = await GetCommentDocumentAsync(updated.CommentUserId, updated.CommentPostId, updated.PostId, context);
+            
+        if(comment.Version >= updated.Version)
+            return;
+            
+        comment = comment with { Content = updated.Content, Version = updated.Version};
+        await contents.ReplaceItemAsync
+        (
+            comment,
+            comment.Id, new PartitionKey(comment.Pk),
+            new ItemRequestOptions { IfMatchEtag = comment.ETag, EnableContentResponseOnWrite = false },
+            context.Cancellation
+        );
+    }
+
     public async ValueTask<Post> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
     {
         var contents = _contentDb.GetContainer();
@@ -188,7 +207,7 @@ public sealed class ContentService
         (
             pending.Id, new PartitionKey(pending.Pk),
             [PatchOperation.Remove($"/items/{index}")], // patch is case sensitive
-            new PatchItemRequestOptions()
+            new PatchItemRequestOptions
             {
                 EnableContentResponseOnWrite = false,
                 IfMatchEtag = pending.ETag
@@ -197,10 +216,10 @@ public sealed class ContentService
         );
     }
     
-    private static async Task<PendingCommentsDocument> RegisterPendingCommentAsync(Container contents, UserSession user, string parentUserId, string parentPostId, string postId, OperationContext context)
+    private static async Task<PendingCommentsDocument> RegisterPendingCommentAsync(Container contents, UserSession user, string parentUserId, string parentPostId, string postId, PendingCommentOperation operation, OperationContext context)
     {
         var pendingKey = PendingCommentsDocument.Key(user.UserId);
-        var pendingComment = new PendingComment(user.UserId, postId, parentUserId, parentPostId, PendingCommentOperation.Add);
+        var pendingComment = new PendingComment(user.UserId, postId, parentUserId, parentPostId, operation);
         var pendingCommentResponse = await contents.PatchItemAsync<PendingCommentsDocument>
         (
             pendingKey.Id, new PartitionKey(pendingKey.Pk),
@@ -246,8 +265,8 @@ public sealed class ContentService
     
     private static async Task<AllPostDocuments> CreatePostAsync(Container contents, string userId, string? parentUserId, string? parentPostId, string postId, string content, OperationContext context)
     {
-        var post = new PostDocument(userId, postId, content, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
-        var postCounts = new PostCountsDocument(userId, postId, 0, 0, 0, context.UtcNow.UtcDateTime, parentUserId, parentPostId);
+        var post = new PostDocument(userId, postId, content, context.UtcNow.UtcDateTime, 0, parentUserId, parentPostId);
+        var postCounts = new PostCountsDocument(userId, postId, 0, 0, 0, parentUserId, parentPostId);
         var batch = contents.CreateTransactionalBatch(new PartitionKey(post.Pk));
         batch.CreateItem(post, _noResponse);
         batch.CreateItem(postCounts, _noResponse);
@@ -259,8 +278,8 @@ public sealed class ContentService
     
     private static async Task CreateCommentInParentPostAsync(Container contents, UserSession user, string parentUserId, string parentPostId, string content, string postId, OperationContext context)
     {
-        var comment = new CommentDocument(user.UserId, postId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime);
-        var commentCounts = new CommentCountsDocument(user.UserId, postId, parentUserId, parentPostId, 0, 0, 0, context.UtcNow.UtcDateTime);
+        var comment = new CommentDocument(user.UserId, postId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime, 0);
+        var commentCounts = new CommentCountsDocument(user.UserId, postId, parentUserId, parentPostId, 0, 0, 0);
         var batch = contents.CreateTransactionalBatch(new PartitionKey(comment.Pk));
         batch.CreateItem(comment, _noResponse);
         batch.CreateItem(commentCounts, _noResponse);

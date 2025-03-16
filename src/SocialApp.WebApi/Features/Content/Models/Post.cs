@@ -15,7 +15,7 @@ public sealed class Post
 
     public static Post From(PostDocument? post)
     {
-        return new Post()
+        return new Post
         {
             UserId = post.UserId,
             PostId = post.PostId,
@@ -38,7 +38,7 @@ public sealed class Comment
     
     public static Comment From(CommentDocument comment)
     {
-        return new Comment()
+        return new Comment
         {
             UserId = comment.UserId,
             PostId = comment.PostId,
