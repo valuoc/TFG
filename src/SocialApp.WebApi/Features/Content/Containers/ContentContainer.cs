@@ -27,59 +27,6 @@ public sealed class ContentContainer
         _database = database;
     }
     
-    public async Task<PendingOperationsDocument> RegisterPendingOperationAsync(UserSession user, PendingOperation operation, OperationContext context)
-    {
-        var pendingKey = PendingOperationsDocument.Key(user.UserId);
-        var response = await _container.PatchItemAsync<PendingOperationsDocument>
-        (
-            pendingKey.Id, new PartitionKey(pendingKey.Pk),
-            [PatchOperation.Add("/items/-", operation)], // patch is case sensitive
-            cancellationToken: context.Cancellation
-        );
-        var pending = response.Resource;
-        pending.ETag = response.ETag;
-        user.RegisterPendingOperation(pending.Id);
-        return pending;
-    }
-
-    public async Task ClearPendingOperationAsync(UserSession user, PendingOperationsDocument pending, PendingOperation operation, OperationContext context)
-    {
-        try
-        {
-            var index = pending.Items.Select((c, i) => (c, i)).First(x => x.c.Id == operation.Id).i;
-            await _container.PatchItemAsync<PendingOperationsDocument>
-            (
-                pending.Id, new PartitionKey(pending.Pk),
-                [PatchOperation.Remove($"/items/{index}")], // patch is case sensitive
-                new PatchItemRequestOptions
-                {
-                    EnableContentResponseOnWrite = false,
-                    IfMatchEtag = pending.ETag
-                },
-                cancellationToken: context.Cancellation
-            );
-            user.CompletePendingOperation(pending.Id);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
-        {
-            pending = await GetPendingOperationsAsync(pending.UserId, context);
-            await ClearPendingOperationAsync(user, pending, operation, context);
-        }
-    }
-    
-    public async Task<PendingOperationsDocument> GetPendingOperationsAsync(string userId, OperationContext context)
-    {
-        var pendingKey = PendingOperationsDocument.Key(userId);
-        var response = await _container.ReadItemAsync<PendingOperationsDocument>
-        (
-            pendingKey.Id, new PartitionKey(pendingKey.Pk),
-            cancellationToken: context.Cancellation
-        );
-        var pending = response.Resource;
-        pending.ETag = response.ETag;
-        return pending;
-    }
-    
     public async Task<AllPostDocuments> CreatePostAsync(PostDocument post, PostCountsDocument postCounts, OperationContext context)
     {
         var batch = _container.CreateTransactionalBatch(new PartitionKey(post.Pk));

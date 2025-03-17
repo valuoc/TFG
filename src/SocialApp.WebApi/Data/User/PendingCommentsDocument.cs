@@ -10,7 +10,7 @@ public record PendingOperationsDocument(string UserId)
     public static DocumentKey Key(string userId)
     {
         var pk = "user:"+userId;
-        var id = "pending_operations";
+        var id = "profile_pending_operations";
         return new DocumentKey(pk, id);
     }
 }
