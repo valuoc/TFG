@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SocialApp.WebApi.Features.Documents;
+namespace SocialApp.WebApi.Data._Shared;
 
 public readonly record struct DocumentKey(string Pk, string Id);
 

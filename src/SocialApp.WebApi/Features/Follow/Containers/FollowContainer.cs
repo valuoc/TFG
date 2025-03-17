@@ -1,7 +1,6 @@
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Features.Account.Databases;
-using SocialApp.WebApi.Features.Follow.Documents;
-using SocialApp.WebApi.Features.Services;
+using SocialApp.WebApi.Data.User;
+using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Features.Follow.Databases;
 

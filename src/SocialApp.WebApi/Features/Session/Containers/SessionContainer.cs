@@ -1,12 +1,10 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Features.Account.Databases;
-using SocialApp.WebApi.Features.Account.Documents;
-using SocialApp.WebApi.Features.Services;
-using SocialApp.WebApi.Features.Session.Documents;
+using SocialApp.WebApi.Data.Session;
+using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Session.Models;
 
-namespace SocialApp.WebApi.Features.Session.Databases;
+namespace SocialApp.WebApi.Features.Session.Containers;
 
 public sealed class SessionContainer
 {

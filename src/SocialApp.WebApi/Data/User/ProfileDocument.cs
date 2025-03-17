@@ -1,6 +1,6 @@
-using SocialApp.WebApi.Features.Documents;
+using SocialApp.WebApi.Data._Shared;
 
-namespace SocialApp.WebApi.Features.Account.Documents;
+namespace SocialApp.WebApi.Data.User;
 
 public record ProfileDocument(string UserId, string DisplayName, string Email, string Handle) 
     : Document(Key(UserId))

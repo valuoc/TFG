@@ -1,4 +1,4 @@
-using SocialApp.WebApi.Features.Services;
+using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Features.Follow.Exceptions;
 

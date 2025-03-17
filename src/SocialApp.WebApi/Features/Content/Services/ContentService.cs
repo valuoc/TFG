@@ -1,22 +1,25 @@
-using SocialApp.WebApi.Features.Content.Databases;
-using SocialApp.WebApi.Features.Content.Documents;
+using SocialApp.WebApi.Data.User;
+using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Features.Content.Models;
-using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Services;
 
 public sealed class ContentService
 {
-    private readonly ContentDatabase _contentDb;
-    public ContentService(ContentDatabase contentDb)
-        => _contentDb = contentDb;
+    private readonly UserDatabase _userDb;
+    public ContentService(UserDatabase userDb)
+        => _userDb = userDb;
 
+    private ContentContainer GetContainer()
+        => new ContentContainer(_userDb);
+    
     public async ValueTask<string> CreatePostAsync(UserSession user, string content, OperationContext context)
     {
         var postId = Ulid.NewUlid(context.UtcNow).ToString();
-        var contents = _contentDb.GetContentContainer();
+        var contents = GetContainer();
         await contents.CreatePostAsync(user.UserId, null, null, postId, content, context);
         return postId;
     }
@@ -26,7 +29,7 @@ public sealed class ContentService
         try
         {
             var postId = Ulid.NewUlid(context.UtcNow).ToString();
-            var contents = _contentDb.GetContentContainer();
+            var contents = GetContainer();
 
             var pending = await contents.RegisterPendingCommentActionAsync(user.UserId, parentUserId, parentPostId, postId, PendingCommentOperation.Add, context);
             context.Signal("create-comment");
@@ -51,7 +54,7 @@ public sealed class ContentService
 
     public async ValueTask UpdatePostAsync(UserSession user, string postId, string content, OperationContext context)
     {
-        var contents = _contentDb.GetContentContainer();
+        var contents = GetContainer();
         
         var document = await contents.GetPostDocumentAsync(user.UserId, postId, context);
         if(document == null)
@@ -82,7 +85,7 @@ public sealed class ContentService
 
     public async ValueTask<Post> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
     {
-        var contents = _contentDb.GetContentContainer();
+        var contents = GetContainer();
         
         var documents = await contents.GetAllPostDocumentsAsync(user.UserId, postId, lastCommentCount, context);
         if(documents.Post == null)
@@ -94,7 +97,7 @@ public sealed class ContentService
     
     public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
     {
-        var contents = _contentDb.GetContentContainer();
+        var contents = GetContainer();
         var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(userId, postId, commentId, lastCommentCount, context);
         if (comments == null)
             return Array.Empty<Comment>();
@@ -118,7 +121,7 @@ public sealed class ContentService
 
     public async ValueTask<IReadOnlyList<Post>> GetUserPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
-        var contents = _contentDb.GetContentContainer();
+        var contents = GetContainer();
         
         var posts = await contents.GetUserPostsAsync(userId, afterPostId, limit, context);
         if (posts == null)

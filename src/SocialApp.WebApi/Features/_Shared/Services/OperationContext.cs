@@ -1,4 +1,4 @@
-namespace SocialApp.WebApi.Features.Services;
+namespace SocialApp.WebApi.Features._Shared.Services;
 
 public sealed class OperationContext
 {

@@ -1,6 +1,6 @@
-using SocialApp.WebApi.Features.Documents;
+using SocialApp.WebApi.Data._Shared;
 
-namespace SocialApp.WebApi.Features.Account.Documents;
+namespace SocialApp.WebApi.Data.Session;
 
 public record PasswordLoginDocument(string UserId, string Email, string Password) 
     : Document(Key(Email))

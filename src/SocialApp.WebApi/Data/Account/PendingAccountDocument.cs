@@ -1,6 +1,6 @@
-using SocialApp.WebApi.Features.Documents;
+using SocialApp.WebApi.Data._Shared;
 
-namespace SocialApp.WebApi.Features.Account.Documents;
+namespace SocialApp.WebApi.Data.Account;
 
 public record PendingAccountDocument(string PendingId, string Email, string UserId, string Handle, DateTime CreatedAt) 
     : Document(Key(PendingId))

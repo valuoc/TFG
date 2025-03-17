@@ -1,6 +1,6 @@
-using SocialApp.WebApi.Features.Documents;
+using SocialApp.WebApi.Data._Shared;
 
-namespace SocialApp.WebApi.Features.Follow.Documents;
+namespace SocialApp.WebApi.Data.User;
 
 public enum FollowingStatus { PendingAdd, PendingRemove, Ready}
 public record FollowingListDocument(string UserId)

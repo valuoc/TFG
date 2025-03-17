@@ -1,9 +1,11 @@
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Features.Services;
-using SocialApp.WebApi.Features.Account.Databases;
-using SocialApp.WebApi.Features.Account.Documents;
+using SocialApp.WebApi.Data.Account;
+using SocialApp.WebApi.Data.Session;
+using SocialApp.WebApi.Data.User;
+using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Account.Containers;
 using SocialApp.WebApi.Features.Account.Exceptions;
-using SocialApp.WebApi.Features.Session.Databases;
+using SocialApp.WebApi.Features.Session.Containers;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 

@@ -1,13 +1,14 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
-using SocialApp.WebApi.Features.Account.Databases;
+using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Account;
+using SocialApp.WebApi.Data.Session;
+using SocialApp.WebApi.Data.User;
+using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
-using SocialApp.WebApi.Features.Content.Databases;
 using SocialApp.WebApi.Features.Content.Services;
-using SocialApp.WebApi.Features.Databases;
 using SocialApp.WebApi.Features.Follow.Services;
-using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Session.Models;
 using SocialApp.WebApi.Features.Session.Services;
 
@@ -25,7 +26,6 @@ public abstract class ServiceTestsBase
     private AccountDatabase _accountDatabase;
     private UserDatabase _userDatabase;
     private SessionDatabase _sessionDatabase;
-    private ContentDatabase _contentDatabase;
     
     private CosmosClient _cosmosClient;
 
@@ -55,15 +55,14 @@ public abstract class ServiceTestsBase
         _accountDatabase = new AccountDatabase(_cosmosClient, _databaseId, _container);
         _userDatabase = new UserDatabase(_cosmosClient, _databaseId, _container);
         _sessionDatabase = new SessionDatabase(_cosmosClient, _databaseId, _container);
-        _contentDatabase = new ContentDatabase(_cosmosClient, _databaseId, _container);
 
         AccountService = new AccountService(_accountDatabase, _userDatabase, _sessionDatabase);
         SessionService = new SessionService(_userDatabase, _sessionDatabase);
         FollowersService = new FollowersService(_userDatabase);
-        ContentService = new ContentService(_contentDatabase);
+        ContentService = new ContentService(_userDatabase);
         
         // Content indexes /pk, /id and /type
-        await _contentDatabase.InitializeAsync();
+        await _userDatabase.InitializeAsync();
     }
     
     [TearDown]

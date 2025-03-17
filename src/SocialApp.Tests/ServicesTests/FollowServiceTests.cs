@@ -1,5 +1,5 @@
+using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Follow.Exceptions;
-using SocialApp.WebApi.Features.Services;
 
 namespace SocialApp.Tests.ServicesTests;
 

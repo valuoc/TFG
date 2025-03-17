@@ -1,12 +1,12 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Features.Content.Documents;
+using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.User;
+using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Exceptions;
-using SocialApp.WebApi.Features.Documents;
-using SocialApp.WebApi.Features.Services;
 
-namespace SocialApp.WebApi.Features.Content.Databases;
+namespace SocialApp.WebApi.Features.Content.Containers;
 
 public record struct AllPostDocuments(PostDocument? Post, PostCountsDocument? PostCounts, List<CommentDocument>? Comments, List<CommentCountsDocument>? CommentCounts);
 
@@ -18,11 +18,11 @@ public sealed class ContentContainer
     private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
     
     private readonly Container _container;
-    private readonly ContentDatabase _database;
+    private readonly UserDatabase _database;
 
-    public ContentContainer(Container container, ContentDatabase database)
+    public ContentContainer(UserDatabase database)
     {
-        _container = container;
+        _container = database.GetContainer();
         _database = database;
     }
     

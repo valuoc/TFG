@@ -1,11 +1,10 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Features.Account.Documents;
+using SocialApp.WebApi.Data.User;
+using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Exceptions;
-using SocialApp.WebApi.Features.Content.Documents;
-using SocialApp.WebApi.Features.Services;
 
-namespace SocialApp.WebApi.Features.Account.Databases;
+namespace SocialApp.WebApi.Features.Account.Containers;
 
 public sealed class ProfileContainer
 {

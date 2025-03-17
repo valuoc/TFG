@@ -1,6 +1,6 @@
-using SocialApp.WebApi.Features.Documents;
+using SocialApp.WebApi.Data._Shared;
 
-namespace SocialApp.WebApi.Features.Session.Documents;
+namespace SocialApp.WebApi.Data.Session;
 
 public record SessionDocument(string SessionId, string UserId, string DisplayName, string Handle) 
     : Document(Key(SessionId))

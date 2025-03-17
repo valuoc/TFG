@@ -1,4 +1,4 @@
-using SocialApp.WebApi.Features.Content.Documents;
+using SocialApp.WebApi.Data.User;
 
 namespace SocialApp.WebApi.Features.Content.Models;
 

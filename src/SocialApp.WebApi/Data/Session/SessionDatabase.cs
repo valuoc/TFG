@@ -1,7 +1,7 @@
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Features.Databases;
+using SocialApp.WebApi.Data._Shared;
 
-namespace SocialApp.WebApi.Features.Account.Databases;
+namespace SocialApp.WebApi.Data.Session;
 
 /// <summary>
 /// Likely to be just a cache
