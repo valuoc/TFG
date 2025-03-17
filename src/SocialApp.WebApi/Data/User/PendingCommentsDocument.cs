@@ -1,18 +1,16 @@
 using SocialApp.WebApi.Data._Shared;
-
 namespace SocialApp.WebApi.Data.User;
 
-public enum PendingCommentOperation { Add, Update, Delete}
-public record PendingComment(string UserId, string PostId, string ParentUserId, string ParentPostId, PendingCommentOperation Operation);
-public record PendingCommentsDocument(string UserId) 
+public record PendingOperation(string Id, string Name, DateTime CreationDate, string[] Data);
+public record PendingOperationsDocument(string UserId) 
     : Document(Key(UserId))
 {
-    public PendingComment[] Items { get; set; } = [];
+    public PendingOperation[] Items { get; set; } = [];
     
     public static DocumentKey Key(string userId)
     {
         var pk = "user:"+userId;
-        var id = "pending_posts";
+        var id = "pending_operations";
         return new DocumentKey(pk, id);
     }
 }

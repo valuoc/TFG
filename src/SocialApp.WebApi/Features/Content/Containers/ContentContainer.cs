@@ -5,6 +5,7 @@ using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Exceptions;
+using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Containers;
 
@@ -26,56 +27,61 @@ public sealed class ContentContainer
         _database = database;
     }
     
-    public async Task<PendingCommentsDocument> RegisterPendingCommentActionAsync(string userId, string parentUserId, string parentPostId, string postId, PendingCommentOperation operation, OperationContext context)
+    public async Task<PendingOperationsDocument> RegisterPendingOperationAsync(UserSession user, PendingOperation operation, OperationContext context)
     {
-        var pendingKey = PendingCommentsDocument.Key(userId);
-        var pendingComment = new PendingComment(userId, postId, parentUserId, parentPostId, operation);
-        var pendingCommentResponse = await _container.PatchItemAsync<PendingCommentsDocument>
+        var pendingKey = PendingOperationsDocument.Key(user.UserId);
+        var response = await _container.PatchItemAsync<PendingOperationsDocument>
         (
             pendingKey.Id, new PartitionKey(pendingKey.Pk),
-            [PatchOperation.Add("/items/-", pendingComment)], // patch is case sensitive
+            [PatchOperation.Add("/items/-", operation)], // patch is case sensitive
             cancellationToken: context.Cancellation
         );
-        var pending = pendingCommentResponse.Resource;
-        pending.ETag = pendingCommentResponse.ETag;
+        var pending = response.Resource;
+        pending.ETag = response.ETag;
+        user.RegisterPendingOperation(pending.Id);
+        return pending;
+    }
+
+    public async Task ClearPendingOperationAsync(UserSession user, PendingOperationsDocument pending, PendingOperation operation, OperationContext context)
+    {
+        try
+        {
+            var index = pending.Items.Select((c, i) => (c, i)).First(x => x.c.Id == operation.Id).i;
+            await _container.PatchItemAsync<PendingOperationsDocument>
+            (
+                pending.Id, new PartitionKey(pending.Pk),
+                [PatchOperation.Remove($"/items/{index}")], // patch is case sensitive
+                new PatchItemRequestOptions
+                {
+                    EnableContentResponseOnWrite = false,
+                    IfMatchEtag = pending.ETag
+                },
+                cancellationToken: context.Cancellation
+            );
+            user.CompletePendingOperation(pending.Id);
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
+        {
+            pending = await GetPendingOperationsAsync(pending.UserId, context);
+            await ClearPendingOperationAsync(user, pending, operation, context);
+        }
+    }
+    
+    public async Task<PendingOperationsDocument> GetPendingOperationsAsync(string userId, OperationContext context)
+    {
+        var pendingKey = PendingOperationsDocument.Key(userId);
+        var response = await _container.ReadItemAsync<PendingOperationsDocument>
+        (
+            pendingKey.Id, new PartitionKey(pendingKey.Pk),
+            cancellationToken: context.Cancellation
+        );
+        var pending = response.Resource;
+        pending.ETag = response.ETag;
         return pending;
     }
     
-    public async Task ClearPendingCommentActionAsync(PendingCommentsDocument pending, string postId, OperationContext context)
+    public async Task<AllPostDocuments> CreatePostAsync(PostDocument post, PostCountsDocument postCounts, OperationContext context)
     {
-        var index = pending.Items.Select((c, i) => (c, i)).First(x => x.c.PostId == postId).i;
-        await _container.PatchItemAsync<PendingCommentsDocument>
-        (
-            pending.Id, new PartitionKey(pending.Pk),
-            [PatchOperation.Remove($"/items/{index}")], // patch is case sensitive
-            new PatchItemRequestOptions
-            {
-                EnableContentResponseOnWrite = false,
-                IfMatchEtag = pending.ETag
-            },
-            cancellationToken: context.Cancellation
-        );
-    }
-    
-    public async Task<PendingCommentsDocument> GetPendingCommentAsync(string userId, OperationContext context)
-    {
-        var pendingKey = PendingCommentsDocument.Key(userId);
-        var pendingCommentResponse = await _container.ReadItemAsync<PendingCommentsDocument>
-        (
-            pendingKey.Id, new PartitionKey(pendingKey.Pk),
-            cancellationToken: context.Cancellation
-        );
-        var pending = pendingCommentResponse.Resource;
-        pending.ETag = pendingCommentResponse.ETag;
-        return pending;
-    }
-    
-    //
-    
-    public async Task<AllPostDocuments> CreatePostAsync(string userId, string? parentUserId, string? parentPostId, string postId, string content, OperationContext context)
-    {
-        var post = new PostDocument(userId, postId, content, context.UtcNow.UtcDateTime, 0, parentUserId, parentPostId);
-        var postCounts = new PostCountsDocument(userId, postId, 0, 0, 0, parentUserId, parentPostId);
         var batch = _container.CreateTransactionalBatch(new PartitionKey(post.Pk));
         batch.CreateItem(post, _noResponse);
         batch.CreateItem(postCounts, _noResponse);
@@ -112,14 +118,12 @@ public sealed class ContentContainer
     
     //
     
-    public async Task CreateCommentAsync(string userId, string parentUserId, string parentPostId, string content, string postId, OperationContext context)
+    public async Task CreateCommentAsync(CommentDocument comment, CommentCountsDocument commentCounts, OperationContext context)
     {
-        var comment = new CommentDocument(userId, postId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime, 0);
-        var commentCounts = new CommentCountsDocument(userId, postId, parentUserId, parentPostId, 0, 0, 0);
         var batch = _container.CreateTransactionalBatch(new PartitionKey(comment.Pk));
         batch.CreateItem(comment, _noResponse);
         batch.CreateItem(commentCounts, _noResponse);
-        batch.PatchItem(PostCountsDocument.Key(parentUserId, parentPostId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noPatchResponse);
+        batch.PatchItem(PostCountsDocument.Key(comment.ParentUserId, comment.ParentPostId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noPatchResponse);
         
         var response = await batch.ExecuteAsync(context.Cancellation);
         ThrowErrorIfTransactionFailed(ContentError.CreateCommentFailure, response);
@@ -159,10 +163,10 @@ public sealed class ContentContainer
     
     //
     
-    public async Task<AllPostDocuments> GetAllPostDocumentsAsync(string userId, string postId, int lastCommentCount, OperationContext context)
+    public async Task<AllPostDocuments> GetAllPostDocumentsAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
     {
-        var keyFrom = PostDocument.KeyPostItemsStart(userId, postId);
-        var keyTo = PostDocument.KeyPostItemsEnd(userId, postId);
+        var keyFrom = PostDocument.KeyPostItemsStart(user.UserId, postId);
+        var keyTo = PostDocument.KeyPostItemsEnd(user.UserId, postId);
 
         const string sql = "select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end order by u.id desc offset 0 limit @limit";
         var query = new QueryDefinition(sql)
@@ -173,7 +177,7 @@ public sealed class ContentContainer
         
         var (post, postCounts, comments, commentCounts) = await ResolvePostWithCommentsQueryAsync(query, context);
         if (post == null)
-            return await TryRecoverPostDocumentsAsync(userId, postId, context);
+            return new AllPostDocuments(null, null, null, null);
         
         return new AllPostDocuments(post, postCounts, comments, commentCounts);
     }
@@ -195,9 +199,9 @@ public sealed class ContentContainer
         return (comments, commentCounts);
     }
     
-    public async Task<PostDocument?> GetPostDocumentAsync(string userId, string postId, OperationContext context)
+    public async Task<PostDocument?> GetPostDocumentAsync(UserSession user, string postId, OperationContext context)
     {
-        var keyFrom = PostDocument.Key(userId, postId);
+        var keyFrom = PostDocument.Key(user.UserId, postId);
 
         const string sql = "select * from u where u.pk = @pk and u.id = @id";
         var query = new QueryDefinition(sql)
@@ -205,12 +209,6 @@ public sealed class ContentContainer
             .WithParameter("@id", keyFrom.Id);
         
         var (post, _, _, _) = await ResolvePostWithCommentsQueryAsync(query, context);
-        if (post == null)
-        {
-            var recovered = await TryRecoverPostDocumentsAsync(userId, postId, context);
-            return recovered.Post;
-        }
-
         return post;
     }
     
@@ -344,24 +342,4 @@ public sealed class ContentContainer
             }
         }
     }
-    
-    private async Task<AllPostDocuments> TryRecoverPostDocumentsAsync(string userId, string postId, OperationContext context)
-    {
-        var pendingComments = await GetPendingCommentAsync(userId, context);
-        var pending = pendingComments?.Items?.SingleOrDefault(x => x.PostId == postId);
-        if (pending != null)
-        {
-            var comment = await GetCommentAsync(pending.ParentUserId, pending.ParentPostId, pending.PostId, context);
-            // If pending is retried, parent counts could be updated more than once. 
-            await UpdateCommentCountsAsync(pending.ParentUserId, pending.ParentPostId, context);
-            var postDocuments = await CreatePostAsync(userId, pending.ParentUserId, pending.ParentPostId, postId, comment.Content, context);
-            await ClearPendingCommentActionAsync(pendingComments!, postId, context);
-                
-            // Because it was missing, it cannot have comments, views or likes
-            return postDocuments;
-        }
-
-        return new AllPostDocuments(null, null, null, null);
-    }
-    
 }

@@ -55,6 +55,9 @@ public abstract class CosmoDatabase
     public T? Deserialize<T>(JsonElement json)
         => json.Deserialize<T>(CosmosClient.ClientOptions.UseSystemTextJsonSerializerWithOptions);
     
+    public T? Deserialize<T>(Stream json)
+        => JsonSerializer.Deserialize<T>(json,CosmosClient.ClientOptions.UseSystemTextJsonSerializerWithOptions);
+    
     private static JsonSerializerOptions CreateJsonSerializerOptions()
         => new()
         {

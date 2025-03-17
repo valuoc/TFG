@@ -22,7 +22,7 @@ public sealed class ProfileContainer
     {
         var batch = _container.CreateTransactionalBatch(new PartitionKey(profile.Pk));
         batch.CreateItem(profile, requestOptions: _transactionNoResponse);
-        batch.CreateItem(new PendingCommentsDocument(userId), _transactionNoResponse);
+        batch.CreateItem(new PendingOperationsDocument(userId), _transactionNoResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
         ThrowErrorIfTransactionFailed(AccountError.UnexpectedError, response);
     }
@@ -52,8 +52,8 @@ public sealed class ProfileContainer
             
         try
         {
-            var pendingComments = PendingCommentsDocument.Key(userId);
-            await _container.DeleteItemAsync<PendingCommentsDocument>(pendingComments.Id, new PartitionKey(pendingComments.Pk), _noResponseContent, context.Cancellation);
+            var pendingComments = PendingOperationsDocument.Key(userId);
+            await _container.DeleteItemAsync<PendingOperationsDocument>(pendingComments.Id, new PartitionKey(pendingComments.Pk), _noResponseContent, context.Cancellation);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {
