@@ -28,13 +28,7 @@ public sealed class ProfileContainer
         ThrowErrorIfTransactionFailed(AccountError.UnexpectedError, response);
     }
     
-    public async ValueTask CreatePasswordLoginAsync(string userId, string email, string password, OperationContext context)
-    {
-        var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
-        await _container.CreateItemAsync(passwordLogin,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-    }
-    
-    public async ValueTask<ProfileDocument?> FindProfileByUserIdAsync(string userId, OperationContext context)
+    public async ValueTask<ProfileDocument?> GetProfileAsync(string userId, OperationContext context)
     {
         var profileKey = ProfileDocument.Key(userId);
         var profileResponse = await _container.ReadItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), cancellationToken: context.Cancellation);
@@ -44,17 +38,6 @@ public sealed class ProfileContainer
         }
 
         return profileResponse.Resource;
-    }
-
-    public async ValueTask<string?> FindUserIdByEmailAndPasswordAsync(string email, string password, OperationContext context)
-    {
-        var loginKey = PasswordLoginDocument.Key(email);
-        var emailResponse = await _container.ReadItemAsync<PasswordLoginDocument>(loginKey.Id, new PartitionKey(loginKey.Pk), cancellationToken: context.Cancellation);
-        if (emailResponse.Resource == null || emailResponse.Resource.Password != Passwords.HashPassword(password))
-        {
-            return null;
-        }
-        return emailResponse.Resource.UserId;
     }
     
     public async Task DeleteProfileDataAsync(string userId, OperationContext context)
@@ -72,15 +55,6 @@ public sealed class ProfileContainer
         {
             var pendingComments = PendingCommentsDocument.Key(userId);
             await _container.DeleteItemAsync<PendingCommentsDocument>(pendingComments.Id, new PartitionKey(pendingComments.Pk), _noResponseContent, context.Cancellation);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-        }
-            
-        try
-        {
-            var passwordLoginKey = PasswordLoginDocument.Key(userId);
-            await _container.DeleteItemAsync<PasswordLoginDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

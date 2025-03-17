@@ -9,7 +9,6 @@ using SocialApp.WebApi.Features.Databases;
 using SocialApp.WebApi.Features.Follow.Databases;
 using SocialApp.WebApi.Features.Follow.Services;
 using SocialApp.WebApi.Features.Services;
-using SocialApp.WebApi.Features.Session.Databases;
 using SocialApp.WebApi.Features.Session.Models;
 using SocialApp.WebApi.Features.Session.Services;
 
@@ -61,8 +60,8 @@ public abstract class ServiceTestsBase
         _followerDatabase = new FollowersDatabase(_cosmosClient, _databaseId, _container);
         _contentDatabase = new ContentDatabase(_cosmosClient, _databaseId, _container);
 
-        AccountService = new AccountService(_accountDatabase, _userDatabase);
-        SessionService = new SessionService(_sessionDatabase);
+        AccountService = new AccountService(_accountDatabase, _userDatabase, _sessionDatabase);
+        SessionService = new SessionService(_userDatabase, _sessionDatabase);
         FollowersService = new FollowersService(_followerDatabase);
         ContentService = new ContentService(_contentDatabase);
         
@@ -82,9 +81,8 @@ public abstract class ServiceTestsBase
     {
         var userName = Guid.NewGuid().ToString("N");
         await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display"+userName, "pass", OperationContext.None());
-        var profile = await AccountService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
-        
-        return profile != null ? new UserSession(profile.UserId, profile.DisplayName, profile.Handle) : throw new InvalidOperationException("Cannot find user");
+        var session = await SessionService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        return session ?? throw new InvalidOperationException("Cannot find user");
     }
     
     protected static CosmosException CreateCosmoException(HttpStatusCode code = HttpStatusCode.InternalServerError)

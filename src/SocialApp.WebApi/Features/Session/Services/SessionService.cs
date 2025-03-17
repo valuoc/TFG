@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Features.Account.Databases;
 using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Session.Databases;
 using SocialApp.WebApi.Features.Session.Documents;
@@ -10,48 +11,61 @@ namespace SocialApp.WebApi.Features.Session.Services;
 
 public class SessionService
 {
-    private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
     private int _sessionLengthSeconds = 60*60;
     
-    private readonly SessionDatabase _sessionDatabase;
+    private readonly UserDatabase _userDd;
+    private readonly SessionDatabase _sessionDb;
 
-    public SessionService(SessionDatabase sessionDatabase)
+    public SessionService(UserDatabase userDd, SessionDatabase sessionDb)
     {
-        _sessionDatabase = sessionDatabase;
+        _userDd = userDd;
+        _sessionDb = sessionDb;
     }
+    
+    private SessionContainer GetSessionContainer()
+        => new(_sessionDb);
+    
+    private ProfileContainer GetProfileContainer()
+        => new(_userDd);
 
-    public async ValueTask<string> StarSessionAsync(UserSession userSession, OperationContext context)
+    public async ValueTask<UserSession?> LoginWithPasswordAsync(string email, string password, OperationContext context)
     {
-        var session = new SessionDocument(Guid.NewGuid().ToString("N"), userSession.UserId, userSession.DisplayName, userSession.Handle)
-        {
-            Ttl = _sessionLengthSeconds
-        };
         try
         {
-            var sessions = _sessionDatabase.GetSessionContainer();
-            await sessions.CreateItemAsync(session, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-            return session.SessionId;
+            var sessions = GetSessionContainer();
+            var userId = await sessions.FindPasswordLoginAsync(email, password, context);
+            if (userId == null)
+                return null;
+
+            var profile = await GetProfileContainer().GetProfileAsync(userId, context);
+
+            if (profile == null)
+                return null;
+            
+            var session = new SessionDocument(Guid.NewGuid().ToString("N"), userId, profile.DisplayName, profile.Handle)
+            {
+                Ttl = _sessionLengthSeconds
+            };
+            
+            await sessions.CreateSessionAsync(session, context);
+            return new UserSession(userId, session.SessionId, profile.DisplayName, profile.Handle);
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
         }
         catch (CosmosException e)
         {
             throw new SessionException(SessionError.UnexpectedError, e);
         }
     }
-
+    
     public async ValueTask<UserSession?> GetSessionAsync(string sessionId, OperationContext context)
     {
         try
         {
-            var sessions = _sessionDatabase.GetSessionContainer();
-            var sessionKey = SessionDocument.Key(sessionId);
-            var response = await sessions.ReadItemAsync<SessionDocument>(sessionKey.Id, new PartitionKey(sessionKey.Pk), cancellationToken: context.Cancellation);
-            if (response?.Resource == null)
-                return null;
-        
-            if(response.Resource.Ttl < _sessionLengthSeconds / 4) // TODO: Patch ?
-                await sessions.ReplaceItemAsync(response.Resource with { Ttl = _sessionLengthSeconds}, sessionId, requestOptions:_noResponseContent, cancellationToken: context.Cancellation);
-        
-            return new UserSession(response.Resource.UserId, response.Resource.DisplayName, response.Resource.Handle);
+            var sessions = GetSessionContainer();
+            return await sessions.GetSessionAsync(sessionId, _sessionLengthSeconds, context);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {
@@ -67,10 +81,8 @@ public class SessionService
     {
         try
         {
-            var sessions = _sessionDatabase.GetSessionContainer();
-            var sessionKey = SessionDocument.Key(sessionId);
-            await sessions.DeleteItemAsync<SessionDocument>(sessionKey.Id, new PartitionKey(sessionKey.Pk), requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-
+            var sessions = GetSessionContainer();
+            await sessions.EndSessionAsync(sessionId, context);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

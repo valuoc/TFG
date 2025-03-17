@@ -1,9 +1,9 @@
-using System.Net;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features.Services;
 using SocialApp.WebApi.Features.Account.Databases;
 using SocialApp.WebApi.Features.Account.Documents;
 using SocialApp.WebApi.Features.Account.Exceptions;
+using SocialApp.WebApi.Features.Session.Databases;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
@@ -11,11 +11,13 @@ public class AccountService
 {
     private readonly AccountDatabase _accountDb;
     private readonly UserDatabase _userDb;
+    private readonly SessionDatabase _sessionDb;
 
-    public AccountService(AccountDatabase accountDb, UserDatabase userDb)
+    public AccountService(AccountDatabase accountDb, UserDatabase userDb, SessionDatabase sessionDb)
     {
         _accountDb = accountDb;
         _userDb = userDb;
+        _sessionDb = sessionDb;
     }
     
     private ProfileContainer GetProfileContainer()
@@ -23,6 +25,9 @@ public class AccountService
     
     private AccountContainer GetAccountContainer()
         => new(_accountDb);
+    
+    private SessionContainer GetSessionContainer()
+        => new(_sessionDb);
 
     public async ValueTask<string> RegisterAsync(string email, string handle, string displayName, string password, OperationContext context)
     {
@@ -47,7 +52,10 @@ public class AccountService
             // Log ?
             context.Signal("clean-up-after-error");
             if(await accounts.PendingAccountCleanUpAsync(pendingUserAccount, context))
+            {
                 await GetProfileContainer().DeleteProfileDataAsync(pendingUserAccount.UserId, context);
+                await GetSessionContainer().DeleteSessionDataAsync(pendingUserAccount.UserId, context);
+            }
         }
         return pendingUserAccount.UserId;
     }
@@ -83,28 +91,8 @@ public class AccountService
             // Login is created on successful account.
             // If this step fails, user could use password recovery
             context.Signal("create-login");
-            await profiles.CreatePasswordLoginAsync(userId, email, password, context);
-        }
-        catch (CosmosException e)
-        {
-            throw new AccountException(AccountError.UnexpectedError, e);
-        }
-    }
-
-    public async ValueTask<ProfileDocument?> LoginWithPasswordAsync(string email, string password, OperationContext context)
-    {
-        try
-        {
-            var profiles = GetProfileContainer();
-            var userId = await profiles.FindUserIdByEmailAndPasswordAsync(email, password, context);
-            if (userId == null)
-                return null;
-
-            return await profiles.FindProfileByUserIdAsync(userId, context);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
+            var sessions = GetSessionContainer();
+            await sessions.CreatePasswordLoginAsync(userId, email, password, context);
         }
         catch (CosmosException e)
         {
@@ -116,6 +104,7 @@ public class AccountService
     {
         var accounts = GetAccountContainer();
         var profiles = GetProfileContainer();
+        var sessions = GetSessionContainer();
         var pendingCount = 0;
 
         await foreach (var pending in accounts.GetExpiredPendingAccountsAsync(timeLimit, context))
@@ -125,6 +114,7 @@ public class AccountService
             {
                 await accounts.PendingAccountCleanUpAsync(pending, context);
                 await profiles.DeleteProfileDataAsync(pending.UserId, context);
+                await sessions.DeleteSessionDataAsync(pending.UserId, context);
             }
             catch (Exception e)
             {
