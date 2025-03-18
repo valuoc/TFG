@@ -1,21 +1,18 @@
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 
-namespace SocialApp.WebApi.Features.Follow.Databases;
+namespace SocialApp.WebApi.Features.Follow.Containers;
 
-public sealed class FollowContainer
+public sealed class FollowContainer : CosmoContainer
 {
-    private readonly Container _container;
-    
     public FollowContainer(UserDatabase userDatabase)
-    {
-        _container = userDatabase.GetContainer();
-    }
+        :base(userDatabase) { }
     
     public async Task SaveFollowingsAsync(FollowingListDocument followings, OperationContext context)
     {
-        await _container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions
+        await Container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions
         {
             EnableContentResponseOnWrite = false,
             IfMatchEtag = followings?.ETag
@@ -24,7 +21,7 @@ public sealed class FollowContainer
     
     public async Task<FollowingListDocument> CreateOrReplaceFollowingsAsync(FollowingListDocument followings, OperationContext context)
     {
-        var response = await _container.UpsertItemAsync(followings, requestOptions: new ItemRequestOptions
+        var response = await Container.UpsertItemAsync(followings, requestOptions: new ItemRequestOptions
         {
             EnableContentResponseOnWrite = true,
             IfMatchEtag = followings?.ETag
@@ -36,7 +33,7 @@ public sealed class FollowContainer
 
     public async Task SaveFollowersAsync(FollowerListDocument followers, OperationContext context)
     {
-        await _container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions
+        await Container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions
         {
             EnableContentResponseOnWrite = false,
             IfMatchEtag = followers?.ETag
@@ -48,7 +45,7 @@ public sealed class FollowContainer
         try
         {
             var followerKey = FollowerListDocument.Key(followedId);
-            var followerResponse = await _container.ReadItemAsync<FollowerListDocument>(followerKey.Id, new PartitionKey(followerKey.Pk), cancellationToken: cancel);
+            var followerResponse = await Container.ReadItemAsync<FollowerListDocument>(followerKey.Id, new PartitionKey(followerKey.Pk), cancellationToken: cancel);
             return followerResponse.Resource;
         }
         catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -62,7 +59,7 @@ public sealed class FollowContainer
         try
         {
             var followingKey = FollowingListDocument.Key(followerId);
-            var followingResponse = await _container.ReadItemAsync<FollowingListDocument>(followingKey.Id, new PartitionKey(followingKey.Pk), cancellationToken: cancel);
+            var followingResponse = await Container.ReadItemAsync<FollowingListDocument>(followingKey.Id, new PartitionKey(followingKey.Pk), cancellationToken: cancel);
             if(followingResponse.Resource != null)
                 followingResponse.Resource.ETag = followingResponse.ETag;
             return followingResponse.Resource;

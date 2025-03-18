@@ -78,7 +78,7 @@ public sealed class ContentService
         var document = await contents.GetPostDocumentAsync(user, postId, context);
         if(document == null)
         {
-            if(await TryRecoverPostDocumentsAsync(contents, user, postId, context))
+            if(await TryRecoverPostDocumentsAsync(pendings, user, postId, context))
                 document = await contents.GetPostDocumentAsync(user, postId, context);
 
             if(document ==null)
@@ -118,7 +118,8 @@ public sealed class ContentService
         var documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
         if(documents.Post == null)
         {
-            if(await TryRecoverPostDocumentsAsync(contents, user, postId, context))
+            var pendings = GetPendingDocumentsContainer();
+            if(await TryRecoverPostDocumentsAsync(pendings, user, postId, context))
                 documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
             if(documents == null)
                 throw new ContentException(ContentError.ContentNotFound);
@@ -141,14 +142,20 @@ public sealed class ContentService
     public async ValueTask<bool> HandlePendingOperationAsync(UserSession user, PendingOperationsDocument pendingDocument, PendingOperation pending, OperationContext context)
     {
         var pendings = GetPendingDocumentsContainer();
-        var result = await (pending.Name switch
+        switch (pending.Name)
         {
-            "SyncCommentToPost" => HandleSyncCommentToPostAsync(user, pending, context),
-            "SyncPostToComment" => HandleSyncPostToCommentAsync(user, pending, context),
-            _ => throw new InvalidOperationException("Unknown pending operation " + pending.Name)
-        });
-        await pendings.ClearPendingOperationAsync(user, pendingDocument!, pending!, context);
-        return result;
+            case "SyncCommentToPost":
+                await HandleSyncCommentToPostAsync(user, pending, context);
+                await pendings.ClearPendingOperationAsync(user, pendingDocument!, pending!, context);
+                return true;
+            
+            case "SyncPostToComment":
+                await HandleSyncPostToCommentAsync(user, pending, context);
+                await pendings.ClearPendingOperationAsync(user, pendingDocument!, pending!, context);
+                return true;
+        }
+        
+        return false;
     }
 
     // Recover from broken post update
@@ -203,14 +210,15 @@ public sealed class ContentService
         return false;
     }
 
-    private async ValueTask<bool> TryRecoverPostDocumentsAsync(ContentContainer contents, UserSession user, string postId, OperationContext context)
+    private async ValueTask<bool> TryRecoverPostDocumentsAsync(PendingDocumentsContainer pendings, UserSession user, string postId, OperationContext context)
     {
-        var pendings = GetPendingDocumentsContainer();
         var pendingDocument = await pendings.GetPendingOperationsAsync(user.UserId, context);
         var pending = pendingDocument?.Items?.SingleOrDefault(x => x.Id == postId);
         if (pending != null)
         {
-            return await HandlePendingOperationAsync(user, pendingDocument!, pending, context);
+            await HandleSyncCommentToPostAsync(user, pending, context);
+            await pendings.ClearPendingOperationAsync(user, pendingDocument!, pending!, context);
+            return true;
         }
 
         return false;

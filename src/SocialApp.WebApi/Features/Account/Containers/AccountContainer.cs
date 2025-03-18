@@ -1,25 +1,24 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Exceptions;
 
 namespace SocialApp.WebApi.Features.Account.Containers;
 
-public sealed class AccountContainer
+public sealed class AccountContainer : CosmoContainer
 {
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
     private static readonly TransactionalBatchItemRequestOptions _transactionNoResponse = new() { EnableContentResponseOnWrite = false };
     
-    private readonly Container _container;
     public AccountContainer(AccountDatabase database)
-    {
-        _container = database.GetContainer();
-    }
+    : base(database)
+    { }
     
     public async Task DeletePendingAccountAsync(PendingAccountDocument pendingUserAccount, OperationContext context)
     {
-        await _container.DeleteItemAsync<PendingAccountDocument>(pendingUserAccount.Id, new PartitionKey(pendingUserAccount.Pk), _noResponseContent, context.Cancellation);
+        await Container.DeleteItemAsync<PendingAccountDocument>(pendingUserAccount.Id, new PartitionKey(pendingUserAccount.Pk), _noResponseContent, context.Cancellation);
     }
 
     public async Task<PendingAccountDocument> RegisterPendingAccountAsync(string userId, string email, string handle, OperationContext context)
@@ -27,7 +26,7 @@ public sealed class AccountContainer
         var pendingUserAccount = new PendingAccountDocument(Ulid.NewUlid().ToString(), email, userId, handle, DateTime.UtcNow);
         try
         {
-            await _container.CreateItemAsync(pendingUserAccount, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+            await Container.CreateItemAsync(pendingUserAccount, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         }
         catch (CosmosException e)
         {
@@ -44,11 +43,11 @@ public sealed class AccountContainer
         try
         {
             var userKey = AccountDocument.Key(pending.UserId);
-            var user = await _container.ReadItemAsync<AccountDocument>(userKey.Id, new PartitionKey(userKey.Pk), cancellationToken: context.Cancellation);
+            var user = await Container.ReadItemAsync<AccountDocument>(userKey.Id, new PartitionKey(userKey.Pk), cancellationToken: context.Cancellation);
             userStatus = user.Resource.Status;
             if (userStatus == AccountStatus.Pending)
             {
-                await _container.DeleteItemAsync<AccountDocument>(user.Resource.Id, new PartitionKey(user.Resource.Pk), _noResponseContent, context.Cancellation);
+                await Container.DeleteItemAsync<AccountDocument>(user.Resource.Id, new PartitionKey(user.Resource.Pk), _noResponseContent, context.Cancellation);
             }
         }
         catch (Exception) { }
@@ -59,7 +58,7 @@ public sealed class AccountContainer
             try
             {
                 var emailLock = AccountEmailDocument.Key(pending.Email);
-                await _container.DeleteItemAsync<AccountEmailDocument>(emailLock.Id, new PartitionKey(emailLock.Pk), _noResponseContent, context.Cancellation);
+                await Container.DeleteItemAsync<AccountEmailDocument>(emailLock.Id, new PartitionKey(emailLock.Pk), _noResponseContent, context.Cancellation);
             }
             catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
@@ -68,31 +67,31 @@ public sealed class AccountContainer
             try
             {
                 var handleLock = AccountHandleDocument.Key(pending.Handle);
-                await _container.DeleteItemAsync<AccountHandleDocument>(handleLock.Id, new PartitionKey(handleLock.Pk), _noResponseContent, context.Cancellation);
+                await Container.DeleteItemAsync<AccountHandleDocument>(handleLock.Id, new PartitionKey(handleLock.Pk), _noResponseContent, context.Cancellation);
             }
             catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
             }
         }
 
-        await _container.DeleteItemAsync<PendingAccountDocument>(pending.Id, new PartitionKey(pending.Pk), _noResponseContent, context.Cancellation);
+        await Container.DeleteItemAsync<PendingAccountDocument>(pending.Id, new PartitionKey(pending.Pk), _noResponseContent, context.Cancellation);
         return isIncomplete;
     }
 
     public async Task CompleteHandleLock(AccountHandleDocument handleLock, OperationContext context)
     {
-        await _container.ReplaceItemAsync(handleLock with { Ttl = -1}, handleLock.Id, new PartitionKey(handleLock.Pk), _noResponseContent, context.Cancellation);
+        await Container.ReplaceItemAsync(handleLock with { Ttl = -1}, handleLock.Id, new PartitionKey(handleLock.Pk), _noResponseContent, context.Cancellation);
     }
 
     public async Task CompleteEmailLockAsync(AccountEmailDocument emailLock, OperationContext context)
     {
-        await _container.ReplaceItemAsync(emailLock with { Ttl = -1}, emailLock.Id, new PartitionKey(emailLock.Pk), _noResponseContent, context.Cancellation);
+        await Container.ReplaceItemAsync(emailLock with { Ttl = -1}, emailLock.Id, new PartitionKey(emailLock.Pk), _noResponseContent, context.Cancellation);
     }
 
     public async Task<AccountDocument> CreateAccountAsPendingAsync(string userId, string email, string handle, OperationContext context)
     {
         var user = new AccountDocument(userId, email, handle, AccountStatus.Pending);
-        await _container.CreateItemAsync(user,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        await Container.CreateItemAsync(user,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         return user;
     }
 
@@ -102,7 +101,7 @@ public sealed class AccountContainer
         try
         {
             context.Signal("handle-lock");
-            await _container.CreateItemAsync(handleLock,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+            await Container.CreateItemAsync(handleLock,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
 
         }
         catch (CosmosException e) when ( e.StatusCode == HttpStatusCode.Conflict)
@@ -123,7 +122,7 @@ public sealed class AccountContainer
         try
         {
             context.Signal("email-lock");
-            await _container.CreateItemAsync(emailLock, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+            await Container.CreateItemAsync(emailLock, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         }
         catch (CosmosException e) when ( e.StatusCode == HttpStatusCode.Conflict)
         {
@@ -139,7 +138,7 @@ public sealed class AccountContainer
     
     public async Task CompleteAccountAsync(AccountContainer accounts, AccountDocument user, OperationContext context)
     {
-        await _container.ReplaceItemAsync(user with { Status = AccountStatus.Completed}, user.Id, new PartitionKey(user.Pk), _noResponseContent, context.Cancellation);
+        await Container.ReplaceItemAsync(user with { Status = AccountStatus.Completed}, user.Id, new PartitionKey(user.Pk), _noResponseContent, context.Cancellation);
     }
     
     public async IAsyncEnumerable<PendingAccountDocument> GetExpiredPendingAccountsAsync(TimeSpan timeLimit, OperationContext context)
@@ -149,7 +148,7 @@ public sealed class AccountContainer
             .WithParameter("@pk", expiryLimit.Pk)
             .WithParameter("@id", expiryLimit.Id);
         
-        using var iterator = _container.GetItemQueryIterator<PendingAccountDocument>(query);
+        using var iterator = Container.GetItemQueryIterator<PendingAccountDocument>(query);
         while (iterator.HasMoreResults)
         {
             var pendings = await iterator.ReadNextAsync(context.Cancellation);

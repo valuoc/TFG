@@ -1,7 +1,7 @@
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
-using SocialApp.WebApi.Features.Follow.Databases;
+using SocialApp.WebApi.Features.Follow.Containers;
 using SocialApp.WebApi.Features.Follow.Exceptions;
 
 namespace SocialApp.WebApi.Features.Follow.Services;

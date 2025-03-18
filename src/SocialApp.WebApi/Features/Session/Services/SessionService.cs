@@ -28,6 +28,7 @@ public class SessionService
     
     private ProfileContainer GetProfileContainer()
         => new(_userDd);
+    
 
     public async ValueTask<UserSession?> LoginWithPasswordAsync(string email, string password, OperationContext context)
     {

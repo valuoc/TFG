@@ -11,25 +11,21 @@ namespace SocialApp.WebApi.Features.Content.Containers;
 
 public record struct AllPostDocuments(PostDocument? Post, PostCountsDocument? PostCounts, List<CommentDocument>? Comments, List<CommentCountsDocument>? CommentCounts);
 
-public sealed class ContentContainer
+public sealed class ContentContainer : CosmoContainer
 {
     private static readonly TransactionalBatchPatchItemRequestOptions _noPatchResponse = new() {EnableContentResponseOnWrite = false};
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
     private static readonly TransactionalBatchItemRequestOptions _noResponse = new() { EnableContentResponseOnWrite = false };
     private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
     
-    private readonly Container _container;
-    private readonly UserDatabase _database;
-
     public ContentContainer(UserDatabase database)
+        :base(database)
     {
-        _container = database.GetContainer();
-        _database = database;
     }
     
     public async Task<AllPostDocuments> CreatePostAsync(PostDocument post, PostCountsDocument postCounts, OperationContext context)
     {
-        var batch = _container.CreateTransactionalBatch(new PartitionKey(post.Pk));
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(post.Pk));
         batch.CreateItem(post, _noResponse);
         batch.CreateItem(postCounts, _noResponse);
         
@@ -58,16 +54,24 @@ public sealed class ContentContainer
             .WithParameter("@typePost", nameof(PostDocument))
             .WithParameter("@typePostCounts", nameof(PostCountsDocument))
             .WithParameter("@limit", limit * 2);
+
         
-        var (posts, postCounts) = await ResolvePostQueryAsync(query, context);
+        var posts = new List<PostDocument>();
+        var postCounts = new List<PostCountsDocument>();
+        await foreach (var document in MultiQueryAsync(query, context))
+        {
+            if(document is PostDocument postDocument)
+                posts.Add(postDocument);
+            if(document is PostCountsDocument postCountsDocument)
+                postCounts.Add(postCountsDocument);
+        }
+        
         return posts;
     }
     
-    //
-    
     public async Task CreateCommentAsync(CommentDocument comment, CommentCountsDocument commentCounts, OperationContext context)
     {
-        var batch = _container.CreateTransactionalBatch(new PartitionKey(comment.Pk));
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(comment.Pk));
         batch.CreateItem(comment, _noResponse);
         batch.CreateItem(commentCounts, _noResponse);
         batch.PatchItem(PostCountsDocument.Key(comment.ParentUserId, comment.ParentPostId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noPatchResponse);
@@ -80,11 +84,11 @@ public sealed class ContentContainer
     {
         // If parent is a comment in other post, it needs to update its comment count
         var parentKey = PostDocument.Key(parentUserId, parentPostId);
-        var parent = await _container.ReadItemAsync<PostDocument>(parentKey.Id, new PartitionKey(parentKey.Pk), cancellationToken: context.Cancellation);
+        var parent = await Container.ReadItemAsync<PostDocument>(parentKey.Id, new PartitionKey(parentKey.Pk), cancellationToken: context.Cancellation);
         if (!string.IsNullOrWhiteSpace(parent?.Resource?.CommentPostId) && !string.IsNullOrWhiteSpace(parent?.Resource?.CommentUserId))
         {
             var parentCommentCountsKey = CommentCountsDocument.Key(parent.Resource.CommentUserId, parent.Resource.CommentPostId, parentPostId);
-            await _container.PatchItemAsync<CommentCountsDocument>
+            await Container.PatchItemAsync<CommentCountsDocument>
             (
                 parentCommentCountsKey.Id, 
                 new PartitionKey(parentCommentCountsKey.Pk), 
@@ -98,7 +102,7 @@ public sealed class ContentContainer
     public async Task<CommentDocument?> GetCommentAsync(string userId, string postId, string commentId, OperationContext context)
     {
         var key = CommentDocument.Key(userId, postId, commentId);
-        var response = await _container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
+        var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
         if(response.Resource != null)
         {
             var comment = response.Resource;
@@ -122,8 +126,24 @@ public sealed class ContentContainer
             .WithParameter("@id_end", keyTo.Id)
             .WithParameter("@limit", 2 + lastCommentCount * 2 );
         
-        var (post, postCounts, comments, commentCounts) = await ResolvePostWithCommentsQueryAsync(query, context);
-        if (post == null)
+        PostDocument? post = null;
+        PostCountsDocument? postCounts = null;
+        var comments = new List<CommentDocument>();
+        var commentCounts = new List<CommentCountsDocument>();
+        await foreach (var document in MultiQueryAsync(query, context))
+        {
+            if(document is PostDocument postDocument)
+                post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
+            if(document is PostCountsDocument postCountsDocument)
+                postCounts = postCounts == null ? postCountsDocument : throw new InvalidOperationException("Expecting a single post.");
+            
+            if(document is CommentDocument commentDocument)
+                comments.Add(commentDocument);
+            if(document is CommentCountsDocument commentCountsDocument)
+                commentCounts.Add(commentCountsDocument);
+        }
+        
+        if(post == null)
             return new AllPostDocuments(null, null, null, null);
         
         return new AllPostDocuments(post, postCounts, comments, commentCounts);
@@ -142,7 +162,16 @@ public sealed class ContentContainer
             .WithParameter("@id_end", keyTo.Id)
             .WithParameter("@limit", lastCommentCount * 2);
         
-        var (_, _, comments, commentCounts) = await ResolvePostWithCommentsQueryAsync(query, context);
+        var comments = new List<CommentDocument>();
+        var commentCounts = new List<CommentCountsDocument>();
+        await foreach (var document in MultiQueryAsync(query, context))
+        {
+            if(document is CommentDocument commentDocument)
+                comments.Add(commentDocument);
+            if(document is CommentCountsDocument commentCountsDocument)
+                commentCounts.Add(commentCountsDocument);
+        }
+        
         return (comments, commentCounts);
     }
     
@@ -155,7 +184,12 @@ public sealed class ContentContainer
             .WithParameter("@pk", keyFrom.Pk)
             .WithParameter("@id", keyFrom.Id);
         
-        var (post, _, _, _) = await ResolvePostWithCommentsQueryAsync(query, context);
+        PostDocument? post = null;
+        await foreach (var document in MultiQueryAsync(query, context))
+        {
+            if(document is PostDocument postDocument)
+                post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
+        }
         return post;
     }
     
@@ -164,7 +198,7 @@ public sealed class ContentContainer
     public async Task ReplaceDocumentAsync<T>(T document, OperationContext context)
         where T:Document
     {
-        await _container.ReplaceItemAsync
+        await Container.ReplaceItemAsync
         (
             document,
             document.Id, new PartitionKey(document.Pk),
@@ -178,7 +212,7 @@ public sealed class ContentContainer
         // TODO: Defer
         // Increase views
         var keyFrom = PostCountsDocument.Key(userId, postId);
-        await _container.PatchItemAsync<PostDocument>
+        await Container.PatchItemAsync<PostDocument>
         (
             keyFrom.Id,
             new PartitionKey(keyFrom.Pk),
@@ -186,95 +220,6 @@ public sealed class ContentContainer
             _patchItemNoResponse, 
             context.Cancellation
         );
-    }
-    
-    private Document? DeserializeDocument(JsonElement item)
-    {
-        var type = item.GetProperty("type").GetString();
-        Document? doc = type switch
-        {
-            nameof(PostDocument) => _database.Deserialize<PostDocument>(item),
-            nameof(CommentDocument) => _database.Deserialize<CommentDocument>(item),
-            nameof(PostCountsDocument) => _database.Deserialize<PostCountsDocument>(item),
-            nameof(CommentCountsDocument) => _database.Deserialize<CommentCountsDocument>(item),
-            _ => null
-        };
-        if (doc != null)
-            doc.ETag = item.GetProperty("_etag").GetString();
-
-        return doc;
-    }
-    
-    private async Task<(PostDocument?, PostCountsDocument?, List<CommentDocument>?, List<CommentCountsDocument>?)> ResolvePostWithCommentsQueryAsync(QueryDefinition postQuery, OperationContext context)
-    {
-        PostDocument? post = null;
-        PostCountsDocument? postCounts = null;
-        List<CommentDocument>? comments = null;
-        List<CommentCountsDocument>? commentCounts = null;
-        
-        using var itemIterator = _container.GetItemQueryIterator<JsonElement>(postQuery);
-
-        while (itemIterator.HasMoreResults)
-        {
-            var items = await itemIterator.ReadNextAsync(context.Cancellation);
-            foreach (var item in items)
-            {
-                var document = DeserializeDocument(item);
-
-                switch (document)
-                {
-                    case PostDocument postDocument:
-                        post = postDocument;
-                        break;
-                    
-                    case PostCountsDocument counts:
-                        postCounts = counts;
-                        break;
-                    
-                    case CommentDocument commentDocument:
-                        comments ??= new List<CommentDocument>();
-                        comments.Add(commentDocument);
-                        break;
-                    
-                    case CommentCountsDocument counts:
-                        commentCounts ??= new List<CommentCountsDocument>();
-                        commentCounts.Add(counts);
-                        break;
-                }
-            }
-        }
-        return (post, postCounts, comments, commentCounts);
-    }
-    
-    private async Task<(List<PostDocument>?, List<PostCountsDocument>?)> ResolvePostQueryAsync(QueryDefinition postQuery, OperationContext context)
-    {
-        List<PostDocument>? posts = null;
-        List<PostCountsDocument>? postCounts = null;
-        
-        using var itemIterator = _container.GetItemQueryIterator<JsonElement>(postQuery);
-
-        while (itemIterator.HasMoreResults)
-        {
-            var items = await itemIterator.ReadNextAsync(context.Cancellation);
-            foreach (var item in items)
-            {
-                var document = DeserializeDocument(item);
-
-                switch (document)
-                {
-                    case PostDocument postDocument:
-                        posts ??= new List<PostDocument>();
-                        posts.Add(postDocument);
-                        break;
-                    
-                    case PostCountsDocument counts:
-                        postCounts ??= new List<PostCountsDocument>();
-                        postCounts.Add(counts);
-                        break;
-                }
-            }
-        }
-        return (posts, postCounts);
     }
     
     private static void ThrowErrorIfTransactionFailed(ContentError error, TransactionalBatchResponse response)

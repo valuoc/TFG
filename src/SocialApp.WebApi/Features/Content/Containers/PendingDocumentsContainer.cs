@@ -1,21 +1,22 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Containers;
 
-public sealed class PendingDocumentsContainer
+public sealed class PendingDocumentsContainer : CosmoContainer
 {
-    private readonly Container _container;
     public PendingDocumentsContainer(UserDatabase database)
-        => _container = database.GetContainer();
+        : base(database)
+    { }
 
     public async Task<PendingOperationsDocument> RegisterPendingOperationAsync(UserSession user, PendingOperation operation, OperationContext context)
     {
         var pendingKey = PendingOperationsDocument.Key(user.UserId);
-        var response = await _container.PatchItemAsync<PendingOperationsDocument>
+        var response = await Container.PatchItemAsync<PendingOperationsDocument>
         (
             pendingKey.Id, new PartitionKey(pendingKey.Pk),
             [PatchOperation.Add("/items/-", operation)], // patch is case sensitive
@@ -32,7 +33,7 @@ public sealed class PendingDocumentsContainer
         try
         {
             var index = pending.Items.Select((c, i) => (c, i)).First(x => x.c.Id == operation.Id).i;
-            await _container.PatchItemAsync<PendingOperationsDocument>
+            await Container.PatchItemAsync<PendingOperationsDocument>
             (
                 pending.Id, new PartitionKey(pending.Pk),
                 [PatchOperation.Remove($"/items/{index}")], // patch is case sensitive
@@ -55,7 +56,7 @@ public sealed class PendingDocumentsContainer
     public async Task<PendingOperationsDocument> GetPendingOperationsAsync(string userId, OperationContext context)
     {
         var pendingKey = PendingOperationsDocument.Key(userId);
-        var response = await _container.ReadItemAsync<PendingOperationsDocument>
+        var response = await Container.ReadItemAsync<PendingOperationsDocument>
         (
             pendingKey.Id, new PartitionKey(pendingKey.Pk),
             cancellationToken: context.Cancellation
