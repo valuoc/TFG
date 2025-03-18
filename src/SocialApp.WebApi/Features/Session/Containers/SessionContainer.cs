@@ -43,11 +43,12 @@ public sealed class SessionContainer : CosmoContainer
         var response = await Container.ReadItemAsync<SessionDocument>(sessionKey.Id, new PartitionKey(sessionKey.Pk), cancellationToken: context.Cancellation);
         if (response?.Resource == null)
             return null;
+
+        var sessionDocument = response.Resource;
+        if(sessionDocument.Ttl < sessionLengthSeconds / 4) // TODO: Patch ?
+            await Container.ReplaceItemAsync(sessionDocument with { Ttl = sessionLengthSeconds}, sessionId, requestOptions:_noResponseContent, cancellationToken: context.Cancellation);
         
-        if(response.Resource.Ttl < sessionLengthSeconds / 4) // TODO: Patch ?
-            await Container.ReplaceItemAsync(response.Resource with { Ttl = sessionLengthSeconds}, sessionId, requestOptions:_noResponseContent, cancellationToken: context.Cancellation);
-        
-        return new UserSession(response.Resource.UserId, sessionId, response.Resource.DisplayName, response.Resource.Handle);
+        return new UserSession(sessionDocument.UserId, sessionId, sessionDocument.DisplayName, sessionDocument.Handle, sessionDocument.HasPendingItems);
     }
     
     public async Task EndSessionAsync(string sessionId, OperationContext context)

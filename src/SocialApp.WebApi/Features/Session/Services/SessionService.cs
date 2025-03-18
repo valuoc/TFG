@@ -4,6 +4,7 @@ using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
+using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Session.Containers;
 using SocialApp.WebApi.Features.Session.Exceptions;
 using SocialApp.WebApi.Features.Session.Models;
@@ -28,7 +29,6 @@ public class SessionService
     
     private ProfileContainer GetProfileContainer()
         => new(_userDd);
-    
 
     public async ValueTask<UserSession?> LoginWithPasswordAsync(string email, string password, OperationContext context)
     {
@@ -39,18 +39,20 @@ public class SessionService
             if (userId == null)
                 return null;
 
-            var profile = await GetProfileContainer().GetProfileAsync(userId, context);
+            var (profile, pending) = await GetProfileContainer().GetProfileAsync(userId, context);
 
             if (profile == null)
                 return null;
+
+            var hasPendingItems = pending?.Items?.Any() ?? false;
             
-            var session = new SessionDocument(Guid.NewGuid().ToString("N"), userId, profile.DisplayName, profile.Handle)
+            var session = new SessionDocument(Guid.NewGuid().ToString("N"), userId, profile.DisplayName, profile.Handle, hasPendingItems)
             {
                 Ttl = _sessionLengthSeconds
             };
             
             await sessions.CreateSessionAsync(session, context);
-            return new UserSession(userId, session.SessionId, profile.DisplayName, profile.Handle);
+            return new UserSession(userId, session.SessionId, profile.DisplayName, profile.Handle, hasPendingItems);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

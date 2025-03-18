@@ -25,16 +25,29 @@ public sealed class ProfileContainer : CosmoContainer
         ThrowErrorIfTransactionFailed(AccountError.UnexpectedError, response);
     }
     
-    public async ValueTask<ProfileDocument?> GetProfileAsync(string userId, OperationContext context)
+    public async ValueTask<(ProfileDocument?, PendingOperationsDocument?)> GetProfileAsync(string userId, OperationContext context)
     {
         var profileKey = ProfileDocument.Key(userId);
-        var profileResponse = await Container.ReadItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), cancellationToken: context.Cancellation);
-        if (profileResponse.Resource == null)
+        
+        const string sql = "select * from u where u.pk = @pk and u.type in (@a, @b)";
+        var query = new QueryDefinition(sql)
+            .WithParameter("@pk", profileKey.Pk)
+            .WithParameter("@a", nameof(ProfileDocument))
+            .WithParameter("@b", nameof(PendingOperationsDocument));
+
+        ProfileDocument? profile = null;
+        PendingOperationsDocument? pendingOperations = null;
+        await foreach (var document in MultiQueryAsync(query, context))
         {
-            return null;
+            if(document is ProfileDocument p)
+                profile = p;
+            else if(document is PendingOperationsDocument pd)
+                pendingOperations = pd;
+            else
+                throw new InvalidOperationException("Unexpected document type: " + document.GetType().Name);
         }
 
-        return profileResponse.Resource;
+        return (profile, pendingOperations);
     }
     
     public async Task DeleteProfileDataAsync(string userId, OperationContext context)

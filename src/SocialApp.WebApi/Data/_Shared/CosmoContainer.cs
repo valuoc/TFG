@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Data._Shared;
@@ -27,7 +26,7 @@ public abstract class CosmoContainer
             .ToDictionary(x => x.Name, x => x);
     }
 
-    protected Document? DeserializeDocument(JsonElement item)
+    private Document? DeserializeDocument(JsonElement item)
     {
         var typeKey = item.GetProperty("type").GetString();
         if(string.IsNullOrWhiteSpace(typeKey))
@@ -45,9 +44,9 @@ public abstract class CosmoContainer
         return null;
     }
     
-    protected async IAsyncEnumerable<Document> MultiQueryAsync(QueryDefinition postQuery, OperationContext context)
+    protected async IAsyncEnumerable<Document> MultiQueryAsync(QueryDefinition query, OperationContext context)
     {
-        using var itemIterator = Container.GetItemQueryIterator<JsonElement>(postQuery);
+        using var itemIterator = Container.GetItemQueryIterator<JsonElement>(query);
 
         while (itemIterator.HasMoreResults)
         {

@@ -21,6 +21,8 @@ public sealed class ContentService
     
     public async ValueTask<string> CreatePostAsync(UserSession user, string content, OperationContext context)
     {
+        await ReconcilePendingOperationsAsync(user, context);
+        
         var postId = Ulid.NewUlid(context.UtcNow).ToString();
         var contents = GetContentsContainer();
         var post = new PostDocument(user.UserId, postId, content, context.UtcNow.UtcDateTime, 0, null, null);
@@ -31,6 +33,7 @@ public sealed class ContentService
     
     public async ValueTask<string> CreateCommentAsync(UserSession user, string parentUserId, string parentPostId, string content, OperationContext context)
     {
+        await ReconcilePendingOperationsAsync(user, context);
         try
         {
             var postId = Ulid.NewUlid(context.UtcNow).ToString();
@@ -72,6 +75,8 @@ public sealed class ContentService
 
     public async ValueTask UpdatePostAsync(UserSession user, string postId, string content, OperationContext context)
     {
+        await ReconcilePendingOperationsAsync(user, context);
+        
         var contents = GetContentsContainer();
         var pendings = GetPendingDocumentsContainer();
         
@@ -113,6 +118,8 @@ public sealed class ContentService
 
     public async ValueTask<Post> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
     {
+        await ReconcilePendingOperationsAsync(user, context);
+        
         var contents = GetContentsContainer();
         
         var documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
@@ -129,17 +136,38 @@ public sealed class ContentService
         return BuildPostModel(documents.Post, documents.PostCounts, documents.Comments, documents.CommentCounts);
     }
     
-    public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
+    public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string postId, string commentId, int lastCommentCount, OperationContext context)
     {
+        await ReconcilePendingOperationsAsync(user, context);
+        
         var contents = GetContentsContainer();
-        var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(userId, postId, commentId, lastCommentCount, context);
+        var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(user.UserId, postId, commentId, lastCommentCount, context);
         if (comments == null)
             return Array.Empty<Comment>();
 
         return BuildCommentList(comments, commentCounts);
     }
+    
+    public async ValueTask<IReadOnlyList<Post>> GetUserPostsAsync(UserSession user, string? afterPostId, int limit, OperationContext context)
+    {
+        await ReconcilePendingOperationsAsync(user, context);
+        
+        var contents = GetContentsContainer();
+        
+        var posts = await contents.GetUserPostsAsync(user.UserId, afterPostId, limit, context);
+        if (posts == null)
+            return Array.Empty<Post>();
+        
+        var postsModels = new List<Post>(posts.Count);
+        for (var i = 0; i < posts.Count; i++)
+        {
+            var post = Post.From(posts[i]);
+            postsModels.Add(post);
+        }
+        return postsModels;
+    }
 
-    public async ValueTask<bool> HandlePendingOperationAsync(UserSession user, PendingOperationsDocument pendingDocument, PendingOperation pending, OperationContext context)
+    private async ValueTask<bool> HandlePendingOperationAsync(UserSession user, PendingOperationsDocument pendingDocument, PendingOperation pending, OperationContext context)
     {
         var pendings = GetPendingDocumentsContainer();
         switch (pending.Name)
@@ -156,6 +184,23 @@ public sealed class ContentService
         }
         
         return false;
+    }
+
+    private async ValueTask ReconcilePendingOperationsAsync(UserSession user, OperationContext context)
+    {
+        if (!user.HasPendingOperations)
+            return;
+        
+        var pendings = GetPendingDocumentsContainer();
+        var pendingDocument = await pendings.GetPendingOperationsAsync(user.UserId, context);
+        
+        if(pendingDocument?.Items == null)
+            return;
+        
+        foreach (var pending in pendingDocument.Items)
+        {
+            await HandlePendingOperationAsync(user, pendingDocument, pending, context);
+        }
     }
 
     // Recover from broken post update
@@ -237,24 +282,7 @@ public sealed class ContentService
         commentModels.Reverse();
         return commentModels;
     }
-
-    public async ValueTask<IReadOnlyList<Post>> GetUserPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
-    {
-        var contents = GetContentsContainer();
-        
-        var posts = await contents.GetUserPostsAsync(userId, afterPostId, limit, context);
-        if (posts == null)
-            return Array.Empty<Post>();
-        
-        var postsModels = new List<Post>(posts.Count);
-        for (var i = 0; i < posts.Count; i++)
-        {
-            var post = Post.From(posts[i]);
-            postsModels.Add(post);
-        }
-        return postsModels;
-    }
-
+    
     private static Post? BuildPostModel(PostDocument post, PostCountsDocument postCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
     {
         var model = Post.From(post);

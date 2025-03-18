@@ -96,19 +96,19 @@ public class ContentServiceTests: ServiceTestsBase
         for (var i = 0; i < 5; i++)
             Assert.That(post.LastComments[i].Content, Is.EqualTo((i+6).ToString()));
         
-        var prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, post1Id, post.LastComments[0].PostId, 2, OperationContext.None());
+        var prevComments = await ContentService.GetPreviousCommentsAsync(user1, post1Id, post.LastComments[0].PostId, 2, OperationContext.None());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments.Count, Is.EqualTo(2));
         for (var i = 0; i < 2; i++)
             Assert.That(prevComments[i].Content, Is.EqualTo((i+4).ToString()));
         
-        prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, post1Id, prevComments[0].PostId, 3, OperationContext.None());
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1, post1Id, prevComments[0].PostId, 3, OperationContext.None());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments.Count, Is.EqualTo(3));
         for (var i = 0; i < 3; i++)
             Assert.That(prevComments[i].Content, Is.EqualTo((i+1).ToString()));
         
-        prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, post1Id, prevComments[0].PostId, 3, OperationContext.None());
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1, post1Id, prevComments[0].PostId, 3, OperationContext.None());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments, Is.Empty);
     }
@@ -159,19 +159,19 @@ public class ContentServiceTests: ServiceTestsBase
             }
         }
 
-        var posts = await ContentService.GetUserPostsAsync(user1.UserId, null, 5, OperationContext.None());
+        var posts = await ContentService.GetUserPostsAsync(user1, null, 5, OperationContext.None());
         Assert.That(posts, Is.Not.Null);
         Assert.That(posts.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
             Assert.That(posts[i].Content, Is.EqualTo((10 - i).ToString()));
         
-        posts = await ContentService.GetUserPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
+        posts = await ContentService.GetUserPostsAsync(user1, posts[^1].PostId, 5, OperationContext.None());
         Assert.That(posts, Is.Not.Null);
         Assert.That(posts.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
             Assert.That(posts[i].Content, Is.EqualTo((5 - i).ToString()));
         
-        posts = await ContentService.GetUserPostsAsync(user1.UserId, posts[^1].PostId, 5, OperationContext.None());
+        posts = await ContentService.GetUserPostsAsync(user1, posts[^1].PostId, 5, OperationContext.None());
         Assert.That(posts, Is.Not.Null);
         Assert.That(posts.Count, Is.EqualTo(0));
     }

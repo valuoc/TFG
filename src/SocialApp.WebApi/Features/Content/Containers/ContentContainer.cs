@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
@@ -61,8 +60,10 @@ public sealed class ContentContainer : CosmoContainer
         {
             if(document is PostDocument postDocument)
                 posts.Add(postDocument);
-            if(document is PostCountsDocument postCountsDocument)
+            else if (document is PostCountsDocument postCountsDocument)
                 postCounts.Add(postCountsDocument);
+            else
+                throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
         return posts;
@@ -133,13 +134,14 @@ public sealed class ContentContainer : CosmoContainer
         {
             if(document is PostDocument postDocument)
                 post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
-            if(document is PostCountsDocument postCountsDocument)
+            else if(document is PostCountsDocument postCountsDocument)
                 postCounts = postCounts == null ? postCountsDocument : throw new InvalidOperationException("Expecting a single post.");
-            
-            if(document is CommentDocument commentDocument)
+            else if(document is CommentDocument commentDocument)
                 comments.Add(commentDocument);
-            if(document is CommentCountsDocument commentCountsDocument)
+            else if(document is CommentCountsDocument commentCountsDocument)
                 commentCounts.Add(commentCountsDocument);
+            else
+                throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
         if(post == null)
@@ -167,8 +169,10 @@ public sealed class ContentContainer : CosmoContainer
         {
             if(document is CommentDocument commentDocument)
                 comments.Add(commentDocument);
-            if(document is CommentCountsDocument commentCountsDocument)
+            else if(document is CommentCountsDocument commentCountsDocument)
                 commentCounts.Add(commentCountsDocument);
+            else
+                throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
         return (comments, commentCounts);
@@ -188,6 +192,8 @@ public sealed class ContentContainer : CosmoContainer
         {
             if(document is PostDocument postDocument)
                 post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
+            else
+                throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         return post;
     }
