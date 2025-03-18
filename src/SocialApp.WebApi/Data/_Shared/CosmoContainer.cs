@@ -16,21 +16,33 @@ public abstract class CosmoContainer
         _database = database;
     }
 
+    static readonly IDictionary<string, Type> _types = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+    static CosmoContainer()
+    {
+        _types = AppDomain
+            .CurrentDomain
+            .GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t.IsAssignableTo(typeof(Document)))
+            .ToDictionary(x => x.Name, x => x);
+    }
+
     protected Document? DeserializeDocument(JsonElement item)
     {
-        var type = item.GetProperty("type").GetString();
-        Document? doc = type switch
+        var typeKey = item.GetProperty("type").GetString();
+        if(string.IsNullOrWhiteSpace(typeKey))
+            return null;
+        
+        if (_types.TryGetValue(typeKey, out var type))
         {
-            nameof(PostDocument) => _database.Deserialize<PostDocument>(item),
-            nameof(CommentDocument) => _database.Deserialize<CommentDocument>(item),
-            nameof(PostCountsDocument) => _database.Deserialize<PostCountsDocument>(item),
-            nameof(CommentCountsDocument) => _database.Deserialize<CommentCountsDocument>(item),
-            _ => null
-        };
-        if (doc != null)
-            doc.ETag = item.GetProperty("_etag").GetString();
+            var doc = _database.Deserialize(type, item) as Document;
+            if (doc != null)
+                doc.ETag = item.GetProperty("_etag").GetString();
 
-        return doc;
+            return doc;
+        }
+
+        return null;
     }
     
     protected async IAsyncEnumerable<Document> MultiQueryAsync(QueryDefinition postQuery, OperationContext context)

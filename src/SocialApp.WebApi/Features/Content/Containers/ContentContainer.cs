@@ -54,7 +54,6 @@ public sealed class ContentContainer : CosmoContainer
             .WithParameter("@typePost", nameof(PostDocument))
             .WithParameter("@typePostCounts", nameof(PostCountsDocument))
             .WithParameter("@limit", limit * 2);
-
         
         var posts = new List<PostDocument>();
         var postCounts = new List<PostCountsDocument>();
