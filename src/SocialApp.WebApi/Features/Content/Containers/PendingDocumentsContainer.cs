@@ -15,6 +15,7 @@ public sealed class PendingDocumentsContainer : CosmoContainer
 
     public async Task<PendingOperationsDocument> RegisterPendingOperationAsync(UserSession user, PendingOperation operation, OperationContext context)
     {
+        user.HasPendingOperations = true;
         var pendingKey = PendingOperationsDocument.Key(user.UserId);
         var response = await Container.PatchItemAsync<PendingOperationsDocument>
         (
@@ -38,12 +39,13 @@ public sealed class PendingDocumentsContainer : CosmoContainer
                 [PatchOperation.Remove($"/items/{index}")], // patch is case sensitive
                 new PatchItemRequestOptions
                 {
-                    EnableContentResponseOnWrite = false,
+                    EnableContentResponseOnWrite = true,
                     IfMatchEtag = pending.ETag
                 },
                 cancellationToken: context.Cancellation
             );
             pending.ETag = response.ETag;
+            user.HasPendingOperations = response.Resource?.Items?.Any() ?? false;
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
         {

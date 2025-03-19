@@ -177,7 +177,7 @@ public class ContentServiceTests: ServiceTestsBase
     }
     
     [Test, Order(6)]
-    public async Task Content_Comment_RecoverFrom_Failure()
+    public async Task Content_Comment_RecoverFrom_PostPartialFailure()
     {
         var user1 = await CreateUserAsync();
         var user2 = await CreateUserAsync();
@@ -208,5 +208,31 @@ public class ContentServiceTests: ServiceTestsBase
         
         var post2 = await ContentService.GetPostAsync(user2, post2Id, 5, OperationContext.None());
         Assert.That(post2.Content, Is.EqualTo("Updated!"));
+    }
+    
+    [Test, Order(7)]
+    public async Task Content_Comment_RecoverFrom_CommentPartialFailure()
+    {
+        var user1 = await CreateUserAsync();
+        var user2 = await CreateUserAsync();
+
+        var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
+        var commentId = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
+        
+        var context = OperationContext.None();
+        context.FailOnSignal("update-comment", CreateCosmoException());
+        Assert.ThrowsAsync<ContentException>( () => ContentService.UpdatePostAsync(user2, commentId, "Child !!!", context).AsTask());
+        Assert.That(user2.HasPendingOperations, Is.True);
+        
+        var commentPost = await ContentService.GetPostAsync(user2, commentId, 5, OperationContext.None());
+        Assert.That(commentPost, Is.Not.Null);
+        Assert.That(commentPost.Content, Is.EqualTo("Child !!!"));
+        
+        var post  = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        Assert.That(post.CommentCount, Is.EqualTo(1));
+        Assert.That(post.LastComments[0].Content, Is.EqualTo("Child !!!"));
+        
+        
+        Assert.That(user2.HasPendingOperations, Is.False);
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
@@ -22,13 +23,19 @@ public sealed class ContentService
     public async ValueTask<string> CreatePostAsync(UserSession user, string content, OperationContext context)
     {
         await ReconcilePendingOperationsAsync(user, context);
-        
-        var postId = Ulid.NewUlid(context.UtcNow).ToString();
-        var contents = GetContentsContainer();
-        var post = new PostDocument(user.UserId, postId, content, context.UtcNow.UtcDateTime, 0, null, null);
-        var postCounts = new PostCountsDocument(user.UserId, postId, 0, 0, 0, null, null);
-        await contents.CreatePostAsync(post, postCounts, context);
-        return postId;
+        try
+        {
+            var postId = Ulid.NewUlid(context.UtcNow).ToString();
+            var contents = GetContentsContainer();
+            var post = new PostDocument(user.UserId, postId, content, context.UtcNow.UtcDateTime, 0, null, null);
+            var postCounts = new PostCountsDocument(user.UserId, postId, 0, 0, 0, null, null);
+            await contents.CreatePostAsync(post, postCounts, context);
+            return postId;
+        }
+        catch (CosmosException e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
     }
     
     public async ValueTask<string> CreateCommentAsync(UserSession user, string parentUserId, string parentPostId, string content, OperationContext context)
@@ -63,10 +70,6 @@ public sealed class ContentService
             await pendings.ClearPendingOperationAsync(user, pending, operation, context);
             return postId;
         }
-        catch (ContentException)
-        {
-            throw;
-        }
         catch (Exception e)
         {
             throw new ContentException(ContentError.UnexpectedError, e);
@@ -76,10 +79,49 @@ public sealed class ContentService
     public async ValueTask UpdatePostAsync(UserSession user, string postId, string content, OperationContext context)
     {
         await ReconcilePendingOperationsAsync(user, context);
+
+        try
+        {
+            var contents = GetContentsContainer();
+            var pendings = GetPendingDocumentsContainer();
         
-        var contents = GetContentsContainer();
-        var pendings = GetPendingDocumentsContainer();
+            var document = await GetOrRecoverPostDocumentAsync(user, postId, contents, pendings, context);
+
+            var updated = document with { Content = content, Version = document.Version + 1 };
         
+            PendingOperationsDocument? pending = null;
+            CommentDocument? comment = null;
+            PendingOperation? operation = null;
+            if (!string.IsNullOrWhiteSpace(document.CommentUserId))
+            {
+                comment = await contents.GetCommentAsync(updated.CommentUserId, updated.CommentPostId, updated.PostId, context);
+                var pendingData = new [] {user.UserId, postId};
+                operation = new PendingOperation(postId, "SyncPostToComment", context.UtcNow.UtcDateTime, pendingData);
+                pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
+            }
+        
+            context.Signal("update-post");
+            await contents.ReplaceDocumentAsync(updated, context);
+
+            if (pending != null)
+            {
+                if(comment.Version >= updated.Version)
+                    return;
+            
+                context.Signal("update-comment");
+                comment = comment with { Content = updated.Content, Version = updated.Version};
+                await contents.ReplaceDocumentAsync(comment, context);
+                await pendings.ClearPendingOperationAsync(user, pending, operation, context);
+            }
+        }
+        catch (CosmosException e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
+    }
+
+    private async Task<PostDocument?> GetOrRecoverPostDocumentAsync(UserSession user, string postId, ContentContainer contents, PendingDocumentsContainer pendings, OperationContext context)
+    {
         var document = await contents.GetPostDocumentAsync(user, postId, context);
         if(document == null)
         {
@@ -90,30 +132,7 @@ public sealed class ContentService
                 throw new ContentException(ContentError.ContentNotFound);
         }
 
-        var updated = document with { Content = content, Version = document.Version + 1 };
-        
-        PendingOperationsDocument? pending = null;
-        CommentDocument? comment = null;
-        PendingOperation? operation = null;
-        if (!string.IsNullOrWhiteSpace(document.CommentUserId))
-        {
-            comment = await contents.GetCommentAsync(updated.CommentUserId, updated.CommentPostId, updated.PostId, context);
-            var pendingData = new [] {user.UserId, postId};
-            operation = new PendingOperation(postId, "SyncPostToComment", context.UtcNow.UtcDateTime, pendingData);
-            pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
-        }
-        
-        await contents.ReplaceDocumentAsync(updated, context);
-
-        if (pending != null)
-        {
-            if(comment.Version >= updated.Version)
-                return;
-            
-            comment = comment with { Content = updated.Content, Version = updated.Version};
-            await contents.ReplaceDocumentAsync(comment, context);
-            await pendings.ClearPendingOperationAsync(user, pending, operation, context);
-        }
+        return document;
     }
 
     public async ValueTask<Post> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
@@ -121,31 +140,44 @@ public sealed class ContentService
         await ReconcilePendingOperationsAsync(user, context);
         
         var contents = GetContentsContainer();
-        
-        var documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
-        if(documents.Post == null)
+        try
         {
-            var pendings = GetPendingDocumentsContainer();
-            if(await TryRecoverPostDocumentsAsync(pendings, user, postId, context))
-                documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
-            if(documents == null)
-                throw new ContentException(ContentError.ContentNotFound);
-        }
+            var documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
+            if(documents.Post == null)
+            {
+                var pendings = GetPendingDocumentsContainer();
+                if(await TryRecoverPostDocumentsAsync(pendings, user, postId, context))
+                    documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
+                if(documents == null)
+                    throw new ContentException(ContentError.ContentNotFound);
+            }
 
-        await contents.IncreaseViewsAsync(user.UserId, postId, context);
-        return BuildPostModel(documents.Post, documents.PostCounts, documents.Comments, documents.CommentCounts);
+            await contents.IncreaseViewsAsync(user.UserId, postId, context);
+            return BuildPostModel(documents.Post, documents.PostCounts, documents.Comments, documents.CommentCounts);
+        }
+        catch (CosmosException e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
     }
     
     public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string postId, string commentId, int lastCommentCount, OperationContext context)
     {
         await ReconcilePendingOperationsAsync(user, context);
-        
-        var contents = GetContentsContainer();
-        var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(user.UserId, postId, commentId, lastCommentCount, context);
-        if (comments == null)
-            return Array.Empty<Comment>();
 
-        return BuildCommentList(comments, commentCounts);
+        try
+        {
+            var contents = GetContentsContainer();
+            var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(user.UserId, postId, commentId, lastCommentCount, context);
+            if (comments == null)
+                return Array.Empty<Comment>();
+
+            return BuildCommentList(comments, commentCounts);
+        }
+        catch (CosmosException e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
     }
     
     public async ValueTask<IReadOnlyList<Post>> GetUserPostsAsync(UserSession user, string? afterPostId, int limit, OperationContext context)
@@ -153,18 +185,25 @@ public sealed class ContentService
         await ReconcilePendingOperationsAsync(user, context);
         
         var contents = GetContentsContainer();
-        
-        var posts = await contents.GetUserPostsAsync(user.UserId, afterPostId, limit, context);
-        if (posts == null)
-            return Array.Empty<Post>();
-        
-        var postsModels = new List<Post>(posts.Count);
-        for (var i = 0; i < posts.Count; i++)
+
+        try
         {
-            var post = Post.From(posts[i]);
-            postsModels.Add(post);
+            var posts = await contents.GetUserPostsAsync(user.UserId, afterPostId, limit, context);
+            if (posts == null)
+                return Array.Empty<Post>();
+        
+            var postsModels = new List<Post>(posts.Count);
+            for (var i = 0; i < posts.Count; i++)
+            {
+                var post = Post.From(posts[i]);
+                postsModels.Add(post);
+            }
+            return postsModels;
         }
-        return postsModels;
+        catch (CosmosException e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
     }
 
     private async ValueTask<bool> HandlePendingOperationAsync(UserSession user, PendingOperationsDocument pendingDocument, PendingOperation pending, OperationContext context)
@@ -188,18 +227,25 @@ public sealed class ContentService
 
     private async ValueTask ReconcilePendingOperationsAsync(UserSession user, OperationContext context)
     {
-        if (!user.HasPendingOperations)
-            return;
-        
-        var pendings = GetPendingDocumentsContainer();
-        var pendingDocument = await pendings.GetPendingOperationsAsync(user.UserId, context);
-        
-        if(pendingDocument?.Items == null)
-            return;
-        
-        foreach (var pending in pendingDocument.Items)
+        try
         {
-            await HandlePendingOperationAsync(user, pendingDocument, pending, context);
+            if (!user.HasPendingOperations)
+                return;
+        
+            var pendings = GetPendingDocumentsContainer();
+            var pendingDocument = await pendings.GetPendingOperationsAsync(user.UserId, context);
+        
+            if(pendingDocument?.Items == null)
+                return;
+        
+            foreach (var pending in pendingDocument.Items)
+            {
+                await HandlePendingOperationAsync(user, pendingDocument, pending, context);
+            }
+        }
+        catch (CosmosException e)
+        {
+            // TODO : Log
         }
     }
 
@@ -215,7 +261,7 @@ public sealed class ContentService
         if (post == null)
             return false;
         
-        var comment = await contents.GetCommentAsync(post.CommentUserId, post.CommentUserId, postId, context);
+        var comment = await contents.GetCommentAsync(post.CommentUserId, post.CommentPostId, postId, context);
         
         if (comment == null)
             return false;

@@ -29,7 +29,7 @@ public sealed class ContentContainer : CosmoContainer
         batch.CreateItem(postCounts, _noResponse);
         
         var response = await batch.ExecuteAsync(context.Cancellation);
-        ThrowErrorIfTransactionFailed(ContentError.CreateCommentPostFailure, response);
+        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
         return new AllPostDocuments(post, postCounts, null, null);
     }
     
@@ -77,7 +77,7 @@ public sealed class ContentContainer : CosmoContainer
         batch.PatchItem(PostCountsDocument.Key(comment.ParentUserId, comment.ParentPostId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noPatchResponse);
         
         var response = await batch.ExecuteAsync(context.Cancellation);
-        ThrowErrorIfTransactionFailed(ContentError.CreateCommentFailure, response);
+        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
     public async Task UpdateCommentCountsAsync(string parentUserId, string parentPostId, OperationContext context)

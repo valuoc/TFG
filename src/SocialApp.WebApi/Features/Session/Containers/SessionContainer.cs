@@ -48,7 +48,7 @@ public sealed class SessionContainer : CosmoContainer
         if(sessionDocument.Ttl < sessionLengthSeconds / 4) // TODO: Patch ?
             await Container.ReplaceItemAsync(sessionDocument with { Ttl = sessionLengthSeconds}, sessionId, requestOptions:_noResponseContent, cancellationToken: context.Cancellation);
         
-        return new UserSession(sessionDocument.UserId, sessionId, sessionDocument.DisplayName, sessionDocument.Handle, sessionDocument.HasPendingItems);
+        return new UserSession(sessionDocument.UserId, sessionId, sessionDocument.DisplayName, sessionDocument.Handle) { HasPendingOperations = sessionDocument.HasPendingItems};
     }
     
     public async Task EndSessionAsync(string sessionId, OperationContext context)
