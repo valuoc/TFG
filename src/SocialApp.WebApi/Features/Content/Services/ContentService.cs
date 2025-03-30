@@ -54,7 +54,7 @@ public sealed class ContentService
             var postCounts = new PostCountsDocument(user.UserId, postId, 0, 0, 0, parentUserId, parentPostId);
 
             var pendingData = new [] {parentUserId, parentPostId, postId};
-            var operation = new PendingOperation(postId, "SyncCommentToPost", context.UtcNow.UtcDateTime, pendingData);
+            var operation = new PendingOperation(postId, PendingOperationName.SyncCommentToPost, context.UtcNow.UtcDateTime, pendingData);
             var pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
             
             context.Signal("create-comment");
@@ -96,7 +96,7 @@ public sealed class ContentService
             {
                 comment = await contents.GetCommentAsync(updated.CommentUserId, updated.CommentPostId, updated.PostId, context);
                 var pendingData = new [] {user.UserId, postId};
-                operation = new PendingOperation(postId, "SyncPostToComment", context.UtcNow.UtcDateTime, pendingData);
+                operation = new PendingOperation(postId, PendingOperationName.SyncPostToComment, context.UtcNow.UtcDateTime, pendingData);
                 pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
             }
         
@@ -138,7 +138,7 @@ public sealed class ContentService
             {
                 comment = await contents.GetCommentAsync(post.CommentUserId, post.CommentPostId, post.PostId, context);
                 var pendingData = new [] {post.CommentUserId, post.CommentPostId, postId};
-                operation = new PendingOperation(postId, "DeleteComment", context.UtcNow.UtcDateTime, pendingData);
+                operation = new PendingOperation(postId, PendingOperationName.DeleteComment, context.UtcNow.UtcDateTime, pendingData);
                 pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
             }
         
@@ -250,13 +250,18 @@ public sealed class ContentService
         var pendings = GetPendingDocumentsContainer();
         switch (pending.Name)
         {
-            case "SyncCommentToPost":
+            case PendingOperationName.SyncCommentToPost:
                 await HandleSyncCommentToPostAsync(user, pending, context);
                 await pendings.ClearPendingOperationAsync(user, pendingDocument!, pending!, context);
                 return true;
             
-            case "SyncPostToComment":
+            case PendingOperationName.SyncPostToComment:
                 await HandleSyncPostToCommentAsync(user, pending, context);
+                await pendings.ClearPendingOperationAsync(user, pendingDocument!, pending!, context);
+                return true;
+            
+            case PendingOperationName.DeleteComment:
+                await HandleDeleteCommentAsync(user, pending, context);
                 await pendings.ClearPendingOperationAsync(user, pendingDocument!, pending!, context);
                 return true;
         }
@@ -286,6 +291,19 @@ public sealed class ContentService
         {
             // TODO : Log
         }
+    }
+    
+    // Recover from broken delete comment
+    private async ValueTask HandleDeleteCommentAsync(UserSession user, PendingOperation pending, OperationContext context)
+    {
+        var contents = GetContentsContainer();
+        var userId = pending.Data[0];
+        var postId = pending.Data[1];
+        var commentId = pending.Data[2];
+        var comment = await contents.GetCommentAsync(userId, postId, commentId, context);
+        if (comment == null)
+            return;
+        await contents.RemoveCommentAsync(comment, context);
     }
 
     // Recover from broken post update

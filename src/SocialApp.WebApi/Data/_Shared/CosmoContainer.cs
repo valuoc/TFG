@@ -54,6 +54,8 @@ public abstract class CosmoContainer
         while (itemIterator.HasMoreResults)
         {
             var items = await itemIterator.ReadNextAsync(context.Cancellation);
+            context.AddRequestCharge(items.RequestCharge);
+            context.SaveDebugMetrics(items.IndexMetrics);
             foreach (var item in items)
             {
                 var document = DeserializeDocument(item);

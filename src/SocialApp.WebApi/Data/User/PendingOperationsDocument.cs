@@ -1,7 +1,14 @@
 using SocialApp.WebApi.Data._Shared;
 namespace SocialApp.WebApi.Data.User;
 
-public record PendingOperation(string Id, string Name, DateTime CreationDate, string[] Data);
+public enum PendingOperationName
+{
+    SyncCommentToPost,
+    SyncPostToComment,
+    DeleteComment
+}
+
+public record PendingOperation(string Id, PendingOperationName Name, DateTime CreationDate, string[] Data);
 public record PendingOperationsDocument(string UserId) 
     : Document(Key(UserId))
 {

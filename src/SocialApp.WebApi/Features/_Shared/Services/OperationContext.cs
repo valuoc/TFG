@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace SocialApp.WebApi.Features._Shared.Services;
 
@@ -23,6 +24,11 @@ public sealed class OperationContext
     public DateTimeOffset UtcNow 
         => _fixedTime ?? DateTimeOffset.UtcNow;
 
+    public double OperationCharge { get; private set; }
+
+    private StringBuilder _debugMetricsBuilder;
+    public string DebugMetrics => _debugMetricsBuilder?.ToString() ?? string.Empty;
+
     [DebuggerStepThrough]
     public static OperationContext None() => new(CancellationToken.None);
 
@@ -43,4 +49,15 @@ public sealed class OperationContext
     
     public void SetTime(DateTimeOffset time)
         => _fixedTime = time;
+
+    public void AddRequestCharge(double charge)
+    {
+        OperationCharge += charge;
+    }
+
+    public void SaveDebugMetrics(string debug)
+    {
+        _debugMetricsBuilder ??= new StringBuilder(debug);
+        _debugMetricsBuilder.Append(debug);
+    }
 }

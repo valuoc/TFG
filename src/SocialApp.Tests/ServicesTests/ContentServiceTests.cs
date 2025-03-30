@@ -250,8 +250,11 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(post.CommentCount, Is.EqualTo(2));
         Assert.That(post.LastComments.Count, Is.EqualTo(2));
         Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
-        
-        await ContentService.DeletePostAsync(user2, comment2Id, OperationContext.None());
+
+        var context = OperationContext.None();
+        await ContentService.DeletePostAsync(user2, comment2Id, context);
+        Console.WriteLine(context.OperationCharge);
+        Console.WriteLine(context.DebugMetrics);
         
         Assert.ThrowsAsync<ContentException>(() => ContentService.GetPostAsync(user2, comment2Id, 5, OperationContext.None()).AsTask());
         
@@ -260,6 +263,28 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(post.CommentCount, Is.EqualTo(1));
         Assert.That(post.LastComments.Count, Is.EqualTo(1));
         Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
+    }
+    
+    [Test, Order(5)]
+    public async Task Content_Can_RecoverDelete()
+    {
+        var user1 = await CreateUserAsync();
+        var user2 = await CreateUserAsync();
+
+        var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
+        var comment2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
+        var comment1Id = await ContentService.CreateCommentAsync(user1, user1.UserId, post1Id, "Child Reply !!!", OperationContext.None());
+
+        var context = OperationContext.None();
+        context.FailOnSignal("delete-comment", CreateCosmoException());
+        Assert.ThrowsAsync<ContentException>(() =>  ContentService.DeletePostAsync(user2, comment2Id, context).AsTask());
         
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetPostAsync(user2, comment2Id, 5, OperationContext.None()).AsTask());
+        
+        var post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        Assert.That(post, Is.Not.Null);
+        Assert.That(post.CommentCount, Is.EqualTo(1));
+        Assert.That(post.LastComments.Count, Is.EqualTo(1));
+        Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
     }
 }
