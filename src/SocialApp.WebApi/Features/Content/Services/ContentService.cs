@@ -168,7 +168,7 @@ public sealed class ContentService
                 var pendings = GetPendingDocumentsContainer();
                 if(await TryRecoverPostDocumentsAsync(pendings, user, postId, context))
                     documents = await contents.GetAllPostDocumentsAsync(user, postId, lastCommentCount, context);
-                if(documents == null)
+                if(documents.Post == null)
                     throw new ContentException(ContentError.ContentNotFound);
             }
 

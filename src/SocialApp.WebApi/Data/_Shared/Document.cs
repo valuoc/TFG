@@ -27,4 +27,6 @@ public abstract record Document
     public string? ETag { get; set; }
     
     public int Ttl { get; set; } = -1;
+    
+    public bool Deleted { get; set; }
 }

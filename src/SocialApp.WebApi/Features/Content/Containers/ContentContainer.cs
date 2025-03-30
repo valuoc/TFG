@@ -17,10 +17,10 @@ public sealed class ContentContainer : CosmoContainer
     private static readonly TransactionalBatchItemRequestOptions _noResponse = new() { EnableContentResponseOnWrite = false };
     private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
     
+    private static readonly double _secondsInADay = TimeSpan.FromDays(1).TotalSeconds;
+    
     public ContentContainer(UserDatabase database)
-        :base(database)
-    {
-    }
+        :base(database) { }
     
     public async Task<AllPostDocuments> CreatePostAsync(PostDocument post, OperationContext context)
     {
@@ -41,12 +41,13 @@ public sealed class ContentContainer : CosmoContainer
 
         const string sql = @"
             select * 
-            from u 
-            where u.pk = @pk 
-              and u.sk < @id 
-              and u.type in (@typePost, @typePostCounts) 
-              and is_null(u.commentUserId)
-            order by u.sk desc 
+            from c 
+            where c.pk = @pk 
+              and c.sk < @id 
+              and c.type in (@typePost, @typePostCounts) 
+              and is_null(c.commentUserId)
+              and c.deleted = false
+            order by c.sk desc 
             offset 0 limit @limit";
         
         var query = new QueryDefinition(sql)
@@ -106,7 +107,7 @@ public sealed class ContentContainer : CosmoContainer
     {
         var key = CommentDocument.Key(userId, postId, commentId);
         var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
-        if(response.Resource != null)
+        if(response.Resource is { Deleted: false })
         {
             var comment = response.Resource;
             comment.ETag = response.ETag;
@@ -126,7 +127,9 @@ public sealed class ContentContainer : CosmoContainer
             select * from c 
             where c.pk = @pk 
               and c.sk >= @id 
-              and c.sk < @id_end 
+              and c.sk >= @id 
+              and c.sk < @id_end
+              and c.deleted = false  
             order by c.sk desc 
             offset 0 limit @limit";
         var query = new QueryDefinition(sql)
@@ -134,8 +137,6 @@ public sealed class ContentContainer : CosmoContainer
             .WithParameter("@id", keyFrom.Id)
             .WithParameter("@id_end", keyTo.Id)
             .WithParameter("@limit", 2 + lastCommentCount * 2 );
-
-        var str = query.ToString();
         
         PostDocument? post = null;
         PostCountsDocument? postCounts = null;
@@ -155,7 +156,7 @@ public sealed class ContentContainer : CosmoContainer
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
-        if(post == null)
+        if(post == null || post is { Deleted: true })
             return new AllPostDocuments(null, null, null, null);
         
         return new AllPostDocuments(post, postCounts, comments, commentCounts);
@@ -166,7 +167,13 @@ public sealed class ContentContainer : CosmoContainer
         var key = CommentDocument.Key(userId, postId, commentId);
         var keyTo = PostDocument.KeyPostItemsStart(userId, postId);
 
-        const string sql = "select * from c where c.pk = @pk and c.sk < @id and c.sk > @id_end order by c.sk desc offset 0 limit @limit";
+        const string sql = @"
+            select * from c 
+               where c.pk = @pk 
+                and c.sk < @id 
+                and c.sk > @id_end 
+                and c.deleted = false
+              order by c.sk desc offset 0 limit @limit";
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
@@ -194,7 +201,13 @@ public sealed class ContentContainer : CosmoContainer
         var keyFrom = PostDocument.Key(user.UserId, postId);
         var keyTo = PostCountsDocument.Key(user.UserId, postId);
 
-        const string sql = "select * from c where c.pk = @pk and c.sk >= @id and c.sk <= @id_end";
+        const string sql = @"
+            select * from c 
+                 where c.pk = @pk 
+                   and c.sk >= @id 
+                   and c.sk <= @id_end
+                   and c.deleted = false";
+        
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyFrom.Pk)
             .WithParameter("@id", keyFrom.Id)
@@ -211,6 +224,10 @@ public sealed class ContentContainer : CosmoContainer
             else
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
+
+        if (post is { Deleted: true })
+            return (null, null);
+        
         return (post,postCounts);
     }
     
@@ -229,8 +246,9 @@ public sealed class ContentContainer : CosmoContainer
     public async Task RemovePostAsync(PostDocument document, OperationContext context)
     {
         var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));
-        batch.DeleteItem(document.Id, _noResponse);
-        batch.DeleteItem(PostCountsDocument.Key(document.UserId, document.PostId).Id, _noResponse);
+        var deletePatch = new[] {PatchOperation.Set("/deleted", true), PatchOperation.Set("/ttl", _secondsInADay)};
+        batch.PatchItem(document.Id, deletePatch, _noPatchResponse);
+        batch.PatchItem(PostCountsDocument.Key(document.UserId, document.PostId).Id, deletePatch, _noPatchResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
@@ -238,8 +256,9 @@ public sealed class ContentContainer : CosmoContainer
     public async Task RemoveCommentAsync(CommentDocument document, OperationContext context)
     {
         var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));
-        batch.DeleteItem(document.Id, _noResponse);
-        batch.DeleteItem(CommentCountsDocument.Key(document.ParentUserId, document.ParentPostId, document.PostId).Id, _noResponse);
+        var deletePatch = new[] {PatchOperation.Set("/deleted", true), PatchOperation.Set("/ttl", _secondsInADay)};
+        batch.PatchItem(document.Id, deletePatch, _noPatchResponse);
+        batch.PatchItem(CommentCountsDocument.Key(document.ParentUserId, document.ParentPostId, document.PostId).Id, deletePatch, _noPatchResponse);
         batch.PatchItem(PostCountsDocument.Key(document.ParentUserId, document.ParentPostId).Id, [PatchOperation.Increment( "/commentCount", -1)], _noPatchResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
