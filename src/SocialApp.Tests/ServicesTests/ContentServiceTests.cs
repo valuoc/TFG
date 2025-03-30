@@ -232,7 +232,34 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(post.CommentCount, Is.EqualTo(1));
         Assert.That(post.LastComments[0].Content, Is.EqualTo("Child !!!"));
         
-        
         Assert.That(user2.HasPendingOperations, Is.False);
+    }
+
+    [Test, Order(5)]
+    public async Task Content_Can_Delete()
+    {
+        var user1 = await CreateUserAsync();
+        var user2 = await CreateUserAsync();
+
+        var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
+        var comment2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
+        var comment1Id = await ContentService.CreateCommentAsync(user1, user1.UserId, post1Id, "Child Reply !!!", OperationContext.None());
+
+        var post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        Assert.That(post, Is.Not.Null);
+        Assert.That(post.CommentCount, Is.EqualTo(2));
+        Assert.That(post.LastComments.Count, Is.EqualTo(2));
+        Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
+        
+        await ContentService.DeletePostAsync(user2, comment2Id, OperationContext.None());
+        
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetPostAsync(user2, comment2Id, 5, OperationContext.None()).AsTask());
+        
+        post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        Assert.That(post, Is.Not.Null);
+        Assert.That(post.CommentCount, Is.EqualTo(1));
+        Assert.That(post.LastComments.Count, Is.EqualTo(1));
+        Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
+        
     }
 }

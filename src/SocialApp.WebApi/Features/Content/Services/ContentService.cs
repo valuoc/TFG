@@ -85,14 +85,14 @@ public sealed class ContentService
             var contents = GetContentsContainer();
             var pendings = GetPendingDocumentsContainer();
         
-            var document = await GetOrRecoverPostDocumentAsync(user, postId, contents, pendings, context);
-
-            var updated = document with { Content = content, Version = document.Version + 1 };
+            var (post, _) = await GetOrRecoverPostDocumentAsync(user, postId, contents, pendings, context);
+            
+            var updated = post with { Content = content, Version = post.Version + 1 };
         
             PendingOperationsDocument? pending = null;
             CommentDocument? comment = null;
             PendingOperation? operation = null;
-            if (!string.IsNullOrWhiteSpace(document.CommentUserId))
+            if (!string.IsNullOrWhiteSpace(post.CommentUserId))
             {
                 comment = await contents.GetCommentAsync(updated.CommentUserId, updated.CommentPostId, updated.PostId, context);
                 var pendingData = new [] {user.UserId, postId};
@@ -119,22 +119,45 @@ public sealed class ContentService
             throw new ContentException(ContentError.UnexpectedError, e);
         }
     }
-
-    private async Task<PostDocument?> GetOrRecoverPostDocumentAsync(UserSession user, string postId, ContentContainer contents, PendingDocumentsContainer pendings, OperationContext context)
+    
+    public async ValueTask DeletePostAsync(UserSession user, string postId, OperationContext context)
     {
-        var document = await contents.GetPostDocumentAsync(user, postId, context);
-        if(document == null)
+        await ReconcilePendingOperationsAsync(user, context);
+
+        try
         {
-            if(await TryRecoverPostDocumentsAsync(pendings, user, postId, context))
-                document = await contents.GetPostDocumentAsync(user, postId, context);
+            var contents = GetContentsContainer();
+            var pendings = GetPendingDocumentsContainer();
+        
+            var (post, _) = await GetOrRecoverPostDocumentAsync(user, postId, contents, pendings, context);
+            
+            PendingOperationsDocument? pending = null;
+            CommentDocument? comment = null;
+            PendingOperation? operation = null;
+            if (!string.IsNullOrWhiteSpace(post.CommentUserId))
+            {
+                comment = await contents.GetCommentAsync(post.CommentUserId, post.CommentPostId, post.PostId, context);
+                var pendingData = new [] {post.CommentUserId, post.CommentPostId, postId};
+                operation = new PendingOperation(postId, "DeleteComment", context.UtcNow.UtcDateTime, pendingData);
+                pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
+            }
+        
+            context.Signal("delete-post");
+            await contents.RemovePostAsync(post, context);
 
-            if(document ==null)
-                throw new ContentException(ContentError.ContentNotFound);
+            if (pending != null)
+            {
+                context.Signal("delete-comment");
+                await contents.RemoveCommentAsync(comment, context);
+                await pendings.ClearPendingOperationAsync(user, pending, operation, context);
+            }
         }
-
-        return document;
+        catch (CosmosException e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
     }
-
+    
     public async ValueTask<Post> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
     {
         await ReconcilePendingOperationsAsync(user, context);
@@ -206,6 +229,22 @@ public sealed class ContentService
         }
     }
 
+    private async Task<(PostDocument?, PostCountsDocument?)> GetOrRecoverPostDocumentAsync(UserSession user, string postId, ContentContainer contents, PendingDocumentsContainer pendings, OperationContext context)
+    {
+        var (post, counts) = await contents.GetPostDocumentAsync(user, postId, context);
+        
+        if(post == null)
+        {
+            if(await TryRecoverPostDocumentsAsync(pendings, user, postId, context))
+                (post, counts) = await contents.GetPostDocumentAsync(user, postId, context);
+
+            if(post == null)
+                throw new ContentException(ContentError.ContentNotFound);
+        }
+
+        return (post, counts);
+    }
+
     private async ValueTask<bool> HandlePendingOperationAsync(UserSession user, PendingOperationsDocument pendingDocument, PendingOperation pending, OperationContext context)
     {
         var pendings = GetPendingDocumentsContainer();
@@ -256,7 +295,7 @@ public sealed class ContentService
         
         var userId = pending.Data[0];
         var postId = pending.Data[1];
-        var post = await contents.GetPostDocumentAsync(user, postId, context);
+        var (post, _) = await contents.GetPostDocumentAsync(user, postId, context);
         
         if (post == null)
             return false;

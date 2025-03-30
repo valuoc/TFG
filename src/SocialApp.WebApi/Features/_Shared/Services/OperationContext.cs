@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace SocialApp.WebApi.Features._Shared.Services;
 
 public sealed class OperationContext
@@ -21,6 +23,7 @@ public sealed class OperationContext
     public DateTimeOffset UtcNow 
         => _fixedTime ?? DateTimeOffset.UtcNow;
 
+    [DebuggerStepThrough]
     public static OperationContext None() => new(CancellationToken.None);
 
     public OperationContext(CancellationToken cancel)

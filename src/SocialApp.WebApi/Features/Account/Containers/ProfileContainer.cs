@@ -29,7 +29,7 @@ public sealed class ProfileContainer : CosmoContainer
     {
         var profileKey = ProfileDocument.Key(userId);
         
-        const string sql = "select * from u where u.pk = @pk and u.type in (@a, @b)";
+        const string sql = "select * from c where c.pk = @pk and c.type in (@a, @b)";
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", profileKey.Pk)
             .WithParameter("@a", nameof(ProfileDocument))

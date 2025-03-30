@@ -119,12 +119,20 @@ public sealed class ContentContainer : CosmoContainer
         var keyFrom = PostDocument.KeyPostItemsStart(user.UserId, postId);
         var keyTo = PostDocument.KeyPostItemsEnd(user.UserId, postId);
 
-        const string sql = "select * from u where u.pk = @pk and u.sk >= @id and u.sk < @id_end order by u.sk desc offset 0 limit @limit";
+        const string sql = @"
+            select * from c 
+            where c.pk = @pk 
+              and c.sk >= @id 
+              and c.sk < @id_end 
+            order by c.sk desc 
+            offset 0 limit @limit";
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyFrom.Pk)
             .WithParameter("@id", keyFrom.Id)
             .WithParameter("@id_end", keyTo.Id)
             .WithParameter("@limit", 2 + lastCommentCount * 2 );
+
+        var str = query.ToString();
         
         PostDocument? post = null;
         PostCountsDocument? postCounts = null;
@@ -155,7 +163,7 @@ public sealed class ContentContainer : CosmoContainer
         var key = CommentDocument.Key(userId, postId, commentId);
         var keyTo = PostDocument.KeyPostItemsStart(userId, postId);
 
-        const string sql = "select * from u where u.pk = @pk and u.sk < @id and u.sk > @id_end order by u.sk desc offset 0 limit @limit";
+        const string sql = "select * from c where c.pk = @pk and c.sk < @id and c.sk > @id_end order by c.sk desc offset 0 limit @limit";
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
@@ -178,30 +186,33 @@ public sealed class ContentContainer : CosmoContainer
         return (comments, commentCounts);
     }
     
-    public async Task<PostDocument?> GetPostDocumentAsync(UserSession user, string postId, OperationContext context)
+    public async Task<(PostDocument?,PostCountsDocument?)> GetPostDocumentAsync(UserSession user, string postId, OperationContext context)
     {
         var keyFrom = PostDocument.Key(user.UserId, postId);
+        var keyTo = PostCountsDocument.Key(user.UserId, postId);
 
-        const string sql = "select * from u where u.pk = @pk and u.id = @id";
+        const string sql = "select * from c where c.pk = @pk and c.sk >= @id and c.sk <= @id_end";
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyFrom.Pk)
-            .WithParameter("@id", keyFrom.Id);
+            .WithParameter("@id", keyFrom.Id)
+            .WithParameter("@id_end", keyTo.Id);
         
         PostDocument? post = null;
+        PostCountsDocument? postCounts = null;
         await foreach (var document in MultiQueryAsync(query, context))
         {
             if(document is PostDocument postDocument)
                 post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
+            else if(document is PostCountsDocument postCountsDocument)
+                postCounts = postCounts == null ? postCountsDocument : throw new InvalidOperationException("Expecting a single post counts.");
             else
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
-        return post;
+        return (post,postCounts);
     }
     
-    //
-    
     public async Task ReplaceDocumentAsync<T>(T document, OperationContext context)
-        where T:Document
+        where T : Document
     {
         await Container.ReplaceItemAsync
         (
@@ -210,6 +221,25 @@ public sealed class ContentContainer : CosmoContainer
             new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = false },
             context.Cancellation
         );
+    }
+    
+    public async Task RemovePostAsync(PostDocument document, OperationContext context)
+    {
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));
+        batch.DeleteItem(document.Id, _noResponse);
+        batch.DeleteItem(PostCountsDocument.Key(document.UserId, document.PostId).Id, _noResponse);
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
+    }
+    
+    public async Task RemoveCommentAsync(CommentDocument document, OperationContext context)
+    {
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));
+        batch.DeleteItem(document.Id, _noResponse);
+        batch.DeleteItem(CommentCountsDocument.Key(document.ParentUserId, document.ParentPostId, document.PostId).Id, _noResponse);
+        batch.PatchItem(PostCountsDocument.Key(document.ParentUserId, document.ParentPostId).Id, [PatchOperation.Increment( "/commentCount", -1)], _noPatchResponse);
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
     public async Task IncreaseViewsAsync(string userId, string postId, OperationContext context)

@@ -46,7 +46,10 @@ public abstract class CosmoContainer
     
     protected async IAsyncEnumerable<Document> MultiQueryAsync(QueryDefinition query, OperationContext context)
     {
-        using var itemIterator = Container.GetItemQueryIterator<JsonElement>(query);
+        using var itemIterator = Container.GetItemQueryIterator<JsonElement>(query, null, new QueryRequestOptions
+        {
+            PopulateIndexMetrics = true
+        });
 
         while (itemIterator.HasMoreResults)
         {
