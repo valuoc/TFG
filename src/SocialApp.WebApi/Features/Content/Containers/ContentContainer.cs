@@ -22,8 +22,10 @@ public sealed class ContentContainer : CosmoContainer
     {
     }
     
-    public async Task<AllPostDocuments> CreatePostAsync(PostDocument post, PostCountsDocument postCounts, OperationContext context)
+    public async Task<AllPostDocuments> CreatePostAsync(PostDocument post, OperationContext context)
     {
+        var postCounts = new PostCountsDocument(post.UserId, post.PostId, 0, 0, 0, post.CommentUserId, post.CommentUserId);
+        
         var batch = Container.CreateTransactionalBatch(new PartitionKey(post.Pk));
         batch.CreateItem(post, _noResponse);
         batch.CreateItem(postCounts, _noResponse);
@@ -69,8 +71,9 @@ public sealed class ContentContainer : CosmoContainer
         return posts;
     }
     
-    public async Task CreateCommentAsync(CommentDocument comment, CommentCountsDocument commentCounts, OperationContext context)
+    public async Task CreateCommentAsync(CommentDocument comment, OperationContext context)
     {
+        var commentCounts = new CommentCountsDocument(comment.UserId, comment.PostId, comment.ParentUserId, comment.ParentPostId, 0, 0, 0);
         var batch = Container.CreateTransactionalBatch(new PartitionKey(comment.Pk));
         batch.CreateItem(comment, _noResponse);
         batch.CreateItem(commentCounts, _noResponse);

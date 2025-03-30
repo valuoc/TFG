@@ -28,8 +28,7 @@ public sealed class ContentService
             var postId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = GetContentsContainer();
             var post = new PostDocument(user.UserId, postId, content, context.UtcNow.UtcDateTime, 0, null, null);
-            var postCounts = new PostCountsDocument(user.UserId, postId, 0, 0, 0, null, null);
-            await contents.CreatePostAsync(post, postCounts, context);
+            await contents.CreatePostAsync(post, context);
             return postId;
         }
         catch (CosmosException e)
@@ -48,20 +47,18 @@ public sealed class ContentService
             var pendings = GetPendingDocumentsContainer();
             
             var comment = new CommentDocument(user.UserId, postId, parentUserId, parentPostId, content, context.UtcNow.UtcDateTime, 0);
-            var commentCounts = new CommentCountsDocument(user.UserId, postId, parentUserId, parentPostId, 0, 0, 0);
-
             var post = new PostDocument(user.UserId, postId, content, context.UtcNow.UtcDateTime, 0, parentUserId, parentPostId);
-            var postCounts = new PostCountsDocument(user.UserId, postId, 0, 0, 0, parentUserId, parentPostId);
-
+            
             var pendingData = new [] {parentUserId, parentPostId, postId};
             var operation = new PendingOperation(postId, PendingOperationName.SyncCommentToPost, context.UtcNow.UtcDateTime, pendingData);
+            
             var pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
             
             context.Signal("create-comment");
-            await contents.CreateCommentAsync(comment, commentCounts, context);
+            await contents.CreateCommentAsync(comment, context);
             
             context.Signal("create-comment-post");
-            await contents.CreatePostAsync(post, postCounts, context);
+            await contents.CreatePostAsync(post, context);
             
             context.Signal("update-parent-post");
             await contents.UpdateCommentCountsAsync(parentUserId, parentPostId, context);
@@ -351,7 +348,7 @@ public sealed class ContentService
             await contents.UpdateCommentCountsAsync(parentUserId, parentPostId, context);
             
             // Because it was missing, it cannot have comments, views or likes
-            await contents.CreatePostAsync(post, postCounts, context);
+            await contents.CreatePostAsync(post, context);
             return true;
         }
 
