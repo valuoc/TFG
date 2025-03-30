@@ -41,10 +41,10 @@ public sealed class ContentContainer : CosmoContainer
             select * 
             from u 
             where u.pk = @pk 
-              and u.id < @id 
+              and u.sk < @id 
               and u.type in (@typePost, @typePostCounts) 
               and is_null(u.commentUserId)
-            order by u.id desc 
+            order by u.sk desc 
             offset 0 limit @limit";
         
         var query = new QueryDefinition(sql)
@@ -119,7 +119,7 @@ public sealed class ContentContainer : CosmoContainer
         var keyFrom = PostDocument.KeyPostItemsStart(user.UserId, postId);
         var keyTo = PostDocument.KeyPostItemsEnd(user.UserId, postId);
 
-        const string sql = "select * from u where u.pk = @pk and u.id >= @id and u.id < @id_end order by u.id desc offset 0 limit @limit";
+        const string sql = "select * from u where u.pk = @pk and u.sk >= @id and u.sk < @id_end order by u.sk desc offset 0 limit @limit";
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyFrom.Pk)
             .WithParameter("@id", keyFrom.Id)
@@ -155,7 +155,7 @@ public sealed class ContentContainer : CosmoContainer
         var key = CommentDocument.Key(userId, postId, commentId);
         var keyTo = PostDocument.KeyPostItemsStart(userId, postId);
 
-        const string sql = "select * from u where u.pk = @pk and u.id < @id and u.id > @id_end order by u.id desc offset 0 limit @limit";
+        const string sql = "select * from u where u.pk = @pk and u.sk < @id and u.sk > @id_end order by u.sk desc offset 0 limit @limit";
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)

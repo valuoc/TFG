@@ -144,7 +144,7 @@ public sealed class AccountContainer : CosmoContainer
     public async IAsyncEnumerable<PendingAccountDocument> GetExpiredPendingAccountsAsync(TimeSpan timeLimit, OperationContext context)
     {
         var expiryLimit = PendingAccountDocument.Key(Ulid.NewUlid(DateTimeOffset.UtcNow.Add(-timeLimit)).ToString());
-        var query = new QueryDefinition("select * from u where u.pk = @pk and u.id < @id")
+        var query = new QueryDefinition("select * from u where u.pk = @pk and u.sk < @id")
             .WithParameter("@pk", expiryLimit.Pk)
             .WithParameter("@id", expiryLimit.Id);
         

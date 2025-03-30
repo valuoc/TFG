@@ -13,7 +13,7 @@ public sealed class UserDatabase : CosmoDatabase
         // We need to filter by post
         yield return new IncludedPath()
         {
-            Path = "/type/?",
+            Path = "/sk/?"
         };
     }
 }

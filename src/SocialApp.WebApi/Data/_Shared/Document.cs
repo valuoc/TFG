@@ -8,6 +8,12 @@ public abstract record Document
 {
     public string Id { get; private set; }
     public string Pk { get; private set; }
+    public string Sk
+    {
+        get => Id;
+        set => Id = value;
+    }
+
     public string Type { get; private set; }
     
     protected Document(DocumentKey key)
