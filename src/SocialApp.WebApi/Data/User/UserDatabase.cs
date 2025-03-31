@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data._Shared;
 
@@ -15,5 +16,23 @@ public sealed class UserDatabase : CosmoDatabase
         {
             Path = "/sk/?"
         };
+    }
+
+    protected override IEnumerable<Collection<CompositePath>> GetCompositeIndexes()
+    {
+        yield return
+        [
+            new CompositePath()
+            {
+                Path = "/isPost",
+                Order = CompositePathSortOrder.Ascending
+            },
+
+            new CompositePath()
+            {
+                Path = "/sk",
+                Order = CompositePathSortOrder.Ascending
+            }
+        ];
     }
 }

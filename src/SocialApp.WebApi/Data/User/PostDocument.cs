@@ -5,6 +5,8 @@ namespace SocialApp.WebApi.Data.User;
 public record PostDocument(string UserId, string PostId, string Content, DateTime LastModify, int Version, string? CommentUserId, string? CommentPostId) 
     : Document(Key(UserId, PostId))
 {
+    public bool IsPost => true;
+    
     public static DocumentKey Key(string userId, string postId)
     {
         var pk = "user:"+userId;

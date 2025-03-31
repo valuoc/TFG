@@ -43,10 +43,11 @@ public sealed class ContentContainer : CosmoContainer
             select * 
             from c 
             where c.pk = @pk 
+              and c.isPost = true
               and c.sk < @id 
               and c.type in (@typePost, @typePostCounts) 
-              and is_null(c.commentUserId)
-              and c.deleted = false
+              and not is_defined(c.commentUserId)
+              and not is_defined(c.deleted)
             order by c.sk desc 
             offset 0 limit @limit";
         
@@ -129,7 +130,7 @@ public sealed class ContentContainer : CosmoContainer
               and c.sk >= @id 
               and c.sk >= @id 
               and c.sk < @id_end
-              and c.deleted = false  
+              and not is_defined(c.deleted) 
             order by c.sk desc 
             offset 0 limit @limit";
         var query = new QueryDefinition(sql)
@@ -172,7 +173,7 @@ public sealed class ContentContainer : CosmoContainer
                where c.pk = @pk 
                 and c.sk < @id 
                 and c.sk > @id_end 
-                and c.deleted = false
+                and not is_defined(c.deleted)
               order by c.sk desc offset 0 limit @limit";
         
         var query = new QueryDefinition(sql)
@@ -206,7 +207,7 @@ public sealed class ContentContainer : CosmoContainer
                  where c.pk = @pk 
                    and c.sk >= @id 
                    and c.sk <= @id_end
-                   and c.deleted = false";
+                   and not is_defined(c.deleted)";
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyFrom.Pk)

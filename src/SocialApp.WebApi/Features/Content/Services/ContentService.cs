@@ -412,4 +412,38 @@ public sealed class ContentService
 
         return model;
     }
+    
+    public async Task ProcessChangeFeedAsync(CancellationToken cancel)
+    {
+        var container = GetContentsContainer();
+        var ranges = await container.GetFeedRangesAsync();
+        var tasks = new List<Task>();
+        
+        foreach (var range in ranges)
+            tasks.Add(Task.Run(() => ProcessRangeAsync(container, range, cancel), cancel));
+        
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task ProcessRangeAsync(ContentContainer container, string range, CancellationToken cancel)
+    {
+        await foreach (var document in container.ReadFeedAsync(range, null, cancel))
+        {
+            switch (document)
+            {
+                case PostDocument doc:
+                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
+                    break;
+                case PostCountsDocument doc:
+                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
+                    break;
+                case CommentDocument doc:
+                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
+                    break;
+                case CommentCountsDocument doc:
+                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
+                    break;
+            }
+        }
+    }
 }

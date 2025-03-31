@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -27,9 +28,13 @@ public abstract class CosmoDatabase
             Automatic = true,
             ExcludedPaths = { new ExcludedPath { Path = "/*" } },
             IncludedPaths = {},
+            CompositeIndexes = { }
         };
         foreach(var includedPath in GetIndexedPaths())
             indexingPolicy.IncludedPaths.Add(includedPath);
+        
+        foreach(var compositeIndex in GetCompositeIndexes())
+            indexingPolicy.CompositeIndexes.Add(compositeIndex);
         
         Container container = await database.CreateContainerIfNotExistsAsync(new ContainerProperties
         {
@@ -40,6 +45,11 @@ public abstract class CosmoDatabase
             PartitionKeyDefinitionVersion = PartitionKeyDefinitionVersion.V2,
         });
         Console.WriteLine("Created Container: {0}\n", container.Id);
+    }
+
+    protected virtual IEnumerable<Collection<CompositePath>> GetCompositeIndexes()
+    {
+        yield break;
     }
 
     protected virtual IEnumerable<IncludedPath> GetIndexedPaths()
@@ -58,10 +68,10 @@ public abstract class CosmoDatabase
     private static JsonSerializerOptions CreateJsonSerializerOptions()
         => new()
         {
-            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
             WriteIndented = true,
             PropertyNameCaseInsensitive = true, 
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         };
     
     public static CosmosClient CreateCosmosClient(string endpoint, string authKey, string applicationName)

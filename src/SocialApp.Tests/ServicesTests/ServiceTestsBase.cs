@@ -32,8 +32,9 @@ public abstract class ServiceTestsBase
     private readonly string _container = "test";
     private readonly string _databaseId = "socialapp";
     
+    private readonly CancellationTokenSource _changeFeedCancellationToken = new CancellationTokenSource();
     
-    [SetUp]
+    [OneTimeSetUp]
     public async Task Setup()
     {
         IConfiguration config = new ConfigurationBuilder()
@@ -63,11 +64,15 @@ public abstract class ServiceTestsBase
         
         // Content indexes /pk, /id and /type
         await _userDatabase.InitializeAsync();
+        
+        _ = Task.Run(() =>ContentService.ProcessChangeFeedAsync(_changeFeedCancellationToken.Token));
     }
     
-    [TearDown]
+    [OneTimeTearDown]
     public async Task TearDown()
     {
+        await _changeFeedCancellationToken.CancelAsync();
+        _changeFeedCancellationToken.Dispose();
         if(RemoveContainerAfterTests)
             await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
         _cosmosClient.Dispose();

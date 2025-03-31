@@ -210,7 +210,7 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(post2.Content, Is.EqualTo("Updated!"));
     }
     
-    [Test, Order(7)]
+    [Test, Order(8)]
     public async Task Content_Comment_RecoverFrom_CommentPartialFailure()
     {
         var user1 = await CreateUserAsync();
@@ -235,7 +235,7 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(user2.HasPendingOperations, Is.False);
     }
 
-    [Test, Order(5)]
+    [Test, Order(9)]
     public async Task Content_Can_Delete()
     {
         var user1 = await CreateUserAsync();
@@ -265,7 +265,7 @@ public class ContentServiceTests: ServiceTestsBase
         Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
     }
     
-    [Test, Order(5)]
+    [Test, Order(10)]
     public async Task Content_Can_RecoverDelete()
     {
         var user1 = await CreateUserAsync();

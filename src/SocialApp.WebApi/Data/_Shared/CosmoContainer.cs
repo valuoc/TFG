@@ -1,3 +1,5 @@
+using System.Net;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features._Shared.Services;
@@ -62,6 +64,42 @@ public abstract class CosmoContainer
                 if (document == null)
                     throw new InvalidOperationException("Unable to deserialize document: " + item.ToString());
                 yield return document;
+            }
+        }
+    }
+    
+    public async Task<IReadOnlyList<string>> GetFeedRangesAsync()
+    {
+        var ranges = await Container.GetFeedRangesAsync();
+        return ranges.Select(x => x.ToJsonString()).ToList();
+    }
+    
+    public async IAsyncEnumerable<Document> ReadFeedAsync(string range, string? continuation, [EnumeratorCancellation] CancellationToken cancel)
+    {
+        var start = ChangeFeedStartFrom.Beginning(FeedRange.FromJsonString(range));
+        if(continuation != null)
+            start = ChangeFeedStartFrom.ContinuationToken(continuation);
+        
+        var iterator = Container.GetChangeFeedIterator<JsonElement>(start, ChangeFeedMode.LatestVersion);
+        while (iterator.HasMoreResults)
+        {
+            var items = await iterator.ReadNextAsync(cancel);
+            
+            continuation = items.ContinuationToken;
+
+            if (items.StatusCode == HttpStatusCode.NotModified)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cancel);
+            }
+            else
+            {
+                foreach (var item in items)
+                {
+                    var document = DeserializeDocument(item);
+                    if (document == null)
+                        throw new InvalidOperationException("Unable to deserialize document: " + item.ToString());
+                    yield return document;
+                }
             }
         }
     }
