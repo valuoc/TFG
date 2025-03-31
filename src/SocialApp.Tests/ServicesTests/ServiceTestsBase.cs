@@ -22,6 +22,7 @@ public abstract class ServiceTestsBase
     protected SessionService SessionService;
     protected FollowersService FollowersService;
     protected ContentService ContentService;
+    protected FeedService FeedService;
     
     private AccountDatabase _accountDatabase;
     private UserDatabase _userDatabase;
@@ -61,11 +62,11 @@ public abstract class ServiceTestsBase
         SessionService = new SessionService(_userDatabase, _sessionDatabase);
         FollowersService = new FollowersService(_userDatabase);
         ContentService = new ContentService(_userDatabase);
+        FeedService = new FeedService(_userDatabase);
         
-        // Content indexes /pk, /id and /type
         await _userDatabase.InitializeAsync();
         
-        _ = Task.Run(() =>ContentService.ProcessChangeFeedAsync(_changeFeedCancellationToken.Token));
+        _ = Task.Run(() => FeedService.ProcessChangeFeedAsync(_changeFeedCancellationToken.Token));
     }
     
     [OneTimeTearDown]
@@ -78,9 +79,9 @@ public abstract class ServiceTestsBase
         _cosmosClient.Dispose();
     }
     
-    protected async Task<UserSession> CreateUserAsync()
+    protected async Task<UserSession> CreateUserAsync(string username = "")
     {
-        var userName = Guid.NewGuid().ToString("N");
+        var userName = username + Guid.NewGuid().ToString("N");
         await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display"+userName, "pass", OperationContext.None());
         var session = await SessionService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
         return session ?? throw new InvalidOperationException("Cannot find user");

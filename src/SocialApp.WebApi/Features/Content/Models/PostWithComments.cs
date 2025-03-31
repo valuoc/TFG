@@ -2,20 +2,32 @@ using SocialApp.WebApi.Data.User;
 
 namespace SocialApp.WebApi.Features.Content.Models;
 
-public sealed class Post
+public class Post
 {
     public string UserId { get; set; }
     public string PostId  { get; set; }
     public string Content { get; set; }
     public DateTime LastModify { get; set; }
-    public List<Comment> LastComments { get; set; }
     public int ViewCount { get; set; }
     public int CommentCount { get; set; }
     public int LikeCount { get; set; }
 
-    public static Post From(PostDocument? post)
-    {
-        return new Post
+    public static Post From(FeedPostDocument post)
+        => new()
+        {
+            UserId = post.UserId,
+            PostId = post.PostId,
+            Content = post.Content,
+            LastModify = post.LastModify
+        };
+}
+
+public class PostWithComments : Post
+{
+    public List<Comment> LastComments { get; set; }
+
+    public static PostWithComments From(PostDocument? post)
+        => new()
         {
             UserId = post.UserId,
             PostId = post.PostId,
@@ -23,7 +35,6 @@ public sealed class Post
             LastModify = post.LastModify,
             LastComments = new List<Comment>()
         };
-    }
 }
 
 public sealed class Comment

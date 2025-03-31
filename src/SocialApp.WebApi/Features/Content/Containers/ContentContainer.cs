@@ -35,7 +35,7 @@ public sealed class ContentContainer : CosmoContainer
         return new AllPostDocuments(post, postCounts, null, null);
     }
     
-    public async Task<List<PostDocument>?> GetUserPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async Task<List<(PostDocument, PostCountsDocument)>?> GetUserPostsAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
         var key = PostDocument.KeyUserPostsEnd(userId);
 
@@ -45,7 +45,6 @@ public sealed class ContentContainer : CosmoContainer
             where c.pk = @pk 
               and c.isPost = true
               and c.sk < @id 
-              and c.type in (@typePost, @typePostCounts) 
               and not is_defined(c.commentUserId)
               and not is_defined(c.deleted)
             order by c.sk desc 
@@ -54,8 +53,6 @@ public sealed class ContentContainer : CosmoContainer
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
             .WithParameter("@id", afterPostId == null ? key.Id : PostDocument.Key(userId, afterPostId).Id)
-            .WithParameter("@typePost", nameof(PostDocument))
-            .WithParameter("@typePostCounts", nameof(PostCountsDocument))
             .WithParameter("@limit", limit * 2);
         
         var posts = new List<PostDocument>();
@@ -70,7 +67,7 @@ public sealed class ContentContainer : CosmoContainer
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
-        return posts;
+        return posts.Zip(postCounts).Select(x => (x.First, x.Second)).ToList();
     }
     
     public async Task CreateCommentAsync(CommentDocument comment, OperationContext context)

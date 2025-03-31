@@ -4,6 +4,7 @@ using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Features.Content.Models;
+using SocialApp.WebApi.Features.Follow.Containers;
 using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Services;
@@ -155,7 +156,7 @@ public sealed class ContentService
         }
     }
     
-    public async ValueTask<Post> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
+    public async ValueTask<PostWithComments> GetPostAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
     {
         await ReconcilePendingOperationsAsync(user, context);
         
@@ -200,7 +201,7 @@ public sealed class ContentService
         }
     }
     
-    public async ValueTask<IReadOnlyList<Post>> GetUserPostsAsync(UserSession user, string? afterPostId, int limit, OperationContext context)
+    public async ValueTask<IReadOnlyList<PostWithComments>> GetUserPostsAsync(UserSession user, string? afterPostId, int limit, OperationContext context)
     {
         await ReconcilePendingOperationsAsync(user, context);
         
@@ -210,12 +211,15 @@ public sealed class ContentService
         {
             var posts = await contents.GetUserPostsAsync(user.UserId, afterPostId, limit, context);
             if (posts == null)
-                return Array.Empty<Post>();
+                return Array.Empty<PostWithComments>();
         
-            var postsModels = new List<Post>(posts.Count);
+            var postsModels = new List<PostWithComments>(posts.Count);
             for (var i = 0; i < posts.Count; i++)
             {
-                var post = Post.From(posts[i]);
+                var post = PostWithComments.From(posts[i].Item1);
+                post.CommentCount = posts[i].Item2.CommentCount;
+                post.ViewCount = posts[i].Item2.ViewCount;
+                post.LikeCount = posts[i].Item2.LikeCount;
                 postsModels.Add(post);
             }
             return postsModels;
@@ -383,9 +387,9 @@ public sealed class ContentService
         return commentModels;
     }
     
-    private static Post? BuildPostModel(PostDocument post, PostCountsDocument postCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
+    private static PostWithComments? BuildPostModel(PostDocument post, PostCountsDocument postCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
     {
-        var model = Post.From(post);
+        var model = PostWithComments.From(post);
         model.CommentCount = postCounts.CommentCount;
         model.ViewCount = postCounts.ViewCount +1;
         model.LikeCount = postCounts.LikeCount;
@@ -411,39 +415,5 @@ public sealed class ContentService
         }
 
         return model;
-    }
-    
-    public async Task ProcessChangeFeedAsync(CancellationToken cancel)
-    {
-        var container = GetContentsContainer();
-        var ranges = await container.GetFeedRangesAsync();
-        var tasks = new List<Task>();
-        
-        foreach (var range in ranges)
-            tasks.Add(Task.Run(() => ProcessRangeAsync(container, range, cancel), cancel));
-        
-        await Task.WhenAll(tasks);
-    }
-
-    private async Task ProcessRangeAsync(ContentContainer container, string range, CancellationToken cancel)
-    {
-        await foreach (var document in container.ReadFeedAsync(range, null, cancel))
-        {
-            switch (document)
-            {
-                case PostDocument doc:
-                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
-                    break;
-                case PostCountsDocument doc:
-                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
-                    break;
-                case CommentDocument doc:
-                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
-                    break;
-                case CommentCountsDocument doc:
-                    Console.WriteLine($"{doc.GetType().Name}: {doc.Pk}/{doc.Id}");
-                    break;
-            }
-        }
     }
 }

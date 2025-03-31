@@ -27,7 +27,20 @@ public sealed class UserDatabase : CosmoDatabase
                 Path = "/isPost",
                 Order = CompositePathSortOrder.Ascending
             },
-
+            new CompositePath()
+            {
+                Path = "/sk",
+                Order = CompositePathSortOrder.Ascending
+            }
+        ];
+        
+        yield return
+        [
+            new CompositePath()
+            {
+                Path = "/isFeed",
+                Order = CompositePathSortOrder.Ascending
+            },
             new CompositePath()
             {
                 Path = "/sk",
