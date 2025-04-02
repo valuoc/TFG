@@ -36,11 +36,7 @@ public abstract class CosmoContainer
         
         if (_types.TryGetValue(typeKey, out var type))
         {
-            var doc = _database.Deserialize(type, item) as Document;
-            if (doc != null)
-                doc.ETag = item.GetProperty("_etag").GetString();
-
-            return doc;
+            return _database.Deserialize(type, item) as Document;
         }
 
         return null;

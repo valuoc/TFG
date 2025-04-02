@@ -26,8 +26,6 @@ public sealed class FollowContainer : CosmoContainer
             EnableContentResponseOnWrite = true,
             IfMatchEtag = followings?.ETag
         }, cancellationToken: context.Cancellation);
-        if(response.Resource != null)
-            response.Resource.ETag = response.ETag;
         return response.Resource;
     }
 
@@ -60,8 +58,6 @@ public sealed class FollowContainer : CosmoContainer
         {
             var followingKey = FollowingListDocument.Key(followerId);
             var followingResponse = await Container.ReadItemAsync<FollowingListDocument>(followingKey.Id, new PartitionKey(followingKey.Pk), cancellationToken: cancel);
-            if(followingResponse.Resource != null)
-                followingResponse.Resource.ETag = followingResponse.ETag;
             return followingResponse.Resource;
         }
         catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)

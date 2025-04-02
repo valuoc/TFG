@@ -23,7 +23,7 @@ public abstract record Document
         Type = GetType().Name;
     }
 
-    [JsonIgnore]
+    [JsonPropertyName("_etag")]
     public string? ETag { get; set; }
     
     public int Ttl { get; set; } = -1;

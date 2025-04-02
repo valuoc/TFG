@@ -23,9 +23,7 @@ public sealed class PendingDocumentsContainer : CosmoContainer
             [PatchOperation.Add("/items/-", operation)], // patch is case sensitive
             cancellationToken: context.Cancellation
         );
-        var pending = response.Resource;
-        pending.ETag = response.ETag;
-        return pending;
+        return response.Resource;
     }
 
     public async Task ClearPendingOperationAsync(UserSession user, PendingOperationsDocument pending, PendingOperation operation, OperationContext context)
@@ -44,7 +42,6 @@ public sealed class PendingDocumentsContainer : CosmoContainer
                 },
                 cancellationToken: context.Cancellation
             );
-            pending.ETag = response.ETag;
             user.HasPendingOperations = response.Resource?.Items?.Any() ?? false;
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
@@ -62,8 +59,6 @@ public sealed class PendingDocumentsContainer : CosmoContainer
             pendingKey.Id, new PartitionKey(pendingKey.Pk),
             cancellationToken: context.Cancellation
         );
-        var pending = response.Resource;
-        pending.ETag = response.ETag;
-        return pending;
+        return response.Resource;
     }
 }

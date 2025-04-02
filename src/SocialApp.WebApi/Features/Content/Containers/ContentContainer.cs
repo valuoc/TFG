@@ -107,9 +107,7 @@ public sealed class ContentContainer : CosmoContainer
         var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
         if(response.Resource is { Deleted: false })
         {
-            var comment = response.Resource;
-            comment.ETag = response.ETag;
-            return comment;
+            return response.Resource;
         }
         return null;
     }
