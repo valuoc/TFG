@@ -32,6 +32,7 @@ public sealed class OperationContext
     [DebuggerStepThrough]
     public static OperationContext None() => new(CancellationToken.None);
 
+    [DebuggerStepThrough]
     public OperationContext(CancellationToken cancel)
         => _cancellation = cancel;
 

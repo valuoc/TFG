@@ -4,7 +4,6 @@ using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Features.Content.Models;
-using SocialApp.WebApi.Features.Follow.Containers;
 using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Services;

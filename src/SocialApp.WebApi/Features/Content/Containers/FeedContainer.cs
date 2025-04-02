@@ -2,8 +2,6 @@ using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
-using SocialApp.WebApi.Features.Content.Models;
-using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Containers;
 

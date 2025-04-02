@@ -17,19 +17,22 @@ public sealed class ContentStreamProcessorService
     private FollowContainer GetFollowContainer()
         => new(_userDb);
     
+    private ContentContainer GetContentContainer()
+        => new(_userDb);
+    
     public async Task ProcessChangeFeedAsync(CancellationToken cancel)
     {
-        var container = GetFeedContainer();
-        var ranges = await container.GetFeedRangesAsync();
+        var contents = GetContentContainer();
+        var ranges = await contents.GetFeedRangesAsync();
         var tasks = new List<Task>();
         
         foreach (var range in ranges)
-            tasks.Add(Task.Run(() => ProcessRangeAsync(container, range, cancel), cancel));
+            tasks.Add(Task.Run(() => ProcessRangeAsync(contents, range, cancel), cancel));
         
         await Task.WhenAll(tasks);
     }
 
-    private async Task ProcessRangeAsync(FeedContainer contents, string range, CancellationToken cancel)
+    private async Task ProcessRangeAsync(ContentContainer contents, string range, CancellationToken cancel)
     {
         var follows = GetFollowContainer();
         await foreach (var (documents, continuation) in contents.ReadFeedAsync(range, null, cancel))
@@ -39,25 +42,31 @@ public sealed class ContentStreamProcessorService
                 switch (document)
                 {
                     case PostDocument doc:
-                        await PropagatePostToFollowersFeedsAsync(contents, follows, doc, c);
+                        await PropagatePostToFollowersFeedsAsync(GetFeedContainer(), follows, doc, c);
                         break;
                 
                     case PostCountsDocument doc:
-                        await PropagatePostCountsToFollowersFeedAsync(contents, follows, doc, c);
+                        await PropagatePostCountsToCommentAsync(contents, doc, c);
+                        await PropagatePostCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, c);
                         break;
                 
                     case CommentDocument doc:
-                        //await PropagateCommentToPostAsync(contents, follows, doc, c);
+                        //await PropagateCommentAsync(contents, follows, doc, c);
                         break;
                 
                     case CommentCountsDocument doc:
-                        //await PropagateCommentCountsToPostCountsAsync(contents, follows, doc, c);
+                        //await PropagateCommentCountsAsync(doc, c);
                         break;
                 }
             });
         }
     }
 
+    private async Task PropagatePostCountsToCommentAsync(ContentContainer contents, PostCountsDocument counts, CancellationToken cancel)
+    {
+
+    }
+    
     private static async Task PropagatePostCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, PostCountsDocument doc, CancellationToken cancel)
     {
         var followers2 = await follows.GetFollowersAsync(doc.UserId, cancel);

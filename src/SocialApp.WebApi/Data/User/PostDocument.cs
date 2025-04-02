@@ -6,7 +6,7 @@ public record PostDocument(string UserId, string PostId, string Content, DateTim
     : Document(Key(UserId, PostId))
 {
     public bool IsPost => true;
-    
+
     public static DocumentKey Key(string userId, string postId)
     {
         var pk = "user:"+userId;
