@@ -36,6 +36,8 @@ public abstract class ServiceTestsBase
     
     private readonly CancellationTokenSource _changeFeedCancellationToken = new CancellationTokenSource();
     
+    public Exception FeedError { get; private set; }
+    
     [OneTimeSetUp]
     public async Task Setup()
     {
@@ -68,17 +70,32 @@ public abstract class ServiceTestsBase
         
         await _userDatabase.InitializeAsync();
         
-        _ = Task.Run(() => ContentStreamProcessorService.ProcessChangeFeedAsync(_changeFeedCancellationToken.Token));
+        _ = Task.Run(ProcessChangeFeedAsync);
     }
-    
+
+    private async Task ProcessChangeFeedAsync()
+    {
+        try
+        {
+            await ContentStreamProcessorService.ProcessChangeFeedAsync(_changeFeedCancellationToken.Token);
+        }
+        catch (Exception e)
+        {
+            FeedError = e;
+        }
+    }
+
     [OneTimeTearDown]
     public async Task TearDown()
     {
+        var feedError = FeedError;
         await _changeFeedCancellationToken.CancelAsync();
         _changeFeedCancellationToken.Dispose();
         if(RemoveContainerAfterTests)
             await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
         _cosmosClient.Dispose();
+        if(feedError != null)
+            throw feedError;
     }
     
     protected async Task<UserSession> CreateUserAsync(string username = "")

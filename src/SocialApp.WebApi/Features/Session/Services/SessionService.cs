@@ -51,7 +51,7 @@ public class SessionService
             };
             
             await sessions.CreateSessionAsync(session, context);
-            return new UserSession(userId, session.SessionId, profile.DisplayName, profile.Handle) { HasPendingOperations = hasPendingItems};
+            return new UserSession(userId, session.SessionId, profile.DisplayName, profile.Handle);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

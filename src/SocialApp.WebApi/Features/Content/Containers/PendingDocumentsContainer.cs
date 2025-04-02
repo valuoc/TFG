@@ -15,7 +15,6 @@ public sealed class PendingDocumentsContainer : CosmoContainer
 
     public async Task<PendingOperationsDocument> RegisterPendingOperationAsync(UserSession user, PendingOperation operation, OperationContext context)
     {
-        user.HasPendingOperations = true;
         var pendingKey = PendingOperationsDocument.Key(user.UserId);
         var response = await Container.PatchItemAsync<PendingOperationsDocument>
         (
@@ -42,7 +41,6 @@ public sealed class PendingDocumentsContainer : CosmoContainer
                 },
                 cancellationToken: context.Cancellation
             );
-            user.HasPendingOperations = response.Resource?.Items?.Any() ?? false;
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
         {

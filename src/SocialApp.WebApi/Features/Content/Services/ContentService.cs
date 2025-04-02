@@ -22,7 +22,6 @@ public sealed class ContentService
     
     public async ValueTask<string> CreatePostAsync(UserSession user, string content, OperationContext context)
     {
-        await ReconcilePendingOperationsAsync(user, context);
         try
         {
             var postId = Ulid.NewUlid(context.UtcNow).ToString();
@@ -39,7 +38,6 @@ public sealed class ContentService
     
     public async ValueTask<string> CreateCommentAsync(UserSession user, string threadUserId, string threadId, string content, OperationContext context)
     {
-        await ReconcilePendingOperationsAsync(user, context);
         try
         {
             var commentId = Ulid.NewUlid(context.UtcNow).ToString();
@@ -72,40 +70,33 @@ public sealed class ContentService
 
     public async ValueTask UpdateThreadAsync(UserSession user, string threadId, string content, OperationContext context)
     {
-        await ReconcilePendingOperationsAsync(user, context);
-
         try
         {
             var contents = GetContentsContainer();
-            var pendings = GetPendingDocumentsContainer();
-        
-            var (thread, _) = await GetOrRecoverThreadDocumentAsync(user, threadId, contents, pendings, context);
+
+            var (thread, _) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
+            
+            if(thread == null)
+                throw new ContentException(ContentError.ContentNotFound);
             
             thread = thread with { Content = content, Version = thread.Version + 1 };
-        
-            PendingOperationsDocument? pending = null;
-            CommentDocument? comment = null;
-            PendingOperation? operation = null;
-            if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
-            {
-                comment = await contents.GetCommentAsync(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, context);
-                var pendingData = new [] {user.UserId, threadId};
-                operation = new PendingOperation(threadId, PendingOperationName.SyncPostToComment, context.UtcNow.UtcDateTime, pendingData);
-                pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
-            }
-        
+            
             context.Signal("update-post");
             await contents.ReplaceDocumentAsync(thread, context);
 
-            if (pending != null)
+            if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
             {
-                if(comment.Version >= thread.Version)
-                    return;
-            
-                context.Signal("update-comment");
-                comment = comment with { Content = thread.Content, Version = thread.Version};
-                await contents.ReplaceDocumentAsync(comment, context);
-                await pendings.ClearPendingOperationAsync(user, pending, operation, context);
+                try
+                {
+                    context.Signal("update-comment");
+                    var comment = new CommentDocument(thread.ParentThreadUserId, thread.ParentThreadId, thread.UserId, thread.ThreadId, thread.Content, thread.LastModify, thread.Version);
+                    await contents.ReplaceDocumentAsync(comment, context);
+                }
+                catch (CosmosException e)
+                {
+                    // Change Feed will fix this
+                    // Log ?
+                }
             }
         }
         catch (CosmosException e)
@@ -123,7 +114,7 @@ public sealed class ContentService
             var contents = GetContentsContainer();
             var pendings = GetPendingDocumentsContainer();
         
-            var (thread, _) = await GetOrRecoverThreadDocumentAsync(user, threadId, contents, pendings, context);
+            var (thread, _) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
             
             PendingOperationsDocument? pending = null;
             CommentDocument? comment = null;
@@ -225,23 +216,7 @@ public sealed class ContentService
             throw new ContentException(ContentError.UnexpectedError, e);
         }
     }
-
-    private async Task<(ThreadDocument?, ThreadCountsDocument?)> GetOrRecoverThreadDocumentAsync(UserSession user, string threadId, ContentContainer contents, PendingDocumentsContainer pendings, OperationContext context)
-    {
-        var (thread, counts) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
-        
-        if(thread == null)
-        {
-            if(await TryRecoverThreadDocumentsAsync(pendings, user, threadId, context))
-                (thread, counts) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
-
-            if(thread == null)
-                throw new ContentException(ContentError.ContentNotFound);
-        }
-
-        return (thread, counts);
-    }
-
+    
     private async ValueTask<bool> HandlePendingOperationAsync(UserSession user, PendingOperationsDocument pendingDocument, PendingOperation pending, OperationContext context)
     {
         var pendings = GetPendingDocumentsContainer();
@@ -270,9 +245,6 @@ public sealed class ContentService
     {
         try
         {
-            if (!user.HasPendingOperations)
-                return;
-        
             var pendings = GetPendingDocumentsContainer();
             var pendingDocument = await pendings.GetPendingOperationsAsync(user.UserId, context);
         

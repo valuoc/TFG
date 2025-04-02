@@ -44,6 +44,7 @@ public sealed class ContentStreamProcessorService
                 {
                     case ThreadDocument doc:
                         await PropagateThreadToFollowersFeedsAsync(GetFeedContainer(), follows, doc, c);
+                        await PropagateThreadToCommentAsync(contents, doc, c);
                         break;
                 
                     case ThreadCountsDocument doc:
@@ -60,6 +61,18 @@ public sealed class ContentStreamProcessorService
                 }
             });
         }
+    }
+
+    private async Task PropagateThreadToCommentAsync(ContentContainer contents, ThreadDocument thread, CancellationToken cancel)
+    {
+        if(thread.IsRootThread)
+            return;
+        var context = new OperationContext(cancel);
+        var comment = await contents.GetCommentAsync(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, context);
+        if(comment == null)
+            await contents.CreateCommentAsync(new CommentDocument(thread.ParentThreadUserId, thread.ParentThreadId, thread.UserId, thread.ThreadId, thread.Content, thread.LastModify, thread.Version), context);
+        else if (comment.Version != thread.Version)
+            await contents.ReplaceDocumentAsync(comment with { Content = thread.Content, Version = thread.Version }, context);
     }
 
     private async Task PropagateCommentAsThreadAsync(ContentContainer contents, CommentDocument comment, CancellationToken cancel)
