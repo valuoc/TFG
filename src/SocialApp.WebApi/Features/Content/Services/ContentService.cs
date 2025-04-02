@@ -44,27 +44,24 @@ public sealed class ContentService
         {
             var commentId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = GetContentsContainer();
-            var pendings = GetPendingDocumentsContainer();
             
             var comment = new CommentDocument(threadUserId, threadId, user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0);
             var thread = new ThreadDocument(user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0, threadUserId, threadId);
             
-            var pendingData = new [] {threadUserId, threadId, commentId};
-            var operation = new PendingOperation(commentId, PendingOperationName.SyncCommentToPost, context.UtcNow.UtcDateTime, pendingData);
-            
-            var pending = await pendings.RegisterPendingOperationAsync(user, operation, context);
-            
             context.Signal("create-comment");
             await contents.CreateCommentAsync(comment, context);
+
+            try
+            {
+                context.Signal("create-comment-post");
+                await contents.CreateThreadAsync(thread, context);
+            }
+            catch (CosmosException)
+            {
+                // Change feed will correct this
+                // log?
+            }
             
-            context.Signal("create-comment-post");
-            await contents.CreateThreadAsync(thread, context);
-            
-            context.Signal("update-parent-post");
-            await contents.UpdateCommentCountsAsync(threadUserId, threadId, context);
-            context.Signal("clear-pending-comment");
-            
-            await pendings.ClearPendingOperationAsync(user, pending, operation, context);
             return commentId;
         }
         catch (Exception e)
@@ -231,12 +228,12 @@ public sealed class ContentService
 
     private async Task<(ThreadDocument?, ThreadCountsDocument?)> GetOrRecoverThreadDocumentAsync(UserSession user, string threadId, ContentContainer contents, PendingDocumentsContainer pendings, OperationContext context)
     {
-        var (thread, counts) = await contents.GetPostDocumentAsync(user, threadId, context);
+        var (thread, counts) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
         
         if(thread == null)
         {
             if(await TryRecoverThreadDocumentsAsync(pendings, user, threadId, context))
-                (thread, counts) = await contents.GetPostDocumentAsync(user, threadId, context);
+                (thread, counts) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
 
             if(thread == null)
                 throw new ContentException(ContentError.ContentNotFound);
@@ -312,21 +309,21 @@ public sealed class ContentService
         var contents = GetContentsContainer();
         
         var userId = pending.Data[0];
-        var postId = pending.Data[1];
-        var (post, _) = await contents.GetPostDocumentAsync(user, postId, context);
+        var threadId = pending.Data[1];
+        var (thread, _) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
         
-        if (post == null)
+        if (thread == null)
             return false;
         
-        var comment = await contents.GetCommentAsync(post.ParentThreadUserId, post.ParentThreadId, postId, context);
+        var comment = await contents.GetCommentAsync(thread.ParentThreadUserId, thread.ParentThreadId, threadId, context);
         
         if (comment == null)
             return false;
 
-        if (comment.Version >= post.Version)
+        if (comment.Version >= thread.Version)
             return false;
         
-        comment = comment with { Content = post.Content, Version = post.Version};
+        comment = comment with { Content = thread.Content, Version = thread.Version};
         await contents.ReplaceDocumentAsync(comment, context);
         return true;
     }
@@ -346,9 +343,6 @@ public sealed class ContentService
         {
             var post = new ThreadDocument(user.UserId, postId, comment.Content, context.UtcNow.UtcDateTime, 0, parentUserId, parentPostId);
             var postCounts = new ThreadCountsDocument(user.UserId, postId, 0, 0, 0, parentUserId, parentPostId);
-
-            // If pending is retried, parent counts could be updated more than once. 
-            await contents.UpdateCommentCountsAsync(parentUserId, parentPostId, context);
             
             // Because it was missing, it cannot have comments, views or likes
             await contents.CreateThreadAsync(post, context);

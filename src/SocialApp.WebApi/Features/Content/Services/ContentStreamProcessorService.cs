@@ -1,4 +1,5 @@
 using SocialApp.WebApi.Data.User;
+using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Follow.Containers;
 
@@ -42,32 +43,49 @@ public sealed class ContentStreamProcessorService
                 switch (document)
                 {
                     case ThreadDocument doc:
-                        await PropagatePostToFollowersFeedsAsync(GetFeedContainer(), follows, doc, c);
+                        await PropagateThreadToFollowersFeedsAsync(GetFeedContainer(), follows, doc, c);
                         break;
                 
                     case ThreadCountsDocument doc:
-                        await PropagatePostCountsToCommentAsync(contents, doc, c);
-                        await PropagatePostCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, c);
+                        await PropagateThreadCountsToCommentAsync(contents, doc, c);
+                        await PropagateThreadCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, c);
                         break;
                 
                     case CommentDocument doc:
-                        //await PropagateCommentAsync(contents, follows, doc, c);
+                        await PropagateCommentAsThreadAsync(contents, doc, c);
                         break;
                 
                     case CommentCountsDocument doc:
-                        //await PropagateCommentCountsAsync(doc, c);
                         break;
                 }
             });
         }
     }
 
-    private async Task PropagatePostCountsToCommentAsync(ContentContainer contents, ThreadCountsDocument counts, CancellationToken cancel)
+    private async Task PropagateCommentAsThreadAsync(ContentContainer contents, CommentDocument comment, CancellationToken cancel)
     {
+        var (thread,_) = await contents.GetPostDocumentAsync(comment.UserId, comment.CommentId, new OperationContext(cancel));
+        if(thread != null)
+            return;
+        thread = new ThreadDocument(comment.UserId, comment.CommentId, comment.Content, comment.LastModify, comment.Version, comment.ThreadUserId, comment.ThreadId);
+        await contents.CreateThreadAsync(thread, new OperationContext(cancel));
+    }
 
+    private async Task PropagateThreadCountsToCommentAsync(ContentContainer contents, ThreadCountsDocument tcounts, CancellationToken cancel)
+    {
+        if(tcounts.IsRootThread)
+            return;
+        
+        if(tcounts.CommentCount == 0) // It is the thread created as a consequence of the comment
+            return;
+
+        var ccounts = new CommentCountsDocument(tcounts.ParentThreadUserId, tcounts.ParentThreadId, tcounts.UserId, tcounts.ThreadId,
+            tcounts.LikeCount, tcounts.CommentCount, tcounts.ViewCount);
+        
+        await contents.ReplaceDocumentAsync(ccounts, new OperationContext(cancel));
     }
     
-    private static async Task PropagatePostCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, ThreadCountsDocument doc, CancellationToken cancel)
+    private static async Task PropagateThreadCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, ThreadCountsDocument doc, CancellationToken cancel)
     {
         var followers2 = await follows.GetFollowersAsync(doc.UserId, cancel);
         foreach (var followerId in GetFollowersAsync(followers2))
@@ -77,7 +95,7 @@ public sealed class ContentStreamProcessorService
         }
     }
 
-    private static async Task PropagatePostToFollowersFeedsAsync(FeedContainer container, FollowContainer follows, ThreadDocument doc, CancellationToken cancel)
+    private static async Task PropagateThreadToFollowersFeedsAsync(FeedContainer container, FollowContainer follows, ThreadDocument doc, CancellationToken cancel)
     {
         var followers1 = await follows.GetFollowersAsync(doc.UserId, cancel);
         foreach (var followerId in GetFollowersAsync(followers1))

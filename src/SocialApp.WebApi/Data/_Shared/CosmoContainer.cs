@@ -88,7 +88,7 @@ public abstract class CosmoContainer
 
             if (items.StatusCode == HttpStatusCode.NotModified)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), cancel);
+                await Task.Delay(TimeSpan.FromMilliseconds(750), cancel);
             }
             else
             {

@@ -24,7 +24,7 @@ public sealed class ContentContainer : CosmoContainer
     
     public async Task<AllPostDocuments> CreateThreadAsync(ThreadDocument thread, OperationContext context)
     {
-        var postCounts = new ThreadCountsDocument(thread.UserId, thread.ThreadId, 0, 0, 0, thread.ParentThreadUserId, thread.ParentThreadUserId)
+        var postCounts = new ThreadCountsDocument(thread.UserId, thread.ThreadId, 0, 0, 0, thread.ParentThreadUserId, thread.ParentThreadId)
         {
             IsRootThread = thread.IsRootThread
         };
@@ -83,25 +83,6 @@ public sealed class ContentContainer : CosmoContainer
         
         var response = await batch.ExecuteAsync(context.Cancellation);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
-    }
-    
-    public async Task UpdateCommentCountsAsync(string parentUserId, string parentPostId, OperationContext context)
-    {
-        // If parent is a comment in other post, it needs to update its comment count
-        var parentKey = ThreadDocument.Key(parentUserId, parentPostId);
-        var parent = await Container.ReadItemAsync<ThreadDocument>(parentKey.Id, new PartitionKey(parentKey.Pk), cancellationToken: context.Cancellation);
-        if (!string.IsNullOrWhiteSpace(parent?.Resource?.ParentThreadId) && !string.IsNullOrWhiteSpace(parent?.Resource?.ParentThreadUserId))
-        {
-            var parentCommentCountsKey = CommentCountsDocument.Key(parent.Resource.ParentThreadUserId, parent.Resource.ParentThreadId, parentPostId);
-            await Container.PatchItemAsync<CommentCountsDocument>
-            (
-                parentCommentCountsKey.Id, 
-                new PartitionKey(parentCommentCountsKey.Pk), 
-                [PatchOperation.Increment("/commentCount",1)],
-                _patchItemNoResponse,
-                cancellationToken: context.Cancellation
-            );
-        }
     }
     
     public async Task<CommentDocument?> GetCommentAsync(string userId, string postId, string commentId, OperationContext context)
@@ -195,10 +176,10 @@ public sealed class ContentContainer : CosmoContainer
         return (comments, commentCounts);
     }
     
-    public async Task<(ThreadDocument?,ThreadCountsDocument?)> GetPostDocumentAsync(UserSession user, string postId, OperationContext context)
+    public async Task<(ThreadDocument?,ThreadCountsDocument?)> GetPostDocumentAsync(string userId, string postId, OperationContext context)
     {
-        var keyFrom = ThreadDocument.Key(user.UserId, postId);
-        var keyTo = ThreadCountsDocument.Key(user.UserId, postId);
+        var keyFrom = ThreadDocument.Key(userId, postId);
+        var keyTo = ThreadCountsDocument.Key(userId, postId);
 
         const string sql = @"
             select * from c 

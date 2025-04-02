@@ -122,6 +122,8 @@ public class ContentServiceTests: ServiceTestsBase
         var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
         var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
         var post3Id = await ContentService.CreateCommentAsync(user1, user2.UserId, post2Id, "Grandchild", OperationContext.None());
+
+        await Task.Delay(1_000);
         
         var post1 = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post1.CommentCount, Is.EqualTo(1));
@@ -185,7 +187,9 @@ public class ContentServiceTests: ServiceTestsBase
         var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
         var context = OperationContext.None();
         context.FailOnSignal("create-comment-post", CreateCosmoException());
-        Assert.ThrowsAsync<ContentException>( () => ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", context).AsTask());
+        await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", context);
+
+        await Task.Delay(1_000);
         
         var post  = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         var commentPost = await ContentService.GetThreadAsync(user2, post.LastComments[0].PostId, 5, OperationContext.None());
