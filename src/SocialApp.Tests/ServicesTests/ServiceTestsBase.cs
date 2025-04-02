@@ -23,6 +23,7 @@ public abstract class ServiceTestsBase
     protected FollowersService FollowersService;
     protected ContentService ContentService;
     protected FeedService FeedService;
+    protected ContentStreamProcessorService ContentStreamProcessorService;
     
     private AccountDatabase _accountDatabase;
     private UserDatabase _userDatabase;
@@ -63,10 +64,11 @@ public abstract class ServiceTestsBase
         FollowersService = new FollowersService(_userDatabase);
         ContentService = new ContentService(_userDatabase);
         FeedService = new FeedService(_userDatabase);
+        ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase);
         
         await _userDatabase.InitializeAsync();
         
-        _ = Task.Run(() => FeedService.ProcessChangeFeedAsync(_changeFeedCancellationToken.Token));
+        _ = Task.Run(() => ContentStreamProcessorService.ProcessChangeFeedAsync(_changeFeedCancellationToken.Token));
     }
     
     [OneTimeTearDown]

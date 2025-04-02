@@ -74,13 +74,16 @@ public abstract class CosmoContainer
         return ranges.Select(x => x.ToJsonString()).ToList();
     }
     
-    public async IAsyncEnumerable<Document> ReadFeedAsync(string range, string? continuation, [EnumeratorCancellation] CancellationToken cancel)
+    public async IAsyncEnumerable<(IReadOnlyList<Document> items, string continuation)> ReadFeedAsync(string range, string? continuation, [EnumeratorCancellation] CancellationToken cancel)
     {
         var start = ChangeFeedStartFrom.Beginning(FeedRange.FromJsonString(range));
         if(continuation != null)
             start = ChangeFeedStartFrom.ContinuationToken(continuation);
         
-        var iterator = Container.GetChangeFeedIterator<JsonElement>(start, ChangeFeedMode.LatestVersion);
+        var iterator = Container.GetChangeFeedIterator<JsonElement>(start, ChangeFeedMode.LatestVersion, new ChangeFeedRequestOptions()
+        {
+            PageSizeHint = Environment.ProcessorCount
+        });
         while (iterator.HasMoreResults)
         {
             var items = await iterator.ReadNextAsync(cancel);
@@ -93,13 +96,16 @@ public abstract class CosmoContainer
             }
             else
             {
-                foreach (var item in items)
+                var documents = new Document[items.Count];
+                for (var i = 0; i < items.Count; i++)
                 {
+                    var item = items.ElementAt(i);
                     var document = DeserializeDocument(item);
                     if (document == null)
-                        throw new InvalidOperationException("Unable to deserialize document: " + item.ToString());
-                    yield return document;
+                        throw new InvalidOperationException("Unable to deserialize document: " + item);
+                    documents[i] = document;
                 }
+                yield return (documents, continuation);
             }
         }
     }
