@@ -24,7 +24,7 @@ public sealed class UserDatabase : CosmoDatabase
         [
             new CompositePath()
             {
-                Path = "/isPost",
+                Path = "/isRootThread",
                 Order = CompositePathSortOrder.Ascending
             },
             new CompositePath()

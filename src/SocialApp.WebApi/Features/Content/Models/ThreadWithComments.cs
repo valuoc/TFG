@@ -12,25 +12,25 @@ public class Post
     public int CommentCount { get; set; }
     public int LikeCount { get; set; }
 
-    public static Post From(FeedPostDocument post)
+    public static Post From(FeedThreadDocument thread)
         => new()
         {
-            UserId = post.UserId,
-            PostId = post.PostId,
-            Content = post.Content,
-            LastModify = post.LastModify
+            UserId = thread.FeedUserId,
+            PostId = thread.ThreadId,
+            Content = thread.Content,
+            LastModify = thread.LastModify
         };
 }
 
-public class PostWithComments : Post
+public class ThreadWithComments : Post
 {
     public List<Comment> LastComments { get; set; }
 
-    public static PostWithComments From(PostDocument? post)
+    public static ThreadWithComments From(ThreadDocument? post)
         => new()
         {
             UserId = post.UserId,
-            PostId = post.PostId,
+            PostId = post.ThreadId,
             Content = post.Content,
             LastModify = post.LastModify,
             LastComments = new List<Comment>()
@@ -52,7 +52,7 @@ public sealed class Comment
         return new Comment
         {
             UserId = comment.UserId,
-            PostId = comment.PostId,
+            PostId = comment.CommentId,
             Content = comment.Content,
             LastModify = comment.LastModify
         };

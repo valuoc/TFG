@@ -16,9 +16,9 @@ public sealed class FeedContainer : CosmoContainer
         : base(database)
     { }
     
-    public async ValueTask<IReadOnlyList<(FeedPostDocument, FeedPostCountsDocument)>> GetUserFeedAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async ValueTask<IReadOnlyList<(FeedThreadDocument, FeedThreadCountsDocument)>> GetUserFeedAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
-        var key = FeedPostDocument.KeyUserPostsEnd(userId);
+        var key = FeedThreadDocument.KeyUserPostsEnd(userId);
 
         const string sql = @"
             select * 
@@ -31,16 +31,16 @@ public sealed class FeedContainer : CosmoContainer
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
-            .WithParameter("@id", afterPostId == null ? key.Id : PostDocument.Key(userId, afterPostId).Id)
+            .WithParameter("@id", afterPostId == null ? key.Id : ThreadDocument.Key(userId, afterPostId).Id)
             .WithParameter("@limit", limit * 2);
         
-        var posts = new List<FeedPostDocument>();
-        var postCounts = new List<FeedPostCountsDocument>();
+        var posts = new List<FeedThreadDocument>();
+        var postCounts = new List<FeedThreadCountsDocument>();
         await foreach (var document in MultiQueryAsync(query, context))
         {
-            if(document is FeedPostDocument postDocument)
+            if(document is FeedThreadDocument postDocument)
                 posts.Add(postDocument);
-            else if (document is FeedPostCountsDocument postCountsDocument)
+            else if (document is FeedThreadCountsDocument postCountsDocument)
                 postCounts.Add(postCountsDocument);
             else
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
@@ -49,9 +49,9 @@ public sealed class FeedContainer : CosmoContainer
         return posts.Zip(postCounts).Select(x => (x.First, x.Second)).ToList();
     }
 
-    public async ValueTask SaveFeedItemAsync(FeedPostDocument feedItem, CancellationToken cancel)
+    public async ValueTask SaveFeedItemAsync(FeedThreadDocument feedItem, CancellationToken cancel)
         => await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: cancel);
 
-    public async ValueTask SaveFeedItemAsync(FeedPostCountsDocument feedItem, CancellationToken cancel)
+    public async ValueTask SaveFeedItemAsync(FeedThreadCountsDocument feedItem, CancellationToken cancel)
         => await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: cancel);
 }

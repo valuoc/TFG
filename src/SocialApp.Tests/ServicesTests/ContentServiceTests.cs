@@ -13,7 +13,7 @@ public class ContentServiceTests: ServiceTestsBase
 
         var post1Id = await ContentService.CreatePostAsync(user1, "This is a post.", OperationContext.None());
 
-        var post1 = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post1 = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
 
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.ViewCount, Is.EqualTo(1));
@@ -33,27 +33,27 @@ public class ContentServiceTests: ServiceTestsBase
         var commentId = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "This is a comment.", OperationContext.None());
         
         // Comment is a post on its own
-        var post2 = await ContentService.GetPostAsync(user2, commentId, 5, OperationContext.None());
+        var post2 = await ContentService.GetThreadAsync(user2, commentId, 5, OperationContext.None());
         Assert.That(post2, Is.Not.Null);
         Assert.That(post2.ViewCount, Is.EqualTo(1));
         Assert.That(post2.CommentCount, Is.EqualTo(0));
         Assert.That(post2.Content, Is.EqualTo("This is a comment."));
         
         // Comment appears as comment
-        var post1 = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post1 = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.CommentCount, Is.EqualTo(1));
         Assert.That(post1.Content, Is.EqualTo("This is a post."));
         
         commentId = await ContentService.CreateCommentAsync(user1, user1.UserId, post1Id, "This is a self-reply.", OperationContext.None());
         
-        post1 = await ContentService.GetPostAsync(user1, commentId, 5, OperationContext.None());
+        post1 = await ContentService.GetThreadAsync(user1, commentId, 5, OperationContext.None());
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.ViewCount, Is.EqualTo(1));
         Assert.That(post1.CommentCount, Is.EqualTo(0));
         Assert.That(post1.Content, Is.EqualTo("This is a self-reply."));
         
-        post1 = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        post1 = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post1, Is.Not.Null);
         Assert.That(post1.ViewCount, Is.EqualTo(2));
         Assert.That(post1.CommentCount, Is.EqualTo(2));
@@ -89,7 +89,7 @@ public class ContentServiceTests: ServiceTestsBase
             await ContentService.CreateCommentAsync(moment%2==0?user2:user3, user1.UserId, post1Id, moment.ToString(), context);
         }
 
-        var post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post, Is.Not.Null);
         Assert.That(post.LastComments.Count, Is.EqualTo(5));
         Assert.That(post.CommentCount, Is.EqualTo(10));
@@ -123,11 +123,11 @@ public class ContentServiceTests: ServiceTestsBase
         var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
         var post3Id = await ContentService.CreateCommentAsync(user1, user2.UserId, post2Id, "Grandchild", OperationContext.None());
         
-        var post1 = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post1 = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post1.CommentCount, Is.EqualTo(1));
         Assert.That(post1.LastComments[0].CommentCount, Is.EqualTo(1));
         
-        var post2 = await ContentService.GetPostAsync(user2, post2Id, 5, OperationContext.None());
+        var post2 = await ContentService.GetThreadAsync(user2, post2Id, 5, OperationContext.None());
         Assert.That(post2.CommentCount, Is.EqualTo(1));
         Assert.That(post2.LastComments[0].CommentCount, Is.EqualTo(0));
     }
@@ -187,8 +187,8 @@ public class ContentServiceTests: ServiceTestsBase
         context.FailOnSignal("create-comment-post", CreateCosmoException());
         Assert.ThrowsAsync<ContentException>( () => ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", context).AsTask());
         
-        var post  = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
-        var commentPost = await ContentService.GetPostAsync(user2, post.LastComments[0].PostId, 5, OperationContext.None());
+        var post  = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
+        var commentPost = await ContentService.GetThreadAsync(user2, post.LastComments[0].PostId, 5, OperationContext.None());
         Assert.That(commentPost, Is.Not.Null);
         Assert.That(commentPost.Content, Is.EqualTo("Child"));
     }
@@ -201,12 +201,12 @@ public class ContentServiceTests: ServiceTestsBase
 
         var post1Id = await ContentService.CreatePostAsync(user1, "Root", OperationContext.None());
         var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
-        await ContentService.UpdatePostAsync(user2, post2Id, "Updated!", OperationContext.None());
+        await ContentService.UpdateThreadAsync(user2, post2Id, "Updated!", OperationContext.None());
         
-        var post1 = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post1 = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post1.LastComments[0].Content, Is.EqualTo("Updated!"));
         
-        var post2 = await ContentService.GetPostAsync(user2, post2Id, 5, OperationContext.None());
+        var post2 = await ContentService.GetThreadAsync(user2, post2Id, 5, OperationContext.None());
         Assert.That(post2.Content, Is.EqualTo("Updated!"));
     }
     
@@ -221,14 +221,14 @@ public class ContentServiceTests: ServiceTestsBase
         
         var context = OperationContext.None();
         context.FailOnSignal("update-comment", CreateCosmoException());
-        Assert.ThrowsAsync<ContentException>( () => ContentService.UpdatePostAsync(user2, commentId, "Child !!!", context).AsTask());
+        Assert.ThrowsAsync<ContentException>( () => ContentService.UpdateThreadAsync(user2, commentId, "Child !!!", context).AsTask());
         Assert.That(user2.HasPendingOperations, Is.True);
         
-        var commentPost = await ContentService.GetPostAsync(user2, commentId, 5, OperationContext.None());
+        var commentPost = await ContentService.GetThreadAsync(user2, commentId, 5, OperationContext.None());
         Assert.That(commentPost, Is.Not.Null);
         Assert.That(commentPost.Content, Is.EqualTo("Child !!!"));
         
-        var post  = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post  = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post.CommentCount, Is.EqualTo(1));
         Assert.That(post.LastComments[0].Content, Is.EqualTo("Child !!!"));
         
@@ -245,20 +245,20 @@ public class ContentServiceTests: ServiceTestsBase
         var comment2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.None());
         var comment1Id = await ContentService.CreateCommentAsync(user1, user1.UserId, post1Id, "Child Reply !!!", OperationContext.None());
 
-        var post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post, Is.Not.Null);
         Assert.That(post.CommentCount, Is.EqualTo(2));
         Assert.That(post.LastComments.Count, Is.EqualTo(2));
         Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
 
         var context = OperationContext.None();
-        await ContentService.DeletePostAsync(user2, comment2Id, context);
+        await ContentService.DeleteThreadAsync(user2, comment2Id, context);
         Console.WriteLine(context.OperationCharge);
         Console.WriteLine(context.DebugMetrics);
         
-        Assert.ThrowsAsync<ContentException>(() => ContentService.GetPostAsync(user2, comment2Id, 5, OperationContext.None()).AsTask());
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetThreadAsync(user2, comment2Id, 5, OperationContext.None()).AsTask());
         
-        post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        post = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post, Is.Not.Null);
         Assert.That(post.CommentCount, Is.EqualTo(1));
         Assert.That(post.LastComments.Count, Is.EqualTo(1));
@@ -277,11 +277,11 @@ public class ContentServiceTests: ServiceTestsBase
 
         var context = OperationContext.None();
         context.FailOnSignal("delete-comment", CreateCosmoException());
-        Assert.ThrowsAsync<ContentException>(() =>  ContentService.DeletePostAsync(user2, comment2Id, context).AsTask());
+        Assert.ThrowsAsync<ContentException>(() =>  ContentService.DeleteThreadAsync(user2, comment2Id, context).AsTask());
         
-        Assert.ThrowsAsync<ContentException>(() => ContentService.GetPostAsync(user2, comment2Id, 5, OperationContext.None()).AsTask());
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetThreadAsync(user2, comment2Id, 5, OperationContext.None()).AsTask());
         
-        var post = await ContentService.GetPostAsync(user1, post1Id, 5, OperationContext.None());
+        var post = await ContentService.GetThreadAsync(user1, post1Id, 5, OperationContext.None());
         Assert.That(post, Is.Not.Null);
         Assert.That(post.CommentCount, Is.EqualTo(1));
         Assert.That(post.LastComments.Count, Is.EqualTo(1));

@@ -41,11 +41,11 @@ public sealed class ContentStreamProcessorService
             {
                 switch (document)
                 {
-                    case PostDocument doc:
+                    case ThreadDocument doc:
                         await PropagatePostToFollowersFeedsAsync(GetFeedContainer(), follows, doc, c);
                         break;
                 
-                    case PostCountsDocument doc:
+                    case ThreadCountsDocument doc:
                         await PropagatePostCountsToCommentAsync(contents, doc, c);
                         await PropagatePostCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, c);
                         break;
@@ -62,27 +62,27 @@ public sealed class ContentStreamProcessorService
         }
     }
 
-    private async Task PropagatePostCountsToCommentAsync(ContentContainer contents, PostCountsDocument counts, CancellationToken cancel)
+    private async Task PropagatePostCountsToCommentAsync(ContentContainer contents, ThreadCountsDocument counts, CancellationToken cancel)
     {
 
     }
     
-    private static async Task PropagatePostCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, PostCountsDocument doc, CancellationToken cancel)
+    private static async Task PropagatePostCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, ThreadCountsDocument doc, CancellationToken cancel)
     {
         var followers2 = await follows.GetFollowersAsync(doc.UserId, cancel);
         foreach (var followerId in GetFollowersAsync(followers2))
         {
-            var feedItem = FeedPostCountsDocument.From(followerId, doc) with { Ttl = (int)TimeSpan.FromDays(2).TotalSeconds};
+            var feedItem = FeedThreadCountsDocument.From(followerId, doc) with { Ttl = (int)TimeSpan.FromDays(2).TotalSeconds};
             await contents.SaveFeedItemAsync(feedItem, cancel);
         }
     }
 
-    private static async Task PropagatePostToFollowersFeedsAsync(FeedContainer container, FollowContainer follows, PostDocument doc, CancellationToken cancel)
+    private static async Task PropagatePostToFollowersFeedsAsync(FeedContainer container, FollowContainer follows, ThreadDocument doc, CancellationToken cancel)
     {
         var followers1 = await follows.GetFollowersAsync(doc.UserId, cancel);
         foreach (var followerId in GetFollowersAsync(followers1))
         {
-            var feedItem = FeedPostDocument.From(followerId, doc) with { Ttl = (int)TimeSpan.FromDays(2).TotalSeconds};
+            var feedItem = FeedThreadDocument.From(followerId, doc) with { Ttl = (int)TimeSpan.FromDays(2).TotalSeconds};
             await container.SaveFeedItemAsync(feedItem, cancel);
         }
     }
