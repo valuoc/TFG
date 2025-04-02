@@ -47,9 +47,11 @@ public sealed class ContentStreamProcessorService
                         break;
                 
                     case CommentDocument doc:
+                        //await PropagateCommentToPostAsync(contents, follows, doc, c);
                         break;
                 
                     case CommentCountsDocument doc:
+                        //await PropagateCommentCountsToPostCountsAsync(contents, follows, doc, c);
                         break;
                 }
             });
