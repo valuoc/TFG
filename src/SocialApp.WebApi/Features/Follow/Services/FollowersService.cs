@@ -23,7 +23,7 @@ public sealed class FollowersService
         {
             var container = GetContainer();
         
-            var followingList = await container.GetFollowingAsync(userId, context.Cancellation);
+            var followingList = await container.GetFollowingAsync(userId, context);
             if (followingList?.Following?.Count > 0)
             {
                 var list = new List<string>(followingList.Following.Count);
@@ -49,7 +49,7 @@ public sealed class FollowersService
         {
             var container = GetContainer();
         
-            var followerList = await container.GetFollowersAsync(userId, context.Cancellation);
+            var followerList = await container.GetFollowersAsync(userId, context);
             return followerList?.Followers?.ToList() ?? [];
         }
         catch (CosmosException e)
@@ -64,7 +64,7 @@ public sealed class FollowersService
         {
             var container = GetContainer();
         
-            var followingList = await container.GetFollowingAsync(followerId, context.Cancellation);
+            var followingList = await container.GetFollowingAsync(followerId, context);
             followingList ??= new FollowingListDocument(followerId);
             followingList.Following ??= new();
             await ReconcilePendingAsync(followingList, container, context);
@@ -78,7 +78,7 @@ public sealed class FollowersService
             context.Signal("add-following-as-pending");
             followingList = await container.CreateOrReplaceFollowingsAsync(followingList, context);
         
-            var followerList = await container.GetFollowersAsync(followedId, context.Cancellation);
+            var followerList = await container.GetFollowersAsync(followedId, context);
             followerList ??= new FollowerListDocument(followedId);
             followerList.Followers ??= new HashSet<string>();
 
@@ -107,7 +107,7 @@ public sealed class FollowersService
         {
             var container = GetContainer();
         
-            var followingList = await container.GetFollowingAsync(followerId, context.Cancellation);
+            var followingList = await container.GetFollowingAsync(followerId, context);
             followingList ??= new FollowingListDocument(followerId);
             followingList.Following ??= new();
         
@@ -121,7 +121,7 @@ public sealed class FollowersService
             context.Signal("remove-following-as-pending");
             followingList = await container.CreateOrReplaceFollowingsAsync(followingList, context);
         
-            var followerList = await container.GetFollowersAsync(followedId, context.Cancellation);
+            var followerList = await container.GetFollowersAsync(followedId, context);
             followerList ??= new FollowerListDocument(followerId);
             followerList.Followers ??= new HashSet<string>();
 
@@ -152,7 +152,7 @@ public sealed class FollowersService
             if (following.Following[userId] != FollowingStatus.Ready)
             {
                 // If it is pending adding or removing, check the other end and correct the status.
-                var followerList = await container.GetFollowersAsync(userId, context.Cancellation);
+                var followerList = await container.GetFollowersAsync(userId, context);
                 if (followerList?.Followers?.Contains(following.UserId) ?? false)
                     following.Following[userId] = FollowingStatus.Ready;
                 else

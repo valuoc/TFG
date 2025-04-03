@@ -16,27 +16,29 @@ public sealed class FeedContainer : CosmoContainer
         : base(database)
     { }
     
-    public async ValueTask<IReadOnlyList<(FeedThreadDocument, FeedThreadCountsDocument)>> GetUserFeedAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async ValueTask<(IReadOnlyList<FeedThreadDocument>, IReadOnlyList<FeedThreadCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
-        var key = FeedThreadDocument.KeyUserPostsEnd(userId);
+        var keyStart = FeedThreadDocument.KeyUserFeedStart(userId);
 
         const string sql = @"
             select * 
             from c 
             where c.pk = @pk 
-              and c.isFeed = true
-              and c.sk < @id 
+              and c.sk >= @start
+              and c.sk < @end
+              and not is_defined(c.deleted)
             order by c.sk desc 
             offset 0 limit @limit";
         
         var query = new QueryDefinition(sql)
-            .WithParameter("@pk", key.Pk)
-            .WithParameter("@id", afterPostId == null ? key.Id : ThreadDocument.Key(userId, afterPostId).Id)
-            .WithParameter("@limit", limit * 2);
+            .WithParameter("@pk", keyStart.Pk)
+            .WithParameter("@start", afterPostId == null ? keyStart.Id : FeedThreadDocument.KeyUserFeedFrom(userId, afterPostId).Id)
+            .WithParameter("@end", FeedThreadDocument.KeyUserFeedEnd(userId).Id)
+            .WithParameter("@limit", limit * 2); 
         
         var posts = new List<FeedThreadDocument>();
         var postCounts = new List<FeedThreadCountsDocument>();
-        await foreach (var document in MultiQueryAsync(query, context))
+        await foreach (var document in ExecuteQueryReaderAsync(query, keyStart.Pk, context))
         {
             if(document is FeedThreadDocument postDocument)
                 posts.Add(postDocument);
@@ -46,12 +48,18 @@ public sealed class FeedContainer : CosmoContainer
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
-        return posts.Zip(postCounts).Select(x => (x.First, x.Second)).ToList();
+        return (posts, postCounts);
     }
 
-    public async ValueTask SaveFeedItemAsync(FeedThreadDocument feedItem, CancellationToken cancel)
-        => await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: cancel);
+    public async ValueTask SaveFeedItemAsync(FeedThreadDocument feedItem, OperationContext context)
+    {
+        var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+    }
 
-    public async ValueTask SaveFeedItemAsync(FeedThreadCountsDocument feedItem, CancellationToken cancel)
-        => await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: cancel);
+    public async ValueTask SaveFeedItemAsync(FeedThreadCountsDocument feedItem, OperationContext context)
+    {
+        var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+    }
 }

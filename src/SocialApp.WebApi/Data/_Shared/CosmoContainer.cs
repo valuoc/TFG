@@ -42,11 +42,16 @@ public abstract class CosmoContainer
         return null;
     }
     
-    protected async IAsyncEnumerable<Document> MultiQueryAsync(QueryDefinition query, OperationContext context)
+    protected async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
     {
         using var itemIterator = Container.GetItemQueryIterator<JsonElement>(query, null, new QueryRequestOptions
         {
-            PopulateIndexMetrics = true
+            PopulateIndexMetrics = true,
+            EnableScanInQuery = false,
+            PartitionKey = new PartitionKey(partitionKey),
+            EnableOptimisticDirectExecution = true,
+            MaxConcurrency = -1,
+            MaxItemCount = 1_000 // ??
         });
 
         while (itemIterator.HasMoreResults)
@@ -54,6 +59,8 @@ public abstract class CosmoContainer
             var items = await itemIterator.ReadNextAsync(context.Cancellation);
             context.AddRequestCharge(items.RequestCharge);
             context.SaveDebugMetrics(items.IndexMetrics);
+            context.SaveQueryMetrics(items.Diagnostics.GetQueryMetrics());
+            
             foreach (var item in items)
             {
                 var document = DeserializeDocument(item);

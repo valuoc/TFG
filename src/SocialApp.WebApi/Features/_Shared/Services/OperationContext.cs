@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Azure.Cosmos;
 
 namespace SocialApp.WebApi.Features._Shared.Services;
 
@@ -25,12 +26,14 @@ public sealed class OperationContext
         => _fixedTime ?? DateTimeOffset.UtcNow;
 
     public double OperationCharge { get; private set; }
+    
+    public ServerSideCumulativeMetrics Metrics { get; private set; }
 
     private StringBuilder _debugMetricsBuilder;
     public string DebugMetrics => _debugMetricsBuilder?.ToString() ?? string.Empty;
 
     [DebuggerStepThrough]
-    public static OperationContext None() => new(CancellationToken.None);
+    public static OperationContext New() => new(CancellationToken.None);
 
     [DebuggerStepThrough]
     public OperationContext(CancellationToken cancel)
@@ -60,5 +63,10 @@ public sealed class OperationContext
     {
         _debugMetricsBuilder ??= new StringBuilder(debug);
         _debugMetricsBuilder.Append(debug);
+    }
+
+    public void SaveQueryMetrics(ServerSideCumulativeMetrics? queryMetrics)
+    {
+       Metrics = queryMetrics ?? Metrics;
     }
 }

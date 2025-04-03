@@ -13,4 +13,7 @@ public record ThreadCountsDocument(string UserId, string ThreadId, int LikeCount
         var id = $"thread:{postId}:thread_counts";
         return new DocumentKey(pk, id);
     }
+
+    public bool AllCountersAreZero()
+        => CommentCount == 0 && LikeCount == 0 && ViewCount == 0;
 }

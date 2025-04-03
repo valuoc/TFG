@@ -101,8 +101,8 @@ public abstract class ServiceTestsBase
     protected async Task<UserSession> CreateUserAsync(string username = "")
     {
         var userName = username + Guid.NewGuid().ToString("N");
-        await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display"+userName, "pass", OperationContext.None());
-        var session = await SessionService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.None());
+        await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display"+userName, "pass", OperationContext.New());
+        var session = await SessionService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.New());
         return session ?? throw new InvalidOperationException("Cannot find user");
     }
     

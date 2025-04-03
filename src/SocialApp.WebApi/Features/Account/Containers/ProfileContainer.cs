@@ -20,34 +20,30 @@ public sealed class ProfileContainer : CosmoContainer
     {
         var batch = Container.CreateTransactionalBatch(new PartitionKey(profile.Pk));
         batch.CreateItem(profile, requestOptions: _transactionNoResponse);
-        batch.CreateItem(new PendingOperationsDocument(userId), _transactionNoResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
         ThrowErrorIfTransactionFailed(AccountError.UnexpectedError, response);
     }
     
-    public async ValueTask<(ProfileDocument?, PendingOperationsDocument?)> GetProfileAsync(string userId, OperationContext context)
+    public async ValueTask<ProfileDocument?> GetProfileAsync(string userId, OperationContext context)
     {
         var profileKey = ProfileDocument.Key(userId);
         
-        const string sql = "select * from c where c.pk = @pk and c.type in (@a, @b)";
+        const string sql = "select * from c where c.pk = @pk and c.type = @a";
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", profileKey.Pk)
-            .WithParameter("@a", nameof(ProfileDocument))
-            .WithParameter("@b", nameof(PendingOperationsDocument));
+            .WithParameter("@a", nameof(ProfileDocument));
 
         ProfileDocument? profile = null;
-        PendingOperationsDocument? pendingOperations = null;
-        await foreach (var document in MultiQueryAsync(query, context))
+        await foreach (var document in ExecuteQueryReaderAsync(query, profileKey.Pk, context))
         {
             if(document is ProfileDocument p)
                 profile = p;
-            else if(document is PendingOperationsDocument pd)
-                pendingOperations = pd;
             else
                 throw new InvalidOperationException("Unexpected document type: " + document.GetType().Name);
         }
 
-        return (profile, pendingOperations);
+        return profile;
     }
     
     public async Task DeleteProfileDataAsync(string userId, OperationContext context)
@@ -55,16 +51,8 @@ public sealed class ProfileContainer : CosmoContainer
         try
         {
             var profileKey = ProfileDocument.Key(userId);
-            await Container.DeleteItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), _noResponseContent, context.Cancellation);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-        }
-            
-        try
-        {
-            var pendingComments = PendingOperationsDocument.Key(userId);
-            await Container.DeleteItemAsync<PendingOperationsDocument>(pendingComments.Id, new PartitionKey(pendingComments.Pk), _noResponseContent, context.Cancellation);
+            var response = await Container.DeleteItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

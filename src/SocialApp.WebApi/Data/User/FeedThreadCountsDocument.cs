@@ -5,10 +5,11 @@ namespace SocialApp.WebApi.Data.User;
 public record FeedThreadCountsDocument(string FeedUserId, string ThreadUserId, string ThreadId, int LikeCount, int CommentCount, int ViewCount) 
     : Document(Key(FeedUserId, ThreadUserId, ThreadId))
 {
-    public bool IsFeed => true;
-
     public static FeedThreadCountsDocument From(string feedUserId, ThreadCountsDocument thread)
-        => new(feedUserId, thread.UserId, thread.ThreadId, thread.LikeCount, thread.CommentCount, thread.ViewCount);
+        => new(feedUserId, thread.UserId, thread.ThreadId, thread.LikeCount, thread.CommentCount, thread.ViewCount)
+        {
+            Deleted = thread.Deleted
+        };
 
     public static DocumentKey Key(string feedUserId, string threaUserId, string threadId)
     {

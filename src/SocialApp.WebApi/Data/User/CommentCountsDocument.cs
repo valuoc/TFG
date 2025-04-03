@@ -11,4 +11,14 @@ public record CommentCountsDocument(string ThreadUserId, string ThreadId, string
         var id = $"thread:{threadId}:comment:{commentId}:counts";
         return new DocumentKey(pk, id);
     }
+
+    public static CommentCountsDocument? TryGenerateParentCommentCounts(ThreadCountsDocument tcounts)
+        => string.IsNullOrWhiteSpace(tcounts.ParentThreadId) 
+            ? null 
+            : new (tcounts.ParentThreadUserId, tcounts.ParentThreadId, tcounts.UserId, tcounts.ThreadId,
+                tcounts.LikeCount, tcounts.CommentCount, tcounts.ViewCount)
+                {
+                    Deleted = tcounts.Deleted,
+                    Ttl = tcounts.Ttl
+                };
 }

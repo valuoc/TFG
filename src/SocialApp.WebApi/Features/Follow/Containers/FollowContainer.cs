@@ -12,11 +12,12 @@ public sealed class FollowContainer : CosmoContainer
     
     public async Task SaveFollowingsAsync(FollowingListDocument followings, OperationContext context)
     {
-        await Container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions
+        var response = await Container.ReplaceItemAsync(followings, followings.Id, requestOptions: new ItemRequestOptions
         {
             EnableContentResponseOnWrite = false,
             IfMatchEtag = followings?.ETag
         }, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
     }
     
     public async Task<FollowingListDocument> CreateOrReplaceFollowingsAsync(FollowingListDocument followings, OperationContext context)
@@ -26,25 +27,28 @@ public sealed class FollowContainer : CosmoContainer
             EnableContentResponseOnWrite = true,
             IfMatchEtag = followings?.ETag
         }, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
         return response.Resource;
     }
 
     public async Task SaveFollowersAsync(FollowerListDocument followers, OperationContext context)
     {
-        await Container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions
+        var response = await Container.UpsertItemAsync(followers, requestOptions: new ItemRequestOptions
         {
             EnableContentResponseOnWrite = false,
             IfMatchEtag = followers?.ETag
         }, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
     }
     
-    public async Task<FollowerListDocument?> GetFollowersAsync(string followedId, CancellationToken cancel)
+    public async Task<FollowerListDocument?> GetFollowersAsync(string followedId, OperationContext context)
     {
         try
         {
             var followerKey = FollowerListDocument.Key(followedId);
-            var followerResponse = await Container.ReadItemAsync<FollowerListDocument>(followerKey.Id, new PartitionKey(followerKey.Pk), cancellationToken: cancel);
-            return followerResponse.Resource;
+            var response = await Container.ReadItemAsync<FollowerListDocument>(followerKey.Id, new PartitionKey(followerKey.Pk), cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+            return response.Resource;
         }
         catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -52,13 +56,14 @@ public sealed class FollowContainer : CosmoContainer
         }
     }
 
-    public async Task<FollowingListDocument?> GetFollowingAsync(string followerId, CancellationToken cancel)
+    public async Task<FollowingListDocument?> GetFollowingAsync(string followerId, OperationContext context)
     {
         try
         {
             var followingKey = FollowingListDocument.Key(followerId);
-            var followingResponse = await Container.ReadItemAsync<FollowingListDocument>(followingKey.Id, new PartitionKey(followingKey.Pk), cancellationToken: cancel);
-            return followingResponse.Resource;
+            var response = await Container.ReadItemAsync<FollowingListDocument>(followingKey.Id, new PartitionKey(followingKey.Pk), cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+            return response.Resource;
         }
         catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

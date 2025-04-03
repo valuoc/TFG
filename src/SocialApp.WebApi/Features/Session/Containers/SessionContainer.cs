@@ -18,29 +18,33 @@ public sealed class SessionContainer : CosmoContainer
     public async ValueTask CreatePasswordLoginAsync(string userId, string email, string password, OperationContext context)
     {
         var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
-        await Container.CreateItemAsync(passwordLogin,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        var response = await Container.CreateItemAsync(passwordLogin,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
     }
 
     public async ValueTask<string?> FindPasswordLoginAsync(string email, string password, OperationContext context)
     {
         var loginKey = PasswordLoginDocument.Key(email);
-        var emailResponse = await Container.ReadItemAsync<PasswordLoginDocument>(loginKey.Id, new PartitionKey(loginKey.Pk), cancellationToken: context.Cancellation);
-        if (emailResponse.Resource == null || emailResponse.Resource.Password != Passwords.HashPassword(password))
+        var response = await Container.ReadItemAsync<PasswordLoginDocument>(loginKey.Id, new PartitionKey(loginKey.Pk), cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+        if (response.Resource == null || response.Resource.Password != Passwords.HashPassword(password))
         {
             return null;
         }
-        return emailResponse.Resource.UserId;
+        return response.Resource.UserId;
     }
     
     public async Task CreateSessionAsync(SessionDocument session, OperationContext context)
     {
-        await Container.CreateItemAsync(session, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        var response = await Container.CreateItemAsync(session, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
     }
     
     public async Task<UserSession?> GetSessionAsync(string sessionId, int sessionLengthSeconds, OperationContext context)
     {
         var sessionKey = SessionDocument.Key(sessionId);
         var response = await Container.ReadItemAsync<SessionDocument>(sessionKey.Id, new PartitionKey(sessionKey.Pk), cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
         if (response?.Resource == null)
             return null;
 
@@ -54,7 +58,8 @@ public sealed class SessionContainer : CosmoContainer
     public async Task EndSessionAsync(string sessionId, OperationContext context)
     {
         var sessionKey = SessionDocument.Key(sessionId);
-        await Container.DeleteItemAsync<SessionDocument>(sessionKey.Id, new PartitionKey(sessionKey.Pk), requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        var response = await Container.DeleteItemAsync<SessionDocument>(sessionKey.Id, new PartitionKey(sessionKey.Pk), requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
     }
 
     public async Task DeleteSessionDataAsync(string userId, OperationContext context)
@@ -62,7 +67,8 @@ public sealed class SessionContainer : CosmoContainer
         try
         {
             var passwordLoginKey = PasswordLoginDocument.Key(userId);
-            await Container.DeleteItemAsync<PasswordLoginDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
+            var response = await Container.DeleteItemAsync<PasswordLoginDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

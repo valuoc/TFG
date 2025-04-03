@@ -16,18 +16,22 @@ public sealed class FeedService
     private FeedContainer GetFeedContainer()
         => new(_userDb);
     
-    public async Task<IReadOnlyList<Post>> GetFeedAsync(UserSession session, OperationContext context)
+    public async Task<IReadOnlyList<ThreadHeaderModel>> GetFeedAsync(UserSession session, OperationContext context)
     {
         var feeds = GetFeedContainer();
-        var documents = await feeds.GetUserFeedAsync(session.UserId, null, 10, context);
+        var (threads, threadCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, null, 10, context);
         
-        var postsModels = new List<Post>(documents.Count);
-        foreach (var (postDoc, countsDoc) in documents)
+        var sorted = threads
+            .Join(threadCounts, i => i.ThreadId, o => o.ThreadId, (i, o) => (i, o))
+            .OrderBy(x => x.i.Sk);
+        
+        var postsModels = new List<ThreadHeaderModel>(threads.Count);
+        foreach (var (thread, counts) in sorted)
         {
-            var post = Post.From(postDoc);
-            post.CommentCount = countsDoc.CommentCount;
-            post.ViewCount = countsDoc.ViewCount;
-            post.LikeCount = countsDoc.LikeCount;
+            var post = ThreadHeaderModel.From(thread);
+            post.CommentCount = counts.CommentCount;
+            post.ViewCount = counts.ViewCount;
+            post.LikeCount = counts.LikeCount;
             postsModels.Add(post);
         }
         return postsModels;

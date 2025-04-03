@@ -4,11 +4,10 @@ using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Exceptions;
-using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Containers;
 
-public record struct AllPostDocuments(ThreadDocument? Post, ThreadCountsDocument? PostCounts, List<CommentDocument>? Comments, List<CommentCountsDocument>? CommentCounts);
+public record struct AllThreadDocuments(ThreadDocument? Thread, ThreadCountsDocument? ThreadCounts, List<CommentDocument>? Comments, List<CommentCountsDocument>? CommentCounts);
 
 public sealed class ContentContainer : CosmoContainer
 {
@@ -22,7 +21,7 @@ public sealed class ContentContainer : CosmoContainer
     public ContentContainer(UserDatabase database)
         :base(database) { }
     
-    public async Task<AllPostDocuments> CreateThreadAsync(ThreadDocument thread, OperationContext context)
+    public async Task<AllThreadDocuments> CreateThreadAsync(ThreadDocument thread, OperationContext context)
     {
         var postCounts = new ThreadCountsDocument(thread.UserId, thread.ThreadId, 0, 0, 0, thread.ParentThreadUserId, thread.ParentThreadId)
         {
@@ -34,11 +33,13 @@ public sealed class ContentContainer : CosmoContainer
         batch.CreateItem(postCounts, _noResponse);
         
         var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+        
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
-        return new AllPostDocuments(thread, postCounts, null, null);
+        return new AllThreadDocuments(thread, postCounts, null, null);
     }
     
-    public async Task<List<(ThreadDocument, ThreadCountsDocument)>?> GetUserThreadsAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async Task<(IReadOnlyList<ThreadDocument>, IReadOnlyList<ThreadCountsDocument>)> GetUserThreadsDocumentsAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
         var key = ThreadDocument.KeyUserThreadsEnd(userId);
 
@@ -60,7 +61,7 @@ public sealed class ContentContainer : CosmoContainer
         
         var posts = new List<ThreadDocument>();
         var postCounts = new List<ThreadCountsDocument>();
-        await foreach (var document in MultiQueryAsync(query, context))
+        await foreach (var document in ExecuteQueryReaderAsync(query, key.Pk, context))
         {
             if(document is ThreadDocument postDocument)
                 posts.Add(postDocument);
@@ -69,8 +70,8 @@ public sealed class ContentContainer : CosmoContainer
             else
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
-        
-        return posts.Zip(postCounts).Select(x => (x.First, x.Second)).ToList();
+
+        return (posts, postCounts);
     }
     
     public async Task CreateCommentAsync(CommentDocument comment, OperationContext context)
@@ -82,6 +83,7 @@ public sealed class ContentContainer : CosmoContainer
         batch.PatchItem(ThreadCountsDocument.Key(comment.ThreadUserId, comment.ThreadId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noPatchResponse);
         
         var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
@@ -89,6 +91,7 @@ public sealed class ContentContainer : CosmoContainer
     {
         var key = CommentDocument.Key(userId, postId, commentId);
         var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
         if(response.Resource is { Deleted: false })
         {
             return response.Resource;
@@ -98,15 +101,14 @@ public sealed class ContentContainer : CosmoContainer
     
     //
     
-    public async Task<AllPostDocuments> GetAllThreadDocumentsAsync(UserSession user, string postId, int lastCommentCount, OperationContext context)
+    public async Task<AllThreadDocuments> GetAllThreadDocumentsAsync(string userId, string postId, int lastCommentCount, OperationContext context)
     {
-        var keyFrom = ThreadDocument.KeyThreadsItemsStart(user.UserId, postId);
-        var keyTo = ThreadDocument.KeyThreadItemsEnd(user.UserId, postId);
+        var keyFrom = ThreadDocument.KeyThreadsItemsStart(userId, postId);
+        var keyTo = ThreadDocument.KeyThreadItemsEnd(userId, postId);
 
         const string sql = @"
             select * from c 
             where c.pk = @pk 
-              and c.sk >= @id 
               and c.sk >= @id 
               and c.sk < @id_end
               and not is_defined(c.deleted) 
@@ -122,7 +124,7 @@ public sealed class ContentContainer : CosmoContainer
         ThreadCountsDocument? postCounts = null;
         var comments = new List<CommentDocument>();
         var commentCounts = new List<CommentCountsDocument>();
-        await foreach (var document in MultiQueryAsync(query, context))
+        await foreach (var document in ExecuteQueryReaderAsync(query, keyFrom.Pk, context))
         {
             if(document is ThreadDocument postDocument)
                 post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
@@ -137,9 +139,9 @@ public sealed class ContentContainer : CosmoContainer
         }
         
         if(post == null || post is { Deleted: true })
-            return new AllPostDocuments(null, null, null, null);
+            return new AllThreadDocuments(null, null, null, null);
         
-        return new AllPostDocuments(post, postCounts, comments, commentCounts);
+        return new AllThreadDocuments(post, postCounts, comments, commentCounts);
     }
     
     public async Task<(List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)> GetPreviousCommentsAsync(string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
@@ -163,7 +165,7 @@ public sealed class ContentContainer : CosmoContainer
         
         var comments = new List<CommentDocument>();
         var commentCounts = new List<CommentCountsDocument>();
-        await foreach (var document in MultiQueryAsync(query, context))
+        await foreach (var document in ExecuteQueryReaderAsync(query, key.Pk, context))
         {
             if(document is CommentDocument commentDocument)
                 comments.Add(commentDocument);
@@ -195,7 +197,7 @@ public sealed class ContentContainer : CosmoContainer
         
         ThreadDocument? post = null;
         ThreadCountsDocument? postCounts = null;
-        await foreach (var document in MultiQueryAsync(query, context))
+        await foreach (var document in ExecuteQueryReaderAsync(query, keyFrom.Pk, context))
         {
             if(document is ThreadDocument postDocument)
                 post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
@@ -214,13 +216,14 @@ public sealed class ContentContainer : CosmoContainer
     public async Task ReplaceDocumentAsync<T>(T document, OperationContext context)
         where T : Document
     {
-        await Container.ReplaceItemAsync
+        var response = await Container.ReplaceItemAsync
         (
             document,
             document.Id, new PartitionKey(document.Pk),
             new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = false },
             context.Cancellation
         );
+        context.AddRequestCharge(response.RequestCharge);
     }
     
     public async Task RemoveThreadAsync(ThreadDocument document, OperationContext context)
@@ -230,17 +233,20 @@ public sealed class ContentContainer : CosmoContainer
         batch.PatchItem(document.Id, deletePatch, _noPatchResponse);
         batch.PatchItem(ThreadCountsDocument.Key(document.UserId, document.ThreadId).Id, deletePatch, _noPatchResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
-    public async Task RemoveCommentAsync(CommentDocument document, OperationContext context)
+    public async Task RemoveCommentAsync(string parentThreadUserId, string parentThreadId, string commentId, OperationContext context)
     {
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));
+        var commentKey = CommentDocument.Key(parentThreadUserId, parentThreadId, commentId);
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(commentKey.Pk));
         var deletePatch = new[] {PatchOperation.Set("/deleted", true), PatchOperation.Set("/ttl", _secondsInADay)};
-        batch.PatchItem(document.Id, deletePatch, _noPatchResponse);
-        batch.PatchItem(CommentCountsDocument.Key(document.ThreadUserId, document.ThreadId, document.CommentId).Id, deletePatch, _noPatchResponse);
-        batch.PatchItem(ThreadCountsDocument.Key(document.ThreadUserId, document.ThreadId).Id, [PatchOperation.Increment( "/commentCount", -1)], _noPatchResponse);
+        batch.PatchItem(commentKey.Id, deletePatch, _noPatchResponse);
+        batch.PatchItem(CommentCountsDocument.Key(parentThreadUserId, parentThreadId, commentId).Id, deletePatch, _noPatchResponse);
+        batch.PatchItem(ThreadCountsDocument.Key(parentThreadUserId, parentThreadId).Id, [PatchOperation.Increment( "/commentCount", -1)], _noPatchResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
@@ -249,7 +255,7 @@ public sealed class ContentContainer : CosmoContainer
         // TODO: Defer
         // Increase views
         var keyFrom = ThreadCountsDocument.Key(userId, postId);
-        await Container.PatchItemAsync<ThreadDocument>
+        var response = await Container.PatchItemAsync<ThreadDocument>
         (
             keyFrom.Id,
             new PartitionKey(keyFrom.Pk),
@@ -257,6 +263,7 @@ public sealed class ContentContainer : CosmoContainer
             _patchItemNoResponse, 
             context.Cancellation
         );
+        context.AddRequestCharge(response.RequestCharge);
     }
     
     private static void ThrowErrorIfTransactionFailed(ContentError error, TransactionalBatchResponse response)

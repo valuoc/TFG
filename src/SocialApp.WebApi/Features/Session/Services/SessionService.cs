@@ -38,14 +38,12 @@ public class SessionService
             if (userId == null)
                 return null;
 
-            var (profile, pending) = await GetProfileContainer().GetProfileAsync(userId, context);
+            var profile = await GetProfileContainer().GetProfileAsync(userId, context);
 
             if (profile == null)
                 return null;
-
-            var hasPendingItems = pending?.Items?.Any() ?? false;
             
-            var session = new SessionDocument(Guid.NewGuid().ToString("N"), userId, profile.DisplayName, profile.Handle, hasPendingItems)
+            var session = new SessionDocument(Guid.NewGuid().ToString("N"), userId, profile.DisplayName, profile.Handle)
             {
                 Ttl = _sessionLengthSeconds
             };
