@@ -89,17 +89,20 @@ public sealed class ContentContainer : CosmoContainer
     
     public async Task<CommentDocument?> GetCommentAsync(string userId, string postId, string commentId, OperationContext context)
     {
-        var key = CommentDocument.Key(userId, postId, commentId);
-        var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        if(response.Resource is { Deleted: false })
+        try
         {
-            return response.Resource;
+            var key = CommentDocument.Key(userId, postId, commentId);
+            var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+            if(response.Resource is { Deleted: false })
+                return response.Resource;
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            context.AddRequestCharge(e.RequestCharge);
         }
         return null;
     }
-    
-    //
     
     public async Task<AllThreadDocuments> GetAllThreadDocumentsAsync(string userId, string postId, int lastCommentCount, OperationContext context)
     {
@@ -178,39 +181,21 @@ public sealed class ContentContainer : CosmoContainer
         return (comments, commentCounts);
     }
     
-    public async Task<(ThreadDocument?,ThreadCountsDocument?)> GetPostDocumentAsync(string userId, string postId, OperationContext context)
+    public async Task<ThreadDocument?> GetThreadDocumentAsync(string userId, string threadId, OperationContext context)
     {
-        var keyFrom = ThreadDocument.Key(userId, postId);
-        var keyTo = ThreadCountsDocument.Key(userId, postId);
-
-        const string sql = @"
-            select * from c 
-                 where c.pk = @pk 
-                   and c.sk >= @id 
-                   and c.sk <= @id_end
-                   and not is_defined(c.deleted)";
-        
-        var query = new QueryDefinition(sql)
-            .WithParameter("@pk", keyFrom.Pk)
-            .WithParameter("@id", keyFrom.Id)
-            .WithParameter("@id_end", keyTo.Id);
-        
-        ThreadDocument? post = null;
-        ThreadCountsDocument? postCounts = null;
-        await foreach (var document in ExecuteQueryReaderAsync(query, keyFrom.Pk, context))
+        try
         {
-            if(document is ThreadDocument postDocument)
-                post = post == null ? postDocument : throw new InvalidOperationException("Expecting a single post.");
-            else if(document is ThreadCountsDocument postCountsDocument)
-                postCounts = postCounts == null ? postCountsDocument : throw new InvalidOperationException("Expecting a single post counts.");
-            else
-                throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
+            var key = ThreadDocument.Key(userId, threadId);
+            var response = await Container.ReadItemAsync<ThreadDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+            if (response.Resource is { Deleted: false })
+                return response.Resource;
         }
-
-        if (post is { Deleted: true })
-            return (null, null);
-        
-        return (post,postCounts);
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+        }
+        return null;
     }
     
     public async Task ReplaceDocumentAsync<T>(T document, OperationContext context)

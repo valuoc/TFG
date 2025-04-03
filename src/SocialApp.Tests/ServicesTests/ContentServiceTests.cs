@@ -198,7 +198,7 @@ public class ContentServiceTests: ServiceTestsBase
         context.FailOnSignal("create-comment-post", CreateCosmoException());
         await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", context);
 
-        await Task.Delay(1_000);
+        await Task.Delay(2_000);
         
         var post  = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
         var commentPost = await ContentService.GetThreadAsync(user2, user2.UserId, post.LastComments[0].CommentId, 5, OperationContext.New());

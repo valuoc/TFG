@@ -71,7 +71,7 @@ public sealed class ContentService
         {
             var contents = GetContentsContainer();
 
-            var (thread, _) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
+            var thread = await contents.GetThreadDocumentAsync(user.UserId, threadId, context);
             
             if(thread == null)
                 throw new ContentException(ContentError.ContentNotFound);
@@ -102,13 +102,47 @@ public sealed class ContentService
         }
     }
     
+    public async Task LikeThreadAsync(UserSession user, string userId, string threadId, OperationContext context)
+    {
+        try
+        {
+            var contents = GetContentsContainer();
+
+            var thread = await contents.GetThreadDocumentAsync(user.UserId, threadId, context);
+            
+            if(thread == null)
+                throw new ContentException(ContentError.ContentNotFound);
+            
+            context.Signal("like-post");
+            //await contents.LikeThreadAsync(counts, context);
+
+            if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
+            {
+                try
+                {
+                    context.Signal("like-comment");
+                    //await contents.LikeCommentAsync(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, context);
+                }
+                catch (CosmosException e)
+                {
+                    // Change Feed will fix this
+                    // Log ?
+                }
+            }
+        }
+        catch (CosmosException e)
+        {
+            throw new ContentException(ContentError.UnexpectedError, e);
+        }
+    }
+    
     public async Task DeleteThreadAsync(UserSession user, string threadId, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
         
-            var (thread, _) = await contents.GetPostDocumentAsync(user.UserId, threadId, context);
+            var thread = await contents.GetThreadDocumentAsync(user.UserId, threadId, context);
         
             context.Signal("delete-post");
             await contents.RemoveThreadAsync(thread, context);

@@ -129,7 +129,7 @@ public sealed class ContentStreamProcessorService
 
     private async Task EnsureChildThreadIsCreatedOnCommentAsync(ContentContainer contents, CommentDocument comment, OperationContext context)
     {
-        var (thread,_) = await contents.GetPostDocumentAsync(comment.UserId, comment.CommentId, context);
+        var thread = await contents.GetThreadDocumentAsync(comment.UserId, comment.CommentId, context);
         if(thread != null)
             return;
 
