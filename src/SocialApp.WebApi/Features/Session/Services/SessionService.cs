@@ -29,7 +29,7 @@ public class SessionService
     private ProfileContainer GetProfileContainer()
         => new(_userDd);
 
-    public async ValueTask<UserSession?> LoginWithPasswordAsync(string email, string password, OperationContext context)
+    public async Task<UserSession?> LoginWithPasswordAsync(string email, string password, OperationContext context)
     {
         try
         {
@@ -61,7 +61,7 @@ public class SessionService
         }
     }
     
-    public async ValueTask<UserSession?> GetSessionAsync(string sessionId, OperationContext context)
+    public async Task<UserSession?> GetSessionAsync(string sessionId, OperationContext context)
     {
         try
         {
@@ -78,7 +78,7 @@ public class SessionService
         }
     }
 
-    public async ValueTask EndSessionAsync(string sessionId, OperationContext context)
+    public async Task EndSessionAsync(string sessionId, OperationContext context)
     {
         try
         {

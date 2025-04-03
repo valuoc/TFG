@@ -3,7 +3,7 @@ using SocialApp.WebApi.Features.Account.Exceptions;
 
 namespace SocialApp.Tests.ServicesTests;
 
-[Order(1)]
+[Order(2)]
 public class AccountServiceTests : ServiceTestsBase
 {
     [Test, Order(1)]

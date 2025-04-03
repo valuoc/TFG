@@ -3,7 +3,7 @@ using SocialApp.WebApi.Features.Content.Exceptions;
 
 namespace SocialApp.Tests.ServicesTests;
 
-[Order(3)]
+[Order(4)]
 public class ContentServiceTests: ServiceTestsBase
 {
     [Test, Order(1)]
@@ -234,7 +234,7 @@ public class ContentServiceTests: ServiceTestsBase
         
         var context = OperationContext.New();
         context.FailOnSignal("update-comment", CreateCosmoException());
-        await ContentService.UpdateThreadAsync(user2, commentId, "Child !!!", context).AsTask();
+        await ContentService.UpdateThreadAsync(user2, commentId, "Child !!!", context);
 
         await Task.Delay(2_000);
         
@@ -268,7 +268,7 @@ public class ContentServiceTests: ServiceTestsBase
         Console.WriteLine(context.OperationCharge);
         Console.WriteLine(context.DebugMetrics);
         
-        Assert.ThrowsAsync<ContentException>(() => ContentService.GetThreadAsync(user2, user2.UserId, comment2Id, 5, OperationContext.New()).AsTask());
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetThreadAsync(user2, user2.UserId, comment2Id, 5, OperationContext.New()));
         
         post = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
         Assert.That(post, Is.Not.Null);
@@ -292,7 +292,7 @@ public class ContentServiceTests: ServiceTestsBase
         context.FailOnSignal("delete-comment", CreateCosmoException());
         await ContentService.DeleteThreadAsync(user2, comment2Id, context);
         
-        Assert.ThrowsAsync<ContentException>(() => ContentService.GetThreadAsync(user2, user2.UserId, comment2Id, 5, OperationContext.New()).AsTask());
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetThreadAsync(user2, user2.UserId, comment2Id, 5, OperationContext.New()));
 
         await Task.Delay(5_000);
         

@@ -17,7 +17,7 @@ public sealed class ContentService
     private ContentContainer GetContentsContainer()
         => new(_userDb);
     
-    public async ValueTask<string> CreateThreadAsync(UserSession user, string content, OperationContext context)
+    public async Task<string> CreateThreadAsync(UserSession user, string content, OperationContext context)
     {
         try
         {
@@ -33,7 +33,7 @@ public sealed class ContentService
         }
     }
     
-    public async ValueTask<string> CreateCommentAsync(UserSession user, string threadUserId, string threadId, string content, OperationContext context)
+    public async Task<string> CreateCommentAsync(UserSession user, string threadUserId, string threadId, string content, OperationContext context)
     {
         try
         {
@@ -65,7 +65,7 @@ public sealed class ContentService
         }
     }
 
-    public async ValueTask UpdateThreadAsync(UserSession user, string threadId, string content, OperationContext context)
+    public async Task UpdateThreadAsync(UserSession user, string threadId, string content, OperationContext context)
     {
         try
         {
@@ -102,7 +102,7 @@ public sealed class ContentService
         }
     }
     
-    public async ValueTask DeleteThreadAsync(UserSession user, string threadId, OperationContext context)
+    public async Task DeleteThreadAsync(UserSession user, string threadId, OperationContext context)
     {
         try
         {
@@ -133,7 +133,7 @@ public sealed class ContentService
         }
     }
     
-    public async ValueTask<ThreadModel> GetThreadAsync(UserSession user, string userId, string postId, int lastCommentCount, OperationContext context)
+    public async Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string postId, int lastCommentCount, OperationContext context)
     {
         var contents = GetContentsContainer();
         try
@@ -151,7 +151,7 @@ public sealed class ContentService
         }
     }
     
-    public async ValueTask<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
+    public async Task<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
     {
         try
         {
@@ -168,7 +168,7 @@ public sealed class ContentService
         }
     }
     
-    public async ValueTask<IReadOnlyList<ThreadModel>> GetUserPostsAsync(UserSession user, string? afterPostId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ThreadModel>> GetUserPostsAsync(UserSession user, string? afterPostId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 

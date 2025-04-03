@@ -17,7 +17,7 @@ public sealed class FollowersService
     private FollowContainer GetContainer()
         => new(_database);
 
-    public async ValueTask<IReadOnlyList<string>> GetFollowingsAsync(string userId, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetFollowingsAsync(string userId, OperationContext context)
     {
         try
         {
@@ -43,7 +43,7 @@ public sealed class FollowersService
         }
     }
     
-    public async ValueTask<IReadOnlyList<string>> GetFollowersAsync(string userId, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetFollowersAsync(string userId, OperationContext context)
     {
         try
         {
@@ -58,7 +58,7 @@ public sealed class FollowersService
         }
     }
     
-    public async ValueTask AddAsync(string followerId, string followedId, OperationContext context)
+    public async Task AddAsync(string followerId, string followedId, OperationContext context)
     {
         try
         {
@@ -101,7 +101,7 @@ public sealed class FollowersService
         }
     }
     
-    public async ValueTask RemoveAsync(string followerId, string followedId, OperationContext context)
+    public async Task RemoveAsync(string followerId, string followedId, OperationContext context)
     {
         try
         {

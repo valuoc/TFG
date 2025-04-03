@@ -16,7 +16,7 @@ public sealed class FeedContainer : CosmoContainer
         : base(database)
     { }
     
-    public async ValueTask<(IReadOnlyList<FeedThreadDocument>, IReadOnlyList<FeedThreadCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async Task<(IReadOnlyList<FeedThreadDocument>, IReadOnlyList<FeedThreadCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? afterPostId, int limit, OperationContext context)
     {
         var keyStart = FeedThreadDocument.KeyUserFeedStart(userId);
 
@@ -51,13 +51,13 @@ public sealed class FeedContainer : CosmoContainer
         return (posts, postCounts);
     }
 
-    public async ValueTask SaveFeedItemAsync(FeedThreadDocument feedItem, OperationContext context)
+    public async Task SaveFeedItemAsync(FeedThreadDocument feedItem, OperationContext context)
     {
         var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);
     }
 
-    public async ValueTask SaveFeedItemAsync(FeedThreadCountsDocument feedItem, OperationContext context)
+    public async Task SaveFeedItemAsync(FeedThreadCountsDocument feedItem, OperationContext context)
     {
         var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);

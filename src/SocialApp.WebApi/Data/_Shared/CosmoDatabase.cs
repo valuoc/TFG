@@ -18,7 +18,7 @@ public abstract class CosmoDatabase
         ContainerId = containerId;
     }
 
-    public virtual async ValueTask InitializeAsync()
+    public virtual async Task InitializeAsync()
     {
         Database database = await CosmosClient.CreateDatabaseIfNotExistsAsync(DatabaseId);
         Console.WriteLine("Created Database: {0}\n", database.Id);

@@ -15,14 +15,14 @@ public sealed class SessionContainer : CosmoContainer
         :base(database)
     { }
     
-    public async ValueTask CreatePasswordLoginAsync(string userId, string email, string password, OperationContext context)
+    public async Task CreatePasswordLoginAsync(string userId, string email, string password, OperationContext context)
     {
         var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
         var response = await Container.CreateItemAsync(passwordLogin,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);
     }
 
-    public async ValueTask<string?> FindPasswordLoginAsync(string email, string password, OperationContext context)
+    public async Task<string?> FindPasswordLoginAsync(string email, string password, OperationContext context)
     {
         var loginKey = PasswordLoginDocument.Key(email);
         var response = await Container.ReadItemAsync<PasswordLoginDocument>(loginKey.Id, new PartitionKey(loginKey.Pk), cancellationToken: context.Cancellation);

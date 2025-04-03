@@ -2,7 +2,7 @@ using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.Tests.ServicesTests;
 
-[Order(4)]
+[Order(1)]
 public class FeedServiceTests : ServiceTestsBase
 {
     [Test, Order(1)]

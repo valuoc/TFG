@@ -31,7 +31,7 @@ public class AccountService
     private SessionContainer GetSessionContainer()
         => new(_sessionDb);
 
-    public async ValueTask<string> RegisterAsync(string email, string handle, string displayName, string password, OperationContext context)
+    public async Task<string> RegisterAsync(string email, string handle, string displayName, string password, OperationContext context)
     {
         var accounts = GetAccountContainer();
         
@@ -102,7 +102,7 @@ public class AccountService
         }
     }
 
-    public async ValueTask<int> RemovedExpiredPendingAccountsAsync(TimeSpan timeLimit, OperationContext context)
+    public async Task<int> RemovedExpiredPendingAccountsAsync(TimeSpan timeLimit, OperationContext context)
     {
         var accounts = GetAccountContainer();
         var profiles = GetProfileContainer();

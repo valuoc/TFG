@@ -3,7 +3,7 @@ using SocialApp.WebApi.Features.Follow.Exceptions;
 
 namespace SocialApp.Tests.ServicesTests;
 
-[Order(2)]
+[Order(3)]
 public class FollowServiceTests: ServiceTestsBase
 {
     [Test, Order(1)]
@@ -71,7 +71,7 @@ public class FollowServiceTests: ServiceTestsBase
 
         var context = OperationContext.New();
         context.FailOnSignal("add-follower", CreateCosmoException());
-        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.AddAsync(user1.UserId, user2.UserId, context).AsTask());
+        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.AddAsync(user1.UserId, user2.UserId, context));
 
         var followers1 = await FollowersService.GetFollowersAsync(user1.UserId, OperationContext.New());
         Assert.That(followers1, Is.Empty);
@@ -95,7 +95,7 @@ public class FollowServiceTests: ServiceTestsBase
 
         var context = OperationContext.New();
         context.FailOnSignal("add-following", CreateCosmoException());
-        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.AddAsync(user1.UserId, user2.UserId, context).AsTask());
+        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.AddAsync(user1.UserId, user2.UserId, context));
 
         var followers1 = await FollowersService.GetFollowersAsync(user1.UserId, OperationContext.New());
         Assert.That(followers1, Is.Empty);

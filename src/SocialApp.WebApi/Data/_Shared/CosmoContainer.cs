@@ -50,7 +50,6 @@ public abstract class CosmoContainer
             EnableScanInQuery = false,
             PartitionKey = new PartitionKey(partitionKey),
             EnableOptimisticDirectExecution = true,
-            MaxConcurrency = -1,
             MaxItemCount = 1_000 // ??
         });
 

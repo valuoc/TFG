@@ -38,7 +38,7 @@ public sealed class AccountContainer : CosmoContainer
         return pendingUserAccount;
     }
     
-    public async ValueTask<bool> PendingAccountCleanUpAsync(PendingAccountDocument pending, OperationContext context)
+    public async Task<bool> PendingAccountCleanUpAsync(PendingAccountDocument pending, OperationContext context)
     {
         var isIncomplete = false;
         var userStatus = AccountStatus.Pending;

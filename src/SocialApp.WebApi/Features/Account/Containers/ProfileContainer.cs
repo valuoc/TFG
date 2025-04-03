@@ -16,7 +16,7 @@ public sealed class ProfileContainer : CosmoContainer
         :base(database)
     { }
     
-    public async ValueTask CreateUserProfileAsync(string userId, ProfileDocument profile, OperationContext context)
+    public async Task CreateUserProfileAsync(string userId, ProfileDocument profile, OperationContext context)
     {
         var batch = Container.CreateTransactionalBatch(new PartitionKey(profile.Pk));
         batch.CreateItem(profile, requestOptions: _transactionNoResponse);
@@ -25,7 +25,7 @@ public sealed class ProfileContainer : CosmoContainer
         ThrowErrorIfTransactionFailed(AccountError.UnexpectedError, response);
     }
     
-    public async ValueTask<ProfileDocument?> GetProfileAsync(string userId, OperationContext context)
+    public async Task<ProfileDocument?> GetProfileAsync(string userId, OperationContext context)
     {
         var profileKey = ProfileDocument.Key(userId);
         
