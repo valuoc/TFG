@@ -42,6 +42,22 @@ public abstract class CosmoContainer
         return null;
     }
     
+    protected async Task<T?> TryGetAsync<T>(DocumentKey key, OperationContext context)
+        where T:Document
+    {
+        try
+        {
+            var response = await Container.ReadItemAsync<T>(key.Id, new PartitionKey(key.Pk), cancellationToken:context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+            return response.Resource;
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            return null;
+        }
+    }
+    
     protected async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
     {
         using var itemIterator = Container.GetItemQueryIterator<JsonElement>(query, null, new QueryRequestOptions
@@ -84,7 +100,7 @@ public abstract class CosmoContainer
         
         var iterator = Container.GetChangeFeedIterator<JsonElement>(start, ChangeFeedMode.LatestVersion, new ChangeFeedRequestOptions()
         {
-            PageSizeHint = Environment.ProcessorCount
+            PageSizeHint = Environment.ProcessorCount * 2
         });
         while (iterator.HasMoreResults)
         {

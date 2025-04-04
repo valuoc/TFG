@@ -11,7 +11,7 @@ public record struct AllThreadDocuments(ThreadDocument? Thread, ThreadCountsDocu
 
 public sealed class ContentContainer : CosmoContainer
 {
-    private static readonly TransactionalBatchPatchItemRequestOptions _noPatchResponse = new() {EnableContentResponseOnWrite = false};
+    private static readonly TransactionalBatchPatchItemRequestOptions _noBatchResponse = new() {EnableContentResponseOnWrite = false};
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
     private static readonly TransactionalBatchItemRequestOptions _noResponse = new() { EnableContentResponseOnWrite = false };
     private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
@@ -80,7 +80,7 @@ public sealed class ContentContainer : CosmoContainer
         var batch = Container.CreateTransactionalBatch(new PartitionKey(comment.Pk));
         batch.CreateItem(comment, _noResponse);
         batch.CreateItem(commentCounts, _noResponse);
-        batch.PatchItem(ThreadCountsDocument.Key(comment.ThreadUserId, comment.ThreadId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noPatchResponse);
+        batch.PatchItem(ThreadCountsDocument.Key(comment.ThreadUserId, comment.ThreadId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noBatchResponse);
         
         var response = await batch.ExecuteAsync(context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);
@@ -215,8 +215,8 @@ public sealed class ContentContainer : CosmoContainer
     {
         var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));
         var deletePatch = new[] {PatchOperation.Set("/deleted", true), PatchOperation.Set("/ttl", _secondsInADay)};
-        batch.PatchItem(document.Id, deletePatch, _noPatchResponse);
-        batch.PatchItem(ThreadCountsDocument.Key(document.UserId, document.ThreadId).Id, deletePatch, _noPatchResponse);
+        batch.PatchItem(document.Id, deletePatch, _noBatchResponse);
+        batch.PatchItem(ThreadCountsDocument.Key(document.UserId, document.ThreadId).Id, deletePatch, _noBatchResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
@@ -227,9 +227,9 @@ public sealed class ContentContainer : CosmoContainer
         var commentKey = CommentDocument.Key(parentThreadUserId, parentThreadId, commentId);
         var batch = Container.CreateTransactionalBatch(new PartitionKey(commentKey.Pk));
         var deletePatch = new[] {PatchOperation.Set("/deleted", true), PatchOperation.Set("/ttl", _secondsInADay)};
-        batch.PatchItem(commentKey.Id, deletePatch, _noPatchResponse);
-        batch.PatchItem(CommentCountsDocument.Key(parentThreadUserId, parentThreadId, commentId).Id, deletePatch, _noPatchResponse);
-        batch.PatchItem(ThreadCountsDocument.Key(parentThreadUserId, parentThreadId).Id, [PatchOperation.Increment( "/commentCount", -1)], _noPatchResponse);
+        batch.PatchItem(commentKey.Id, deletePatch, _noBatchResponse);
+        batch.PatchItem(CommentCountsDocument.Key(parentThreadUserId, parentThreadId, commentId).Id, deletePatch, _noBatchResponse);
+        batch.PatchItem(ThreadCountsDocument.Key(parentThreadUserId, parentThreadId).Id, [PatchOperation.Increment( "/commentCount", -1)], _noBatchResponse);
         var response = await batch.ExecuteAsync(context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
@@ -262,5 +262,69 @@ public sealed class ContentContainer : CosmoContainer
                     throw new ContentException(error, new CosmosException($"{error}. Batch failed at position [{i}]: {sub.StatusCode}. {response.ErrorMessage}", sub.StatusCode, 0, i.ToString(), 0));
             }
         }
+    }
+
+    public async Task UserReactThreadAsync(ThreadUserLikeDocument reaction, OperationContext context)
+    {
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(reaction.Pk));
+        batch.UpsertItem(reaction, new TransactionalBatchItemRequestOptions()
+        {
+            IfMatchEtag = reaction.ETag,
+            EnableContentResponseOnWrite = false
+        });
+        
+        // Feed ?
+        // var inc = new[] {PatchOperation.Set("/likes", true)};
+        // batch.PatchItem(like.Id, inc, _noPatchResponse);
+
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
+    }
+    
+    public async Task ReactThreadAsync(ThreadLikeDocument reaction, OperationContext context)
+    {
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(reaction.Pk));
+        batch.UpsertItem(reaction);
+        
+        var counts = ThreadCountsDocument.Key(reaction.ThreadUserId, reaction.ThreadId);
+        var inc = new[] {PatchOperation.Increment("/likeCount", reaction.Like ? 1 : -1 )};
+        batch.PatchItem(counts.Id, inc, _noBatchResponse);
+
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
+    }
+    
+    public async Task ReactCommentAsync(CommentLikeDocument reaction, OperationContext context)
+    {
+        var batch = Container.CreateTransactionalBatch(new PartitionKey(reaction.Pk));
+        batch.UpsertItem(reaction);
+        
+        var counts = CommentCountsDocument.Key(reaction.ThreadUserId, reaction.ThreadId, reaction.CommentId);
+        var inc = new[] { PatchOperation.Increment("/likeCount", reaction.Like ? 1 : -1) };
+        batch.PatchItem(counts.Id, inc, _noBatchResponse);
+
+        var response = await batch.ExecuteAsync(context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
+    }
+    
+    public async Task<ThreadUserLikeDocument?> GetUserThreadLikeAsync(string userId, string threadUserId, string threadId, OperationContext context)
+    {
+        var key = ThreadUserLikeDocument.Key(userId, threadUserId, threadId);
+        return await TryGetAsync<ThreadUserLikeDocument>(key, context);
+    }
+    
+    public async Task<ThreadLikeDocument?> GetThreadReactionAsync(string threadUserId, string threadId, string userId, OperationContext context)
+    {
+        var key = ThreadLikeDocument.Key(threadUserId, threadId, userId);
+        return await TryGetAsync<ThreadLikeDocument>(key, context);
+    }
+
+    public async Task<CommentLikeDocument?> GetCommentReactionAsync(string threadUserId, string threadId, string commentId, string userId, OperationContext context)
+    {
+        var key = CommentLikeDocument.Key(threadUserId, threadId, commentId, userId);
+        return await TryGetAsync<CommentLikeDocument>(key, context);
     }
 }

@@ -9,7 +9,8 @@ public enum StreamProcessingError
     ThreadToFeed,
     ThreadCountToParentComment,
     ThreadCountToFeed,
-    VerifyChildThreadCreation
+    VerifyChildThreadCreation,
+    VerifyLikePropagation
 }
 
 public sealed class StreamProcessingException : SocialAppException

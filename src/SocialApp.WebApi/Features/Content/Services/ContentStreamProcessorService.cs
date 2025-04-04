@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
@@ -57,31 +58,79 @@ public sealed class ContentStreamProcessorService
                             error = StreamProcessingError.ThreadToFeed;
                             await PropagateThreadToFollowersFeedsAsync(GetFeedContainer(), follows, doc, context);
                             break;
-                
+
                         case ThreadCountsDocument doc:
                             error = StreamProcessingError.ThreadCountToParentComment;
                             await SyncThreadCountsToParentCommentAsync(contents, doc, context);
                             error = StreamProcessingError.ThreadCountToFeed;
                             await PropagateThreadCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, context);
                             break;
-                
+
                         case CommentDocument doc:
                             error = StreamProcessingError.VerifyChildThreadCreation;
                             await EnsureChildThreadIsCreatedOnCommentAsync(contents, doc, context);
                             break;
-                
+
+                        case ThreadUserLikeDocument doc:
+                            error = StreamProcessingError.VerifyLikePropagation;
+                            await EnsureLikeHasPropagatedAsync(contents, doc, context);
+                            break;
+                        
                         case CommentCountsDocument doc:
                             break;
                     }
+                }
+                catch (CosmosException e)
+                {
+                    context.AddRequestCharge(e.RequestCharge);
+                    throw new StreamProcessingException(error, document.Pk, document.Id, e);
                 }
                 catch (Exception e)
                 {
                     throw new StreamProcessingException(error, document.Pk, document.Id, e);
                 }
+                finally
+                {
+                    ReportOperationCharge(document, context);
+                }
             });
         }
     }
-    
+
+    private async Task EnsureLikeHasPropagatedAsync(ContentContainer contents, ThreadUserLikeDocument doc, OperationContext context)
+    {
+        var threadLike = await contents.GetThreadReactionAsync(doc.ThreadUserId, doc.ThreadId, doc.UserId, context);
+        if (threadLike == null || threadLike.Like != doc.Like)
+        {
+            threadLike = new ThreadLikeDocument(doc.ThreadUserId, doc.ThreadId, doc.UserId, doc.Like)
+            {
+                Ttl = doc.Like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
+            };
+            await contents.ReactThreadAsync(threadLike, context);
+        }
+        
+        if(string.IsNullOrWhiteSpace(doc.ParentThreadUserId))
+            return;
+
+        var commentLike = await contents.GetCommentReactionAsync(doc.ParentThreadUserId, doc.ParentThreadId, doc.ThreadId, doc.UserId, context);
+        if (commentLike == null || commentLike.Like != doc.Like)
+        {
+            commentLike = new CommentLikeDocument(doc.ParentThreadUserId, doc.ParentThreadId, doc.ThreadId, doc.UserId, doc.Like)
+            {
+                Ttl = doc.Like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
+            }; 
+            await contents.ReactCommentAsync(commentLike, context);
+        }
+    } 
+
+    private void ReportOperationCharge(Document document, OperationContext context)
+    {
+        if(context.OperationCharge == 0)
+            return;
+        
+        Console.WriteLine($"STREAM COST: Handle({document.GetType().Name}): {context.OperationCharge}");
+    }
+
     private async Task SyncThreadToParentCommentAsync(ContentContainer contents, ThreadDocument thread, OperationContext context)
     {
         if(thread.IsRootThread)

@@ -102,32 +102,55 @@ public sealed class ContentService
         }
     }
     
-    public async Task LikeThreadAsync(UserSession user, string userId, string threadId, OperationContext context)
+    public async Task ReactToThreadAsync(UserSession user, string threadUserId, string threadId, bool like, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
 
-            var thread = await contents.GetThreadDocumentAsync(user.UserId, threadId, context);
+            var thread = await contents.GetThreadDocumentAsync(threadUserId, threadId, context);
             
             if(thread == null)
                 throw new ContentException(ContentError.ContentNotFound);
             
-            context.Signal("like-post");
-            //await contents.LikeThreadAsync(counts, context);
-
-            if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
+            var userReaction = await contents.GetUserThreadLikeAsync(user.UserId, threadUserId, threadId, context);
+            
+            if(userReaction != null && userReaction.Like == like)
+                return;
+            
+            if(userReaction == null && !like)
+                return;
+            
+            context.Signal("user-react-thread");
+            userReaction = new ThreadUserLikeDocument(user.UserId, threadUserId, threadId, like, thread.ParentThreadUserId, thread.ParentThreadId)
             {
-                try
+                Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
+            };
+            await contents.UserReactThreadAsync(userReaction, context);
+
+            try
+            {
+                context.Signal("react-thread");
+                var threadReaction = new ThreadLikeDocument(threadUserId, threadId, user.UserId, like)
                 {
-                    context.Signal("like-comment");
-                    //await contents.LikeCommentAsync(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, context);
-                }
-                catch (CosmosException e)
+                    Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
+                };
+                await contents.ReactThreadAsync(threadReaction, context);
+
+                if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
                 {
-                    // Change Feed will fix this
-                    // Log ?
+                    context.Signal("react-comment");
+                    var commentReaction = new CommentLikeDocument(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, user.UserId, like)
+                    {
+                        Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
+                    };
+                    await contents.ReactCommentAsync(commentReaction, context);
                 }
+            }
+            catch (CosmosException e)
+            {
+                // Change Feed will fix this
+                // Log ?
             }
         }
         catch (CosmosException e)
