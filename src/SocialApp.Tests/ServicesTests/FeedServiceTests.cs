@@ -1,4 +1,5 @@
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Content.Models;
 
 namespace SocialApp.Tests.ServicesTests;
 
@@ -36,9 +37,23 @@ public class FeedServiceTests : ServiceTestsBase
 
         await Task.Delay(5_000);
         
-        var feed = await FeedService.GetFeedAsync(user1, OperationContext.New());
+        var feed = await FeedService.GetFeedAsync(user1, null, OperationContext.New());
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
+        Assert.That(feed.Count, Is.EqualTo(5));
+        for (var i = 0; i < feed.Count; i++)
+            Assert.That(feed[i].Content, Is.EqualTo((10-i).ToString()));
+        
+        feed = await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New());
+        Assert.That(feed, Is.Not.Null);
+        Assert.That(feed, Is.Not.Empty);
+        Assert.That(feed.Count, Is.EqualTo(5));
+        for (var i = 0; i < feed.Count; i++)
+            Assert.That(feed[i].Content, Is.EqualTo((5-i).ToString()));
+        
+        feed = await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New());
+        Assert.That(feed, Is.Not.Null);
+        Assert.That(feed, Is.Empty);
     }
     
     [Test, Order(1)]
@@ -74,25 +89,32 @@ public class FeedServiceTests : ServiceTestsBase
         }
 
         await Task.Delay(5_000);
-        
-        var feed = await FeedService.GetFeedAsync(user1, OperationContext.New());
+
+        List<ThreadHeaderModel> feed = new List<ThreadHeaderModel>();
+        feed.AddRange(await FeedService.GetFeedAsync(user1, null, OperationContext.New()));
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
+        Assert.That(feed.Count, Is.EqualTo(5));
+        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New()));
         Assert.That(feed.Count, Is.EqualTo(10));
 
-        var user2ThreadId = user2ThreadIds.OrderBy(x => Guid.NewGuid()).First();
-        var user3ThreadId = user3ThreadIds.OrderBy(x => Guid.NewGuid()).First();
+        var user2UpdatedThreadId = user2ThreadIds.OrderBy(x => Guid.NewGuid()).First();
+        var user3DeletedThreadId = user3ThreadIds.OrderBy(x => Guid.NewGuid()).First();
 
-        await ContentService.UpdateThreadAsync(user2, user2ThreadId, "Updated !!", OperationContext.New());
-        await ContentService.DeleteThreadAsync(user3, user3ThreadId, OperationContext.New());
+        await ContentService.UpdateThreadAsync(user2, user2UpdatedThreadId, "Updated !!", OperationContext.New());
+        await ContentService.DeleteThreadAsync(user3, user3DeletedThreadId, OperationContext.New());
+        await ContentService.ReactToThreadAsync(user1, user2.UserId, user2UpdatedThreadId, true, OperationContext.New());
         
         await Task.Delay(5_000);
         
-        feed = await FeedService.GetFeedAsync(user1, OperationContext.New());
+        feed.Clear();
+        feed.AddRange(await FeedService.GetFeedAsync(user1, null, OperationContext.New()));
+        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New()));
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
         Assert.That(feed.Count, Is.EqualTo(9));
-        var updatedFeed = feed.Single(x => x.ThreadId == user2ThreadId);
+        var updatedFeed = feed.Single(x => x.ThreadId == user2UpdatedThreadId);
         Assert.That(updatedFeed.Content, Is.EqualTo("Updated !!"));
+        Assert.That(updatedFeed.LikeCount, Is.EqualTo(1));
     }
 }

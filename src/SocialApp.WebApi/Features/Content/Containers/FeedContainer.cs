@@ -16,15 +16,17 @@ public sealed class FeedContainer : CosmoContainer
         : base(database)
     { }
     
-    public async Task<(IReadOnlyList<FeedThreadDocument>, IReadOnlyList<FeedThreadCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async Task<(IReadOnlyList<FeedThreadDocument>, IReadOnlyList<FeedThreadCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? beforeThreadId, int limit, OperationContext context)
     {
+        // ascending order would mean that the oldest ones come first and the most recent ones last.
+        
         var keyStart = FeedThreadDocument.KeyUserFeedStart(userId);
 
         const string sql = @"
             select * 
             from c 
             where c.pk = @pk 
-              and c.sk >= @start
+              and c.sk > @start
               and c.sk < @end
               and not is_defined(c.deleted)
             order by c.sk desc 
@@ -32,8 +34,8 @@ public sealed class FeedContainer : CosmoContainer
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyStart.Pk)
-            .WithParameter("@start", afterPostId == null ? keyStart.Id : FeedThreadDocument.KeyUserFeedFrom(userId, afterPostId).Id)
-            .WithParameter("@end", FeedThreadDocument.KeyUserFeedEnd(userId).Id)
+            .WithParameter("@start", keyStart.Id)
+            .WithParameter("@end", beforeThreadId == null ? FeedThreadDocument.KeyUserFeedEnd(userId).Id : FeedThreadDocument.KeyUserFeedFrom(userId, beforeThreadId).Id)
             .WithParameter("@limit", limit * 2); 
         
         var posts = new List<FeedThreadDocument>();

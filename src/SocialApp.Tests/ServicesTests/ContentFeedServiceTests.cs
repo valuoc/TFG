@@ -6,6 +6,28 @@ namespace SocialApp.Tests.ServicesTests;
 [Order(1)]
 public class ContentFeedServiceTests: ServiceTestsBase
 {
+    [Test, Order(0)]
+    public async Task Content_Comment_Counts_Populate()
+    {
+        var user1 = await CreateUserAsync();
+        var user2 = await CreateUserAsync();
+
+        var post1Id = await ContentService.CreateThreadAsync(user1, "Root", OperationContext.New());
+        var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.New());
+        var post3Id = await ContentService.CreateCommentAsync(user1, user2.UserId, post2Id, "Grandchild", OperationContext.New());
+
+        // Uses Change Feed
+        await Task.Delay(2_000);
+        
+        var post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
+        Assert.That(post1.CommentCount, Is.EqualTo(1));
+        Assert.That(post1.LastComments[0].CommentCount, Is.EqualTo(1));
+        
+        var post2 = await ContentService.GetThreadAsync(user2, user2.UserId, post2Id, 5, OperationContext.New());
+        Assert.That(post2.CommentCount, Is.EqualTo(1));
+        Assert.That(post2.LastComments[0].CommentCount, Is.EqualTo(0));
+    }
+    
     [Test, Order(1)]
     public async Task Content_Comment_RecoverFrom_PostPartialFailure()
     {

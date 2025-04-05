@@ -9,7 +9,12 @@ using SocialApp.WebApi.Features.Session.Containers;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
-public class AccountService
+public interface IAccountService
+{
+    Task<string> RegisterAsync(string email, string handle, string displayName, string password, OperationContext context);
+}
+
+public class AccountService : IAccountService
 {
     private readonly AccountDatabase _accountDb;
     private readonly UserDatabase _userDb;

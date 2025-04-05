@@ -39,7 +39,7 @@ public sealed class ContentContainer : CosmoContainer
         return new AllThreadDocuments(thread, postCounts, null, null);
     }
     
-    public async Task<(IReadOnlyList<ThreadDocument>, IReadOnlyList<ThreadCountsDocument>)> GetUserThreadsDocumentsAsync(string userId, string? afterPostId, int limit, OperationContext context)
+    public async Task<(IReadOnlyList<ThreadDocument>, IReadOnlyList<ThreadCountsDocument>)> GetUserThreadsDocumentsAsync(string userId, string? afterThreadId, int limit, OperationContext context)
     {
         var key = ThreadDocument.KeyUserThreadsEnd(userId);
 
@@ -56,7 +56,7 @@ public sealed class ContentContainer : CosmoContainer
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
-            .WithParameter("@id", afterPostId == null ? key.Id : ThreadDocument.Key(userId, afterPostId).Id)
+            .WithParameter("@id", afterThreadId == null ? key.Id : ThreadDocument.Key(userId, afterThreadId).Id)
             .WithParameter("@limit", limit * 2);
         
         var posts = new List<ThreadDocument>();
@@ -273,10 +273,6 @@ public sealed class ContentContainer : CosmoContainer
             EnableContentResponseOnWrite = false
         });
         
-        // Feed ?
-        // var inc = new[] {PatchOperation.Set("/likes", true)};
-        // batch.PatchItem(like.Id, inc, _noPatchResponse);
-
         var response = await batch.ExecuteAsync(context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);

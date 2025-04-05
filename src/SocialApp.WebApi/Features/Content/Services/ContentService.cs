@@ -8,7 +8,19 @@ using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Services;
 
-public sealed class ContentService
+public interface IContentService
+{
+    Task<string> CreateThreadAsync(UserSession user, string content, OperationContext context);
+    Task<string> CreateCommentAsync(UserSession user, string threadUserId, string threadId, string content, OperationContext context);
+    Task UpdateThreadAsync(UserSession user, string threadId, string content, OperationContext context);
+    Task ReactToThreadAsync(UserSession user, string threadUserId, string threadId, bool like, OperationContext context);
+    Task DeleteThreadAsync(UserSession user, string threadId, OperationContext context);
+    Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string postId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string threadUserId, string threadId, string commentId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<ThreadModel>> GetUserPostsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context);
+}
+
+public sealed class ContentService : IContentService
 {
     private readonly UserDatabase _userDb;
     public ContentService(UserDatabase userDb)
@@ -208,12 +220,12 @@ public sealed class ContentService
         }
     }
     
-    public async Task<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string userId, string postId, string commentId, int lastCommentCount, OperationContext context)
+    public async Task<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string threadUserId, string threadId, string commentId, int lastCommentCount, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
-            var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(userId, postId, commentId, lastCommentCount, context);
+            var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(threadUserId, threadId, commentId, lastCommentCount, context);
             if (comments == null)
                 return Array.Empty<Comment>();
 
@@ -225,13 +237,13 @@ public sealed class ContentService
         }
     }
     
-    public async Task<IReadOnlyList<ThreadModel>> GetUserPostsAsync(UserSession user, string? afterPostId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ThreadModel>> GetUserPostsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 
         try
         {
-            var (threads, threadCounts) = await contents.GetUserThreadsDocumentsAsync(user.UserId, afterPostId, limit, context);
+            var (threads, threadCounts) = await contents.GetUserThreadsDocumentsAsync(user.UserId, afterThreadId, limit, context);
             if (threads == null || threads.Count == 0)
                 return Array.Empty<ThreadModel>();
             

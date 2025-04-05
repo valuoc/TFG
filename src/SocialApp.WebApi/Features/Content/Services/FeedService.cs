@@ -6,7 +6,12 @@ using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Services;
 
-public sealed class FeedService
+public interface IFeedService
+{
+    Task<IReadOnlyList<ThreadHeaderModel>> GetFeedAsync(UserSession session, string? afterThreadId, OperationContext context);
+}
+
+public sealed class FeedService : IFeedService
 {
     private readonly UserDatabase _userDb;
     
@@ -16,14 +21,14 @@ public sealed class FeedService
     private FeedContainer GetFeedContainer()
         => new(_userDb);
     
-    public async Task<IReadOnlyList<ThreadHeaderModel>> GetFeedAsync(UserSession session, OperationContext context)
+    public async Task<IReadOnlyList<ThreadHeaderModel>> GetFeedAsync(UserSession session, string? afterThreadId, OperationContext context)
     {
         var feeds = GetFeedContainer();
-        var (threads, threadCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, null, 10, context);
+        var (threads, threadCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, afterThreadId, 5, context);
         
         var sorted = threads
             .Join(threadCounts, i => i.ThreadId, o => o.ThreadId, (i, o) => (i, o))
-            .OrderBy(x => x.i.Sk);
+            .OrderByDescending(x => x.i.Sk);
         
         var postsModels = new List<ThreadHeaderModel>(threads.Count);
         foreach (var (thread, counts) in sorted)
