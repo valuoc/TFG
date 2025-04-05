@@ -26,13 +26,13 @@ public class ThreadModel : ThreadHeaderModel
 {
     public List<Comment> LastComments { get; set; }
 
-    public static ThreadModel From(ThreadDocument? post)
+    public static ThreadModel From(ThreadDocument? thread)
         => new()
         {
-            UserId = post.UserId,
-            ThreadId = post.ThreadId,
-            Content = post.Content,
-            LastModify = post.LastModify,
+            UserId = thread.UserId,
+            ThreadId = thread.ThreadId,
+            Content = thread.Content,
+            LastModify = thread.LastModify,
             LastComments = new List<Comment>()
         };
 }

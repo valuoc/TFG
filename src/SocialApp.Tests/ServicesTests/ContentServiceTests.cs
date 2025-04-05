@@ -7,22 +7,22 @@ namespace SocialApp.Tests.ServicesTests;
 public class ContentServiceTests: ServiceTestsBase
 {
     [Test, Order(1)]
-    public async Task Content_Post_CanBe_Added()
+    public async Task Content_Thread_CanBe_Added()
     {
         var user1 = await CreateUserAsync();
 
         var context = OperationContext.New();
-        var post1Id = await ContentService.CreateThreadAsync(user1, "This is a post.", context);
+        var thread1Id = await ContentService.CreateThreadAsync(user1, "This is a thread.", context);
         Console.WriteLine(context.OperationCharge);
 
         context = OperationContext.New();
-        var post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, context);
+        var thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
 
-        Assert.That(post1, Is.Not.Null);
-        Assert.That(post1.ViewCount, Is.EqualTo(1));
-        Assert.That(post1.CommentCount, Is.EqualTo(0));
-        Assert.That(post1.Content, Is.EqualTo("This is a post."));
+        Assert.That(thread1, Is.Not.Null);
+        Assert.That(thread1.ViewCount, Is.EqualTo(1));
+        Assert.That(thread1.CommentCount, Is.EqualTo(0));
+        Assert.That(thread1.Content, Is.EqualTo("This is a thread."));
     }
     
     [Test, Order(2)]
@@ -30,39 +30,39 @@ public class ContentServiceTests: ServiceTestsBase
     {
         var user1 = await CreateUserAsync();
 
-        var post1Id = await ContentService.CreateThreadAsync(user1, "This is a post.", OperationContext.New());
+        var thread1Id = await ContentService.CreateThreadAsync(user1, "This is a thread.", OperationContext.New());
         
         var user2 = await CreateUserAsync();
         
-        var commentId = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "This is a comment.", OperationContext.New());
+        var commentId = await ContentService.CreateCommentAsync(user2, user1.UserId, thread1Id, "This is a comment.", OperationContext.New());
         
-        // Comment is a post on its own
-        var post2 = await ContentService.GetThreadAsync(user2, user2.UserId, commentId, 5, OperationContext.New());
-        Assert.That(post2, Is.Not.Null);
-        Assert.That(post2.ViewCount, Is.EqualTo(1));
-        Assert.That(post2.CommentCount, Is.EqualTo(0));
-        Assert.That(post2.Content, Is.EqualTo("This is a comment."));
+        // Comment is a thread on its own
+        var thread2 = await ContentService.GetThreadAsync(user2, user2.UserId, commentId, 5, OperationContext.New());
+        Assert.That(thread2, Is.Not.Null);
+        Assert.That(thread2.ViewCount, Is.EqualTo(1));
+        Assert.That(thread2.CommentCount, Is.EqualTo(0));
+        Assert.That(thread2.Content, Is.EqualTo("This is a comment."));
         
         // Comment appears as comment
-        var post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-        Assert.That(post1, Is.Not.Null);
-        Assert.That(post1.CommentCount, Is.EqualTo(1));
-        Assert.That(post1.Content, Is.EqualTo("This is a post."));
+        var thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+        Assert.That(thread1, Is.Not.Null);
+        Assert.That(thread1.CommentCount, Is.EqualTo(1));
+        Assert.That(thread1.Content, Is.EqualTo("This is a thread."));
         
-        commentId = await ContentService.CreateCommentAsync(user1, user1.UserId, post1Id, "This is a self-reply.", OperationContext.New());
+        commentId = await ContentService.CreateCommentAsync(user1, user1.UserId, thread1Id, "This is a self-reply.", OperationContext.New());
         
-        post1 = await ContentService.GetThreadAsync(user1, user1.UserId, commentId, 5, OperationContext.New());
-        Assert.That(post1, Is.Not.Null);
-        Assert.That(post1.ViewCount, Is.EqualTo(1));
-        Assert.That(post1.CommentCount, Is.EqualTo(0));
-        Assert.That(post1.Content, Is.EqualTo("This is a self-reply."));
+        thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, commentId, 5, OperationContext.New());
+        Assert.That(thread1, Is.Not.Null);
+        Assert.That(thread1.ViewCount, Is.EqualTo(1));
+        Assert.That(thread1.CommentCount, Is.EqualTo(0));
+        Assert.That(thread1.Content, Is.EqualTo("This is a self-reply."));
         
-        post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-        Assert.That(post1, Is.Not.Null);
-        Assert.That(post1.ViewCount, Is.EqualTo(2));
-        Assert.That(post1.CommentCount, Is.EqualTo(2));
-        Assert.That(post1.Content, Is.EqualTo("This is a post."));
-        Assert.That(post1.LastComments[^1].Content, Is.EqualTo("This is a self-reply."));
+        thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+        Assert.That(thread1, Is.Not.Null);
+        Assert.That(thread1.ViewCount, Is.EqualTo(2));
+        Assert.That(thread1.CommentCount, Is.EqualTo(2));
+        Assert.That(thread1.Content, Is.EqualTo("This is a thread."));
+        Assert.That(thread1.LastComments[^1].Content, Is.EqualTo("This is a self-reply."));
     }
 
     [Test, Order(3)]
@@ -74,7 +74,7 @@ public class ContentServiceTests: ServiceTestsBase
 
         var context = new OperationContext(CancellationToken.None);
         context.SetTime(now);
-        var post1Id = await ContentService.CreateThreadAsync(user1, "This is a post.", context);
+        var thread1Id = await ContentService.CreateThreadAsync(user1, "This is a thread.", context);
 
         var user2 = await CreateUserAsync();
         var user3 = await CreateUserAsync();
@@ -90,38 +90,38 @@ public class ContentServiceTests: ServiceTestsBase
             var moment = moments[i];
             context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moment));
-            await ContentService.CreateCommentAsync(moment%2==0?user2:user3, user1.UserId, post1Id, moment.ToString(), context);
+            await ContentService.CreateCommentAsync(moment%2==0?user2:user3, user1.UserId, thread1Id, moment.ToString(), context);
         }
 
         context = OperationContext.New();
-        var post = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, context);
+        var thread = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
-        Assert.That(post, Is.Not.Null);
-        Assert.That(post.LastComments.Count, Is.EqualTo(5));
-        Assert.That(post.CommentCount, Is.EqualTo(10));
+        Assert.That(thread, Is.Not.Null);
+        Assert.That(thread.LastComments.Count, Is.EqualTo(5));
+        Assert.That(thread.CommentCount, Is.EqualTo(10));
         for (var i = 0; i < 5; i++)
-            Assert.That(post.LastComments[i].Content, Is.EqualTo((i+6).ToString()));
+            Assert.That(thread.LastComments[i].Content, Is.EqualTo((i+6).ToString()));
         
-        var prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, post1Id, post.LastComments[0].CommentId, 2, OperationContext.New());
+        var prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, thread1Id, thread.LastComments[0].CommentId, 2, OperationContext.New());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments.Count, Is.EqualTo(2));
         for (var i = 0; i < 2; i++)
             Assert.That(prevComments[i].Content, Is.EqualTo((i+4).ToString()));
         
-        prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, post1Id, prevComments[0].CommentId, 3, OperationContext.New());
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, thread1Id, prevComments[0].CommentId, 3, OperationContext.New());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments.Count, Is.EqualTo(3));
         for (var i = 0; i < 3; i++)
             Assert.That(prevComments[i].Content, Is.EqualTo((i+1).ToString()));
         
-        prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, post1Id, prevComments[0].CommentId, 3, OperationContext.New());
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, thread1Id, prevComments[0].CommentId, 3, OperationContext.New());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments, Is.Empty);
     }
     
     
     [Test, Order(5)]
-    public async Task Content_Paginate_Posts()
+    public async Task Content_Paginate_Threads()
     {
         var now = DateTimeOffset.UtcNow;
         var user1 = await CreateUserAsync();
@@ -139,32 +139,32 @@ public class ContentServiceTests: ServiceTestsBase
             var moment = moments[i];
             context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moment));
-            var post1Id = await ContentService.CreateThreadAsync(user1, moment.ToString(), context);
+            var thread1Id = await ContentService.CreateThreadAsync(user1, moment.ToString(), context);
 
             if (i % 3 == 0)
             {
-                var post12d = await ContentService.CreateThreadAsync(user2, moment.ToString(), context);
-                await ContentService.CreateCommentAsync(user1, user2.UserId, post12d, moment + "reply!!", context);
+                var thread12d = await ContentService.CreateThreadAsync(user2, moment.ToString(), context);
+                await ContentService.CreateCommentAsync(user1, user2.UserId, thread12d, moment + "reply!!", context);
             }
         }
 
         context = OperationContext.New();
-        var posts = await ContentService.GetUserPostsAsync(user1, null, 5, context);
+        var threads = await ContentService.GetUserThreadsAsync(user1, null, 5, context);
         Console.WriteLine(context.OperationCharge);
-        Assert.That(posts, Is.Not.Null);
-        Assert.That(posts.Count, Is.EqualTo(5));
+        Assert.That(threads, Is.Not.Null);
+        Assert.That(threads.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
-            Assert.That(posts[i].Content, Is.EqualTo((10 - i).ToString()));
+            Assert.That(threads[i].Content, Is.EqualTo((10 - i).ToString()));
         
-        posts = await ContentService.GetUserPostsAsync(user1, posts[^1].ThreadId, 5, OperationContext.New());
-        Assert.That(posts, Is.Not.Null);
-        Assert.That(posts.Count, Is.EqualTo(5));
+        threads = await ContentService.GetUserThreadsAsync(user1, threads[^1].ThreadId, 5, OperationContext.New());
+        Assert.That(threads, Is.Not.Null);
+        Assert.That(threads.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
-            Assert.That(posts[i].Content, Is.EqualTo((5 - i).ToString()));
+            Assert.That(threads[i].Content, Is.EqualTo((5 - i).ToString()));
         
-        posts = await ContentService.GetUserPostsAsync(user1, posts[^1].ThreadId, 5, OperationContext.New());
-        Assert.That(posts, Is.Not.Null);
-        Assert.That(posts.Count, Is.EqualTo(0));
+        threads = await ContentService.GetUserThreadsAsync(user1, threads[^1].ThreadId, 5, OperationContext.New());
+        Assert.That(threads, Is.Not.Null);
+        Assert.That(threads.Count, Is.EqualTo(0));
     }
     
     [Test, Order(6)]
@@ -173,15 +173,15 @@ public class ContentServiceTests: ServiceTestsBase
         var user1 = await CreateUserAsync();
         var user2 = await CreateUserAsync();
 
-        var post1Id = await ContentService.CreateThreadAsync(user1, "Root", OperationContext.New());
-        var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.New());
-        await ContentService.UpdateThreadAsync(user2, post2Id, "Updated!", OperationContext.New());
+        var thread1Id = await ContentService.CreateThreadAsync(user1, "Root", OperationContext.New());
+        var thread2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, thread1Id, "Child", OperationContext.New());
+        await ContentService.UpdateThreadAsync(user2, thread2Id, "Updated!", OperationContext.New());
         
-        var post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-        Assert.That(post1.LastComments[0].Content, Is.EqualTo("Updated!"));
+        var thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+        Assert.That(thread1.LastComments[0].Content, Is.EqualTo("Updated!"));
         
-        var post2 = await ContentService.GetThreadAsync(user2, user2.UserId, post2Id, 5, OperationContext.New());
-        Assert.That(post2.Content, Is.EqualTo("Updated!"));
+        var thread2 = await ContentService.GetThreadAsync(user2, user2.UserId, thread2Id, 5, OperationContext.New());
+        Assert.That(thread2.Content, Is.EqualTo("Updated!"));
     }
     
     [Test, Order(7)]
@@ -190,15 +190,15 @@ public class ContentServiceTests: ServiceTestsBase
         var user1 = await CreateUserAsync();
         var user2 = await CreateUserAsync();
 
-        var post1Id = await ContentService.CreateThreadAsync(user1, "Root", OperationContext.New());
-        var comment2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.New());
-        var comment1Id = await ContentService.CreateCommentAsync(user1, user1.UserId, post1Id, "Child Reply !!!", OperationContext.New());
+        var thread1Id = await ContentService.CreateThreadAsync(user1, "Root", OperationContext.New());
+        var comment2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, thread1Id, "Child", OperationContext.New());
+        var comment1Id = await ContentService.CreateCommentAsync(user1, user1.UserId, thread1Id, "Child Reply !!!", OperationContext.New());
 
-        var post = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-        Assert.That(post, Is.Not.Null);
-        Assert.That(post.CommentCount, Is.EqualTo(2));
-        Assert.That(post.LastComments.Count, Is.EqualTo(2));
-        Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
+        var thread = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+        Assert.That(thread, Is.Not.Null);
+        Assert.That(thread.CommentCount, Is.EqualTo(2));
+        Assert.That(thread.LastComments.Count, Is.EqualTo(2));
+        Assert.That(thread.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
 
         var context = OperationContext.New();
         await ContentService.DeleteThreadAsync(user2, comment2Id, context);
@@ -207,11 +207,11 @@ public class ContentServiceTests: ServiceTestsBase
         
         Assert.ThrowsAsync<ContentException>(() => ContentService.GetThreadAsync(user2, user2.UserId, comment2Id, 5, OperationContext.New()));
         
-        post = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-        Assert.That(post, Is.Not.Null);
-        Assert.That(post.CommentCount, Is.EqualTo(1));
-        Assert.That(post.LastComments.Count, Is.EqualTo(1));
-        Assert.That(post.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
+        thread = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+        Assert.That(thread, Is.Not.Null);
+        Assert.That(thread.CommentCount, Is.EqualTo(1));
+        Assert.That(thread.LastComments.Count, Is.EqualTo(1));
+        Assert.That(thread.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
     }
     
     [Test, Order(8)]
@@ -220,37 +220,37 @@ public class ContentServiceTests: ServiceTestsBase
         var user1 = await CreateUserAsync();
         var user2 = await CreateUserAsync();
 
-        var post1Id = await ContentService.CreateThreadAsync(user1, "Root", OperationContext.New());
-        var post2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, post1Id, "Child", OperationContext.New());
+        var thread1Id = await ContentService.CreateThreadAsync(user1, "Root", OperationContext.New());
+        var thread2Id = await ContentService.CreateCommentAsync(user2, user1.UserId, thread1Id, "Child", OperationContext.New());
 
-        await ContentService.ReactToThreadAsync(user1, user2.UserId, post2Id, false, OperationContext.New());
+        await ContentService.ReactToThreadAsync(user1, user2.UserId, thread2Id, false, OperationContext.New());
 
-        var post2 = await ContentService.GetThreadAsync(user2, user2.UserId, post2Id, 5, OperationContext.New());
-        Assert.That(post2.LikeCount, Is.EqualTo(0));
+        var thread2 = await ContentService.GetThreadAsync(user2, user2.UserId, thread2Id, 5, OperationContext.New());
+        Assert.That(thread2.LikeCount, Is.EqualTo(0));
 
-        var post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-        Assert.That(post1.LastComments[0].LikeCount, Is.EqualTo(0));
+        var thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+        Assert.That(thread1.LastComments[0].LikeCount, Is.EqualTo(0));
         
         for (var i = 0; i < 2; i++)
         {
-            await ContentService.ReactToThreadAsync(user1, user2.UserId, post2Id, true, OperationContext.New());
+            await ContentService.ReactToThreadAsync(user1, user2.UserId, thread2Id, true, OperationContext.New());
 
-            post2 = await ContentService.GetThreadAsync(user2, user2.UserId, post2Id, 5, OperationContext.New());
-            Assert.That(post2.LikeCount, Is.EqualTo(1));
+            thread2 = await ContentService.GetThreadAsync(user2, user2.UserId, thread2Id, 5, OperationContext.New());
+            Assert.That(thread2.LikeCount, Is.EqualTo(1));
 
-            post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-            Assert.That(post1.LastComments[0].LikeCount, Is.EqualTo(1));
+            thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+            Assert.That(thread1.LastComments[0].LikeCount, Is.EqualTo(1));
         }
         
         for (var i = 0; i < 2; i++)
         {
-            await ContentService.ReactToThreadAsync(user1, user2.UserId, post2Id, false, OperationContext.New());
+            await ContentService.ReactToThreadAsync(user1, user2.UserId, thread2Id, false, OperationContext.New());
 
-            post2 = await ContentService.GetThreadAsync(user2, user2.UserId, post2Id, 5, OperationContext.New());
-            Assert.That(post2.LikeCount, Is.EqualTo(0));
+            thread2 = await ContentService.GetThreadAsync(user2, user2.UserId, thread2Id, 5, OperationContext.New());
+            Assert.That(thread2.LikeCount, Is.EqualTo(0));
 
-            post1 = await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, OperationContext.New());
-            Assert.That(post1.LastComments[0].LikeCount, Is.EqualTo(0));
+            thread1 = await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, OperationContext.New());
+            Assert.That(thread1.LastComments[0].LikeCount, Is.EqualTo(0));
         }
     }
     
@@ -275,13 +275,13 @@ public class ContentServiceTests: ServiceTestsBase
 
         var context = new OperationContext(CancellationToken.None);
         context.SetTime(now);
-        var post1Id = await ContentService.CreateThreadAsync(user1, "X".PadLeft(size, 'X'), context);
+        var thread1Id = await ContentService.CreateThreadAsync(user1, "X".PadLeft(size, 'X'), context);
         Console.WriteLine(context.OperationCharge);
         writeRcu += context.OperationCharge;
         
         context = new OperationContext(CancellationToken.None);
         context.SetTime(now);
-        await ContentService.UpdateThreadAsync(user1, post1Id, "Y".PadLeft(size, 'Y'), context);
+        await ContentService.UpdateThreadAsync(user1, thread1Id, "Y".PadLeft(size, 'Y'), context);
         Console.WriteLine(context.OperationCharge);
         writeRcu += context.OperationCharge;
 
@@ -299,13 +299,13 @@ public class ContentServiceTests: ServiceTestsBase
             var moment = moments[i];
             context = OperationContext.New();
             context.SetTime(now.AddSeconds(moment));
-            await ContentService.CreateCommentAsync(moment%2==0?user2:user3, user1.UserId, post1Id, "X".PadLeft(size, 'X'), context);
+            await ContentService.CreateCommentAsync(moment%2==0?user2:user3, user1.UserId, thread1Id, "X".PadLeft(size, 'X'), context);
             Console.WriteLine(context.OperationCharge);
             writeRcu += context.OperationCharge;
         }
 
         context = OperationContext.New();
-        await ContentService.GetThreadAsync(user1, user1.UserId, post1Id, 5, context);
+        await ContentService.GetThreadAsync(user1, user1.UserId, thread1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
         Console.WriteLine(writeRcu);
     }

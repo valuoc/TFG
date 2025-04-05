@@ -38,19 +38,19 @@ public sealed class FeedContainer : CosmoContainer
             .WithParameter("@end", beforeThreadId == null ? FeedThreadDocument.KeyUserFeedEnd(userId).Id : FeedThreadDocument.KeyUserFeedFrom(userId, beforeThreadId).Id)
             .WithParameter("@limit", limit * 2); 
         
-        var posts = new List<FeedThreadDocument>();
-        var postCounts = new List<FeedThreadCountsDocument>();
+        var threads = new List<FeedThreadDocument>();
+        var threadCounts = new List<FeedThreadCountsDocument>();
         await foreach (var document in ExecuteQueryReaderAsync(query, keyStart.Pk, context))
         {
-            if(document is FeedThreadDocument postDocument)
-                posts.Add(postDocument);
-            else if (document is FeedThreadCountsDocument postCountsDocument)
-                postCounts.Add(postCountsDocument);
+            if(document is FeedThreadDocument threadDocument)
+                threads.Add(threadDocument);
+            else if (document is FeedThreadCountsDocument threadCountsDocument)
+                threadCounts.Add(threadCountsDocument);
             else
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
-        return (posts, postCounts);
+        return (threads, threadCounts);
     }
 
     public async Task SaveFeedItemAsync(FeedThreadDocument feedItem, OperationContext context)

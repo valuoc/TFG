@@ -7,10 +7,10 @@ public record ThreadCountsDocument(string UserId, string ThreadId, int LikeCount
 {
     public bool IsRootThread {get; set;}
     
-    public static DocumentKey Key(string userId, string postId)
+    public static DocumentKey Key(string userId, string threadId)
     {
         var pk = "user:"+userId;
-        var id = $"thread:{postId}:thread_counts";
+        var id = $"thread:{threadId}:thread_counts";
         return new DocumentKey(pk, id);
     }
 

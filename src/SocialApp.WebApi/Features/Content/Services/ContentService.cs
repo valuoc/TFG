@@ -15,9 +15,9 @@ public interface IContentService
     Task UpdateThreadAsync(UserSession user, string threadId, string content, OperationContext context);
     Task ReactToThreadAsync(UserSession user, string threadUserId, string threadId, bool like, OperationContext context);
     Task DeleteThreadAsync(UserSession user, string threadId, OperationContext context);
-    Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string postId, int lastCommentCount, OperationContext context);
+    Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string threadId, int lastCommentCount, OperationContext context);
     Task<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string threadUserId, string threadId, string commentId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<ThreadModel>> GetUserPostsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context);
+    Task<IReadOnlyList<ThreadModel>> GetUserThreadsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context);
 }
 
 public sealed class ContentService : IContentService
@@ -33,11 +33,11 @@ public sealed class ContentService : IContentService
     {
         try
         {
-            var postId = Ulid.NewUlid(context.UtcNow).ToString();
+            var threadId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = GetContentsContainer();
-            var thread = new ThreadDocument(user.UserId, postId, content, context.UtcNow.UtcDateTime, 0, null, null) { IsRootThread = true };
+            var thread = new ThreadDocument(user.UserId, threadId, content, context.UtcNow.UtcDateTime, 0, null, null) { IsRootThread = true };
             await contents.CreateThreadAsync(thread, context);
-            return postId;
+            return threadId;
         }
         catch (CosmosException e)
         {
@@ -60,7 +60,7 @@ public sealed class ContentService : IContentService
 
             try
             {
-                context.Signal("create-comment-post");
+                context.Signal("create-comment-thread");
                 await contents.CreateThreadAsync(thread, context);
             }
             catch (CosmosException)
@@ -90,7 +90,7 @@ public sealed class ContentService : IContentService
             
             thread = thread with { Content = content, Version = thread.Version + 1 };
             
-            context.Signal("update-post");
+            context.Signal("update-thread");
             await contents.ReplaceDocumentAsync(thread, context);
 
             if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
@@ -179,7 +179,7 @@ public sealed class ContentService : IContentService
         
             var thread = await contents.GetThreadDocumentAsync(user.UserId, threadId, context);
         
-            context.Signal("delete-post");
+            context.Signal("delete-thread");
             await contents.RemoveThreadAsync(thread, context);
 
             if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
@@ -202,17 +202,17 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string postId, int lastCommentCount, OperationContext context)
+    public async Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string threadId, int lastCommentCount, OperationContext context)
     {
         var contents = GetContentsContainer();
         try
         {
-            var documents = await contents.GetAllThreadDocumentsAsync(userId, postId, lastCommentCount, context);
+            var documents = await contents.GetAllThreadDocumentsAsync(userId, threadId, lastCommentCount, context);
             if(documents.Thread == null)
                 throw new ContentException(ContentError.ContentNotFound);
 
-            await contents.IncreaseViewsAsync(user.UserId, postId, context);
-            return BuildPostModel(documents.Thread, documents.ThreadCounts, documents.Comments, documents.CommentCounts);
+            await contents.IncreaseViewsAsync(user.UserId, threadId, context);
+            return BuildThreadModel(documents.Thread, documents.ThreadCounts, documents.Comments, documents.CommentCounts);
         }
         catch (CosmosException e)
         {
@@ -237,7 +237,7 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<ThreadModel>> GetUserPostsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ThreadModel>> GetUserThreadsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 
@@ -251,17 +251,17 @@ public sealed class ContentService : IContentService
                 .Join(threadCounts, i => i.ThreadId, o => o.ThreadId, (i, o) => (i, o))
                 .OrderByDescending(x => x.i.Sk);
 
-            var postsModels = new List<ThreadModel>(threads.Count);
+            var threadsModels = new List<ThreadModel>(threads.Count);
             foreach (var (threadDoc, threadCountsDocument) in sorted)
             {
                 var thread = ThreadModel.From(threadDoc);
                 thread.CommentCount = threadCountsDocument.CommentCount;
                 thread.ViewCount = threadCountsDocument.ViewCount;
                 thread.LikeCount = threadCountsDocument.LikeCount;
-                postsModels.Add(thread);
+                threadsModels.Add(thread);
             }
             
-            return postsModels;
+            return threadsModels;
         }
         catch (CosmosException e)
         {
@@ -286,7 +286,7 @@ public sealed class ContentService : IContentService
         return commentModels;
     }
     
-    private static ThreadModel? BuildPostModel(ThreadDocument thread, ThreadCountsDocument threadCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
+    private static ThreadModel? BuildThreadModel(ThreadDocument thread, ThreadCountsDocument threadCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
     {
         var model = ThreadModel.From(thread);
         model.CommentCount = threadCounts.CommentCount;
@@ -296,7 +296,7 @@ public sealed class ContentService : IContentService
         if (comments != null)
         {
             if (commentCounts == null)
-                throw new InvalidOperationException($"Comments of post {thread.UserId}/{thread.ThreadId} are present but comment counts is null.");
+                throw new InvalidOperationException($"Comments of thread {thread.UserId}/{thread.ThreadId} are present but comment counts is null.");
 
             var sorted = comments
                 .Join(commentCounts, i => i.CommentId, o => o.CommentId, (i, o) => (i, o))

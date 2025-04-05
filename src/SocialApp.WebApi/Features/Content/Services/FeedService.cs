@@ -30,15 +30,15 @@ public sealed class FeedService : IFeedService
             .Join(threadCounts, i => i.ThreadId, o => o.ThreadId, (i, o) => (i, o))
             .OrderByDescending(x => x.i.Sk);
         
-        var postsModels = new List<ThreadHeaderModel>(threads.Count);
-        foreach (var (thread, counts) in sorted)
+        var threadsModels = new List<ThreadHeaderModel>(threads.Count);
+        foreach (var (threadDoc, countsDoc) in sorted)
         {
-            var post = ThreadHeaderModel.From(thread);
-            post.CommentCount = counts.CommentCount;
-            post.ViewCount = counts.ViewCount;
-            post.LikeCount = counts.LikeCount;
-            postsModels.Add(post);
+            var thread = ThreadHeaderModel.From(threadDoc);
+            thread.CommentCount = countsDoc.CommentCount;
+            thread.ViewCount = countsDoc.ViewCount;
+            thread.LikeCount = countsDoc.LikeCount;
+            threadsModels.Add(thread);
         }
-        return postsModels;
+        return threadsModels;
     }
 }

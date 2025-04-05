@@ -11,7 +11,7 @@ public sealed class UserDatabase : CosmoDatabase
     
     protected override IEnumerable<IncludedPath> GetIndexedPaths()
     {
-        // We need to filter by post
+        // We need to filter by thread
         yield return new IncludedPath()
         {
             Path = "/sk/?"
