@@ -28,11 +28,11 @@ public class FeedServiceTests : ServiceTestsBase
         {
             var context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moments[i]));
-            await ContentService.CreateThreadAsync(user2, moments[i].ToString(), context);
+            await ContentService.StartConversationAsync(user2, moments[i].ToString(), context);
             
             context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moments[i+1]));
-            await ContentService.CreateThreadAsync(user3, moments[i+1].ToString(), context);
+            await ContentService.StartConversationAsync(user3, moments[i+1].ToString(), context);
         }
 
         await Task.Delay(5_000);
@@ -44,14 +44,14 @@ public class FeedServiceTests : ServiceTestsBase
         for (var i = 0; i < feed.Count; i++)
             Assert.That(feed[i].Content, Is.EqualTo((10-i).ToString()));
         
-        feed = await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New());
+        feed = await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New());
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
         Assert.That(feed.Count, Is.EqualTo(5));
         for (var i = 0; i < feed.Count; i++)
             Assert.That(feed[i].Content, Is.EqualTo((5-i).ToString()));
         
-        feed = await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New());
+        feed = await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New());
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Empty);
     }
@@ -74,46 +74,46 @@ public class FeedServiceTests : ServiceTestsBase
             .OrderBy(x => Guid.NewGuid())
             .ToArray();
 
-        var user2ThreadIds = new List<string>();
-        var user3ThreadIds = new List<string>();
+        var user2ConversationIds = new List<string>();
+        var user3ConversationIds = new List<string>();
         
         for (var i = 0; i < moments.Length; i+=2)
         {
             var context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moments[i]));
-            user2ThreadIds.Add(await ContentService.CreateThreadAsync(user2, moments[i].ToString(), context));
+            user2ConversationIds.Add(await ContentService.StartConversationAsync(user2, moments[i].ToString(), context));
             
             context = new OperationContext(CancellationToken.None);
             context.SetTime(now.AddSeconds(moments[i+1]));
-            user3ThreadIds.Add(await ContentService.CreateThreadAsync(user3, moments[i+1].ToString(), context));
+            user3ConversationIds.Add(await ContentService.StartConversationAsync(user3, moments[i+1].ToString(), context));
         }
 
         await Task.Delay(5_000);
 
-        List<ThreadHeaderModel> feed = new List<ThreadHeaderModel>();
+        List<ConversationHeaderModel> feed = new List<ConversationHeaderModel>();
         feed.AddRange(await FeedService.GetFeedAsync(user1, null, OperationContext.New()));
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
         Assert.That(feed.Count, Is.EqualTo(5));
-        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New()));
+        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New()));
         Assert.That(feed.Count, Is.EqualTo(10));
 
-        var user2UpdatedThreadId = user2ThreadIds.OrderBy(x => Guid.NewGuid()).First();
-        var user3DeletedThreadId = user3ThreadIds.OrderBy(x => Guid.NewGuid()).First();
+        var user2UpdatedConversationId = user2ConversationIds.OrderBy(x => Guid.NewGuid()).First();
+        var user3DeletedConversationId = user3ConversationIds.OrderBy(x => Guid.NewGuid()).First();
 
-        await ContentService.UpdateThreadAsync(user2, user2UpdatedThreadId, "Updated !!", OperationContext.New());
-        await ContentService.DeleteThreadAsync(user3, user3DeletedThreadId, OperationContext.New());
-        await ContentService.ReactToThreadAsync(user1, user2.UserId, user2UpdatedThreadId, true, OperationContext.New());
+        await ContentService.UpdateConversationAsync(user2, user2UpdatedConversationId, "Updated !!", OperationContext.New());
+        await ContentService.DeleteConversationAsync(user3, user3DeletedConversationId, OperationContext.New());
+        await ContentService.ReactToConversationAsync(user1, user2.UserId, user2UpdatedConversationId, true, OperationContext.New());
         
         await Task.Delay(5_000);
         
         feed.Clear();
         feed.AddRange(await FeedService.GetFeedAsync(user1, null, OperationContext.New()));
-        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ThreadId, OperationContext.New()));
+        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New()));
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
         Assert.That(feed.Count, Is.EqualTo(9));
-        var updatedFeed = feed.Single(x => x.ThreadId == user2UpdatedThreadId);
+        var updatedFeed = feed.Single(x => x.ConversationId == user2UpdatedConversationId);
         Assert.That(updatedFeed.Content, Is.EqualTo("Updated !!"));
         Assert.That(updatedFeed.LikeCount, Is.EqualTo(1));
     }

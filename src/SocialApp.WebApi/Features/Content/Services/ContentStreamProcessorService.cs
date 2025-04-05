@@ -1,6 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
@@ -52,26 +52,26 @@ public sealed class ContentStreamProcessorService
                 {
                     switch (document)
                     {
-                        case ThreadDocument doc:
-                            error = StreamProcessingError.ThreadToParentComment;
-                            await SyncThreadToParentCommentAsync(contents, doc, context);
-                            error = StreamProcessingError.ThreadToFeed;
-                            await PropagateThreadToFollowersFeedsAsync(GetFeedContainer(), follows, doc, context);
+                        case ConversationDocument doc:
+                            error = StreamProcessingError.ConversationToParentComment;
+                            await SyncConversationToParentCommentAsync(contents, doc, context);
+                            error = StreamProcessingError.ConversationToFeed;
+                            await PropagateConversationToFollowersFeedsAsync(GetFeedContainer(), follows, doc, context);
                             break;
 
-                        case ThreadCountsDocument doc:
-                            error = StreamProcessingError.ThreadCountToParentComment;
-                            await SyncThreadCountsToParentCommentAsync(contents, doc, context);
-                            error = StreamProcessingError.ThreadCountToFeed;
-                            await PropagateThreadCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, context);
+                        case ConversationCountsDocument doc:
+                            error = StreamProcessingError.ConversationCountToParentComment;
+                            await SyncConversationCountsToParentCommentAsync(contents, doc, context);
+                            error = StreamProcessingError.ConversationCountToFeed;
+                            await PropagateConversationCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, context);
                             break;
 
                         case CommentDocument doc:
-                            error = StreamProcessingError.VerifyChildThreadCreation;
-                            await EnsureChildThreadIsCreatedOnCommentAsync(contents, doc, context);
+                            error = StreamProcessingError.VerifyChildConversationCreation;
+                            await EnsureChildConversationIsCreatedOnCommentAsync(contents, doc, context);
                             break;
 
-                        case ThreadUserLikeDocument doc:
+                        case ConversationUserLikeDocument doc:
                             error = StreamProcessingError.VerifyLikePropagation;
                             await EnsureLikeHasPropagatedAsync(contents, doc, context);
                             break;
@@ -97,25 +97,25 @@ public sealed class ContentStreamProcessorService
         }
     }
 
-    private async Task EnsureLikeHasPropagatedAsync(ContentContainer contents, ThreadUserLikeDocument doc, OperationContext context)
+    private async Task EnsureLikeHasPropagatedAsync(ContentContainer contents, ConversationUserLikeDocument doc, OperationContext context)
     {
-        var threadLike = await contents.GetThreadReactionAsync(doc.ThreadUserId, doc.ThreadId, doc.UserId, context);
-        if (threadLike == null || threadLike.Like != doc.Like)
+        var conversationLike = await contents.GetConversationReactionAsync(doc.ConversationUserId, doc.ConversationId, doc.UserId, context);
+        if (conversationLike == null || conversationLike.Like != doc.Like)
         {
-            threadLike = new ThreadLikeDocument(doc.ThreadUserId, doc.ThreadId, doc.UserId, doc.Like)
+            conversationLike = new ConversationLikeDocument(doc.ConversationUserId, doc.ConversationId, doc.UserId, doc.Like)
             {
                 Ttl = doc.Like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
             };
-            await contents.ReactThreadAsync(threadLike, context);
+            await contents.ReactConversationAsync(conversationLike, context);
         }
         
-        if(string.IsNullOrWhiteSpace(doc.ParentThreadUserId))
+        if(string.IsNullOrWhiteSpace(doc.ParentConversationUserId))
             return;
 
-        var commentLike = await contents.GetCommentReactionAsync(doc.ParentThreadUserId, doc.ParentThreadId, doc.ThreadId, doc.UserId, context);
+        var commentLike = await contents.GetCommentReactionAsync(doc.ParentConversationUserId, doc.ParentConversationId, doc.ConversationId, doc.UserId, context);
         if (commentLike == null || commentLike.Like != doc.Like)
         {
-            commentLike = new CommentLikeDocument(doc.ParentThreadUserId, doc.ParentThreadId, doc.ThreadId, doc.UserId, doc.Like)
+            commentLike = new CommentLikeDocument(doc.ParentConversationUserId, doc.ParentConversationId, doc.ConversationId, doc.UserId, doc.Like)
             {
                 Ttl = doc.Like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
             }; 
@@ -131,42 +131,42 @@ public sealed class ContentStreamProcessorService
         Console.WriteLine($"STREAM COST: Handle({document.GetType().Name}): {context.OperationCharge}");
     }
 
-    private async Task SyncThreadToParentCommentAsync(ContentContainer contents, ThreadDocument thread, OperationContext context)
+    private async Task SyncConversationToParentCommentAsync(ContentContainer contents, ConversationDocument conversation, OperationContext context)
     {
-        if(thread.IsRootThread)
+        if(conversation.IsRootConversation)
             return; // It has no parent comment
         
-        var comment = await contents.GetCommentAsync(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, context);
+        var comment = await contents.GetCommentAsync(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId, context);
         if(comment == null)
         {
-            if(thread.Deleted)
+            if(conversation.Deleted)
                 return;
             
             // Comment was not created
-            await contents.CreateCommentAsync(new CommentDocument(thread.ParentThreadUserId, thread.ParentThreadId, thread.UserId, thread.ThreadId, thread.Content, thread.LastModify, thread.Version), context);
+            await contents.CreateCommentAsync(new CommentDocument(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.UserId, conversation.ConversationId, conversation.Content, conversation.LastModify, conversation.Version), context);
         }
-        else if (thread.Deleted && !comment.Deleted)
+        else if (conversation.Deleted && !comment.Deleted)
         {
             // Delete comment and counts
-            await contents.RemoveCommentAsync(comment.ThreadUserId, comment.ThreadId, comment.CommentId, context);
+            await contents.RemoveCommentAsync(comment.ConversationUserId, comment.ConversationId, comment.CommentId, context);
         }
-        else if (comment.Version < thread.Version)
+        else if (comment.Version < conversation.Version)
         {
             // Comment is outdated
             await contents.ReplaceDocumentAsync(comment with
             {
-                Content = thread.Content, 
-                Version = thread.Version
+                Content = conversation.Content, 
+                Version = conversation.Version
             }, context);
         }
     }
     
-    private async Task SyncThreadCountsToParentCommentAsync(ContentContainer contents, ThreadCountsDocument tcounts, OperationContext context)
+    private async Task SyncConversationCountsToParentCommentAsync(ContentContainer contents, ConversationCountsDocument tcounts, OperationContext context)
     {
-        if(tcounts.IsRootThread)
+        if(tcounts.IsRootConversation)
             return; // It has no parent comment
         
-        if(tcounts.AllCountersAreZero() && !tcounts.Deleted) // It is the thread created as a consequence of the comment
+        if(tcounts.AllCountersAreZero() && !tcounts.Deleted) // It is the conversation created as a consequence of the comment
             return;
 
         var ccounts = CommentCountsDocument.TryGenerateParentCommentCounts(tcounts);
@@ -176,29 +176,29 @@ public sealed class ContentStreamProcessorService
         await contents.ReplaceDocumentAsync(ccounts, context);
     }
 
-    private async Task EnsureChildThreadIsCreatedOnCommentAsync(ContentContainer contents, CommentDocument comment, OperationContext context)
+    private async Task EnsureChildConversationIsCreatedOnCommentAsync(ContentContainer contents, CommentDocument comment, OperationContext context)
     {
-        var thread = await contents.GetThreadDocumentAsync(comment.UserId, comment.CommentId, context);
-        if(thread != null)
+        var conversation = await contents.GetConversationDocumentAsync(comment.UserId, comment.CommentId, context);
+        if(conversation != null)
             return;
 
-        thread = new ThreadDocument(comment.UserId, comment.CommentId, comment.Content, comment.LastModify, comment.Version, comment.ThreadUserId, comment.ThreadId);
+        conversation = new ConversationDocument(comment.UserId, comment.CommentId, comment.Content, comment.LastModify, comment.Version, comment.ConversationUserId, comment.ConversationId);
         try
         {
-            await contents.CreateThreadAsync(thread, context);
+            await contents.CreateConversationAsync(conversation, context);
         }
         catch (Exception e) when (e.GetBaseException() is CosmosException { StatusCode: HttpStatusCode.Conflict })
         {
-            // This can happen if the Change Feed is catching up with the main thread
+            // This can happen if the Change Feed is catching up with the main conversation
         }
     }
 
-    private async Task PropagateThreadCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, ThreadCountsDocument counts, OperationContext context)
+    private async Task PropagateConversationCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, ConversationCountsDocument counts, OperationContext context)
     {
         var followers2 = await follows.GetFollowersAsync(counts.UserId, context);
         foreach (var followerId in GetFollowersAsync(followers2))
         {
-            var feedItem = FeedThreadCountsDocument.From(followerId, counts) with
+            var feedItem = FeedConversationCountsDocument.From(followerId, counts) with
             {
                 Ttl = FeedItemTtl,
                 Deleted = counts.Deleted,
@@ -207,15 +207,15 @@ public sealed class ContentStreamProcessorService
         }
     }
 
-    private async Task PropagateThreadToFollowersFeedsAsync(FeedContainer container, FollowContainer follows, ThreadDocument thread, OperationContext context)
+    private async Task PropagateConversationToFollowersFeedsAsync(FeedContainer container, FollowContainer follows, ConversationDocument conversation, OperationContext context)
     {
-        var followers1 = await follows.GetFollowersAsync(thread.UserId, context);
+        var followers1 = await follows.GetFollowersAsync(conversation.UserId, context);
         foreach (var followerId in GetFollowersAsync(followers1))
         {
-            var feedItem = FeedThreadDocument.From(followerId, thread) with
+            var feedItem = FeedConversationDocument.From(followerId, conversation) with
             {
                 Ttl = FeedItemTtl,
-                Deleted = thread.Deleted
+                Deleted = conversation.Deleted
             };
             await container.SaveFeedItemAsync(feedItem, context);
         }

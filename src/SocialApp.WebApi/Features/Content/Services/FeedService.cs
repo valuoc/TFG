@@ -8,7 +8,7 @@ namespace SocialApp.WebApi.Features.Content.Services;
 
 public interface IFeedService
 {
-    Task<IReadOnlyList<ThreadHeaderModel>> GetFeedAsync(UserSession session, string? afterThreadId, OperationContext context);
+    Task<IReadOnlyList<ConversationHeaderModel>> GetFeedAsync(UserSession session, string? afterConversationId, OperationContext context);
 }
 
 public sealed class FeedService : IFeedService
@@ -21,24 +21,24 @@ public sealed class FeedService : IFeedService
     private FeedContainer GetFeedContainer()
         => new(_userDb);
     
-    public async Task<IReadOnlyList<ThreadHeaderModel>> GetFeedAsync(UserSession session, string? afterThreadId, OperationContext context)
+    public async Task<IReadOnlyList<ConversationHeaderModel>> GetFeedAsync(UserSession session, string? afterConversationId, OperationContext context)
     {
         var feeds = GetFeedContainer();
-        var (threads, threadCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, afterThreadId, 5, context);
+        var (conversations, conversationCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, afterConversationId, 5, context);
         
-        var sorted = threads
-            .Join(threadCounts, i => i.ThreadId, o => o.ThreadId, (i, o) => (i, o))
+        var sorted = conversations
+            .Join(conversationCounts, i => i.ConversationId, o => o.ConversationId, (i, o) => (i, o))
             .OrderByDescending(x => x.i.Sk);
         
-        var threadsModels = new List<ThreadHeaderModel>(threads.Count);
-        foreach (var (threadDoc, countsDoc) in sorted)
+        var conversationsModels = new List<ConversationHeaderModel>(conversations.Count);
+        foreach (var (conversationDoc, countsDoc) in sorted)
         {
-            var thread = ThreadHeaderModel.From(threadDoc);
-            thread.CommentCount = countsDoc.CommentCount;
-            thread.ViewCount = countsDoc.ViewCount;
-            thread.LikeCount = countsDoc.LikeCount;
-            threadsModels.Add(thread);
+            var conversation = ConversationHeaderModel.From(conversationDoc);
+            conversation.CommentCount = countsDoc.CommentCount;
+            conversation.ViewCount = countsDoc.ViewCount;
+            conversation.LikeCount = countsDoc.LikeCount;
+            conversationsModels.Add(conversation);
         }
-        return threadsModels;
+        return conversationsModels;
     }
 }

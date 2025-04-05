@@ -1,7 +1,7 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
-using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;

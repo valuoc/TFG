@@ -10,14 +10,14 @@ namespace SocialApp.WebApi.Features.Content.Services;
 
 public interface IContentService
 {
-    Task<string> CreateThreadAsync(UserSession user, string content, OperationContext context);
-    Task<string> CreateCommentAsync(UserSession user, string threadUserId, string threadId, string content, OperationContext context);
-    Task UpdateThreadAsync(UserSession user, string threadId, string content, OperationContext context);
-    Task ReactToThreadAsync(UserSession user, string threadUserId, string threadId, bool like, OperationContext context);
-    Task DeleteThreadAsync(UserSession user, string threadId, OperationContext context);
-    Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string threadId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string threadUserId, string threadId, string commentId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<ThreadModel>> GetUserThreadsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context);
+    Task<string> StartConversationAsync(UserSession user, string content, OperationContext context);
+    Task<string> CommentAsync(UserSession user, string conversationUserId, string conversationId, string content, OperationContext context);
+    Task UpdateConversationAsync(UserSession user, string conversationId, string content, OperationContext context);
+    Task ReactToConversationAsync(UserSession user, string conversationUserId, string conversationId, bool like, OperationContext context);
+    Task DeleteConversationAsync(UserSession user, string conversationId, OperationContext context);
+    Task<ConversationModel> GetConversationAsync(UserSession user, string userId, string conversationId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(UserSession user, string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<ConversationModel>> GetUserConversationsAsync(UserSession user, string? afterConversationId, int limit, OperationContext context);
 }
 
 public sealed class ContentService : IContentService
@@ -29,15 +29,15 @@ public sealed class ContentService : IContentService
     private ContentContainer GetContentsContainer()
         => new(_userDb);
     
-    public async Task<string> CreateThreadAsync(UserSession user, string content, OperationContext context)
+    public async Task<string> StartConversationAsync(UserSession user, string content, OperationContext context)
     {
         try
         {
-            var threadId = Ulid.NewUlid(context.UtcNow).ToString();
+            var conversationId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = GetContentsContainer();
-            var thread = new ThreadDocument(user.UserId, threadId, content, context.UtcNow.UtcDateTime, 0, null, null) { IsRootThread = true };
-            await contents.CreateThreadAsync(thread, context);
-            return threadId;
+            var conversation = new ConversationDocument(user.UserId, conversationId, content, context.UtcNow.UtcDateTime, 0, null, null) { IsRootConversation = true };
+            await contents.CreateConversationAsync(conversation, context);
+            return conversationId;
         }
         catch (CosmosException e)
         {
@@ -45,23 +45,23 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<string> CreateCommentAsync(UserSession user, string threadUserId, string threadId, string content, OperationContext context)
+    public async Task<string> CommentAsync(UserSession user, string conversationUserId, string conversationId, string content, OperationContext context)
     {
         try
         {
             var commentId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = GetContentsContainer();
             
-            var comment = new CommentDocument(threadUserId, threadId, user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0);
-            var thread = new ThreadDocument(user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0, threadUserId, threadId);
+            var comment = new CommentDocument(conversationUserId, conversationId, user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0);
+            var conversation = new ConversationDocument(user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0, conversationUserId, conversationId);
             
             context.Signal("create-comment");
             await contents.CreateCommentAsync(comment, context);
 
             try
             {
-                context.Signal("create-comment-thread");
-                await contents.CreateThreadAsync(thread, context);
+                context.Signal("create-comment-conversation");
+                await contents.CreateConversationAsync(conversation, context);
             }
             catch (CosmosException)
             {
@@ -77,28 +77,28 @@ public sealed class ContentService : IContentService
         }
     }
 
-    public async Task UpdateThreadAsync(UserSession user, string threadId, string content, OperationContext context)
+    public async Task UpdateConversationAsync(UserSession user, string conversationId, string content, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
 
-            var thread = await contents.GetThreadDocumentAsync(user.UserId, threadId, context);
+            var conversation = await contents.GetConversationDocumentAsync(user.UserId, conversationId, context);
             
-            if(thread == null)
+            if(conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
             
-            thread = thread with { Content = content, Version = thread.Version + 1 };
+            conversation = conversation with { Content = content, Version = conversation.Version + 1 };
             
-            context.Signal("update-thread");
-            await contents.ReplaceDocumentAsync(thread, context);
+            context.Signal("update-conversation");
+            await contents.ReplaceDocumentAsync(conversation, context);
 
-            if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
+            if (!string.IsNullOrWhiteSpace(conversation.ParentConversationUserId))
             {
                 try
                 {
                     context.Signal("update-comment");
-                    var comment = new CommentDocument(thread.ParentThreadUserId, thread.ParentThreadId, thread.UserId, thread.ThreadId, thread.Content, thread.LastModify, thread.Version);
+                    var comment = new CommentDocument(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.UserId, conversation.ConversationId, conversation.Content, conversation.LastModify, conversation.Version);
                     await contents.ReplaceDocumentAsync(comment, context);
                 }
                 catch (CosmosException e)
@@ -114,18 +114,18 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task ReactToThreadAsync(UserSession user, string threadUserId, string threadId, bool like, OperationContext context)
+    public async Task ReactToConversationAsync(UserSession user, string conversationUserId, string conversationId, bool like, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
 
-            var thread = await contents.GetThreadDocumentAsync(threadUserId, threadId, context);
+            var conversation = await contents.GetConversationDocumentAsync(conversationUserId, conversationId, context);
             
-            if(thread == null)
+            if(conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
             
-            var userReaction = await contents.GetUserThreadLikeAsync(user.UserId, threadUserId, threadId, context);
+            var userReaction = await contents.GetUserConversationLikeAsync(user.UserId, conversationUserId, conversationId, context);
             
             if(userReaction != null && userReaction.Like == like)
                 return;
@@ -133,26 +133,26 @@ public sealed class ContentService : IContentService
             if(userReaction == null && !like)
                 return;
             
-            context.Signal("user-react-thread");
-            userReaction = new ThreadUserLikeDocument(user.UserId, threadUserId, threadId, like, thread.ParentThreadUserId, thread.ParentThreadId)
+            context.Signal("user-react-conversation");
+            userReaction = new ConversationUserLikeDocument(user.UserId, conversationUserId, conversationId, like, conversation.ParentConversationUserId, conversation.ParentConversationId)
             {
                 Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
             };
-            await contents.UserReactThreadAsync(userReaction, context);
+            await contents.UserReactConversationAsync(userReaction, context);
 
             try
             {
-                context.Signal("react-thread");
-                var threadReaction = new ThreadLikeDocument(threadUserId, threadId, user.UserId, like)
+                context.Signal("react-conversation");
+                var conversationReaction = new ConversationLikeDocument(conversationUserId, conversationId, user.UserId, like)
                 {
                     Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
                 };
-                await contents.ReactThreadAsync(threadReaction, context);
+                await contents.ReactConversationAsync(conversationReaction, context);
 
-                if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
+                if (!string.IsNullOrWhiteSpace(conversation.ParentConversationUserId))
                 {
                     context.Signal("react-comment");
-                    var commentReaction = new CommentLikeDocument(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, user.UserId, like)
+                    var commentReaction = new CommentLikeDocument(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId, user.UserId, like)
                     {
                         Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
                     };
@@ -171,23 +171,23 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task DeleteThreadAsync(UserSession user, string threadId, OperationContext context)
+    public async Task DeleteConversationAsync(UserSession user, string conversationId, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
         
-            var thread = await contents.GetThreadDocumentAsync(user.UserId, threadId, context);
+            var conversation = await contents.GetConversationDocumentAsync(user.UserId, conversationId, context);
         
-            context.Signal("delete-thread");
-            await contents.RemoveThreadAsync(thread, context);
+            context.Signal("delete-conversation");
+            await contents.RemoveConversationAsync(conversation, context);
 
-            if (!string.IsNullOrWhiteSpace(thread.ParentThreadUserId))
+            if (!string.IsNullOrWhiteSpace(conversation.ParentConversationUserId))
             {
                 try
                 {
                     context.Signal("delete-comment");
-                    await contents.RemoveCommentAsync(thread.ParentThreadUserId, thread.ParentThreadId, thread.ThreadId, context);
+                    await contents.RemoveCommentAsync(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId, context);
                 }
                 catch (CosmosException)
                 {
@@ -202,17 +202,17 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<ThreadModel> GetThreadAsync(UserSession user, string userId, string threadId, int lastCommentCount, OperationContext context)
+    public async Task<ConversationModel> GetConversationAsync(UserSession user, string userId, string conversationId, int lastCommentCount, OperationContext context)
     {
         var contents = GetContentsContainer();
         try
         {
-            var documents = await contents.GetAllThreadDocumentsAsync(userId, threadId, lastCommentCount, context);
-            if(documents.Thread == null)
+            var documents = await contents.GetAllConversationDocumentsAsync(userId, conversationId, lastCommentCount, context);
+            if(documents.Conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
 
-            await contents.IncreaseViewsAsync(user.UserId, threadId, context);
-            return BuildThreadModel(documents.Thread, documents.ThreadCounts, documents.Comments, documents.CommentCounts);
+            await contents.IncreaseViewsAsync(user.UserId, conversationId, context);
+            return BuildConversationModel(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts);
         }
         catch (CosmosException e)
         {
@@ -220,14 +220,14 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<Comment>> GetPreviousCommentsAsync(UserSession user, string threadUserId, string threadId, string commentId, int lastCommentCount, OperationContext context)
+    public async Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(UserSession user, string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
-            var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(threadUserId, threadId, commentId, lastCommentCount, context);
+            var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(conversationUserId, conversationId, commentId, lastCommentCount, context);
             if (comments == null)
-                return Array.Empty<Comment>();
+                return Array.Empty<CommentModel>();
 
             return BuildCommentList(comments, commentCounts);
         }
@@ -237,31 +237,31 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<ThreadModel>> GetUserThreadsAsync(UserSession user, string? afterThreadId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ConversationModel>> GetUserConversationsAsync(UserSession user, string? afterConversationId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 
         try
         {
-            var (threads, threadCounts) = await contents.GetUserThreadsDocumentsAsync(user.UserId, afterThreadId, limit, context);
-            if (threads == null || threads.Count == 0)
-                return Array.Empty<ThreadModel>();
+            var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(user.UserId, afterConversationId, limit, context);
+            if (conversations == null || conversations.Count == 0)
+                return Array.Empty<ConversationModel>();
             
-            var sorted = threads
-                .Join(threadCounts, i => i.ThreadId, o => o.ThreadId, (i, o) => (i, o))
+            var sorted = conversations
+                .Join(conversationCounts, i => i.ConversationId, o => o.ConversationId, (i, o) => (i, o))
                 .OrderByDescending(x => x.i.Sk);
 
-            var threadsModels = new List<ThreadModel>(threads.Count);
-            foreach (var (threadDoc, threadCountsDocument) in sorted)
+            var conversationsModels = new List<ConversationModel>(conversations.Count);
+            foreach (var (conversationDoc, conversationCountsDocument) in sorted)
             {
-                var thread = ThreadModel.From(threadDoc);
-                thread.CommentCount = threadCountsDocument.CommentCount;
-                thread.ViewCount = threadCountsDocument.ViewCount;
-                thread.LikeCount = threadCountsDocument.LikeCount;
-                threadsModels.Add(thread);
+                var conversation = ConversationModel.From(conversationDoc);
+                conversation.CommentCount = conversationCountsDocument.CommentCount;
+                conversation.ViewCount = conversationCountsDocument.ViewCount;
+                conversation.LikeCount = conversationCountsDocument.LikeCount;
+                conversationsModels.Add(conversation);
             }
             
-            return threadsModels;
+            return conversationsModels;
         }
         catch (CosmosException e)
         {
@@ -269,34 +269,34 @@ public sealed class ContentService : IContentService
         }
     }
     
-    private static IReadOnlyList<Comment> BuildCommentList(List<CommentDocument> comments, List<CommentCountsDocument>? commentCounts)
+    private static IReadOnlyList<CommentModel> BuildCommentList(List<CommentDocument> comments, List<CommentCountsDocument>? commentCounts)
     {
         var sorted = comments
             .Join(commentCounts, i => i.CommentId, o => o.CommentId, (i, o) => (i, o))
             .OrderBy(x => x.i.Sk);
 
-        var commentModels = new List<Comment>(comments.Count);
+        var commentModels = new List<CommentModel>(comments.Count);
         foreach (var (commentDoc, countsDoc) in sorted)
         {
-            var comment = Comment.From(commentDoc);
-            Comment.Apply(comment, countsDoc);
+            var comment = CommentModel.From(commentDoc);
+            CommentModel.Apply(comment, countsDoc);
             commentModels.Add(comment);
         }
 
         return commentModels;
     }
     
-    private static ThreadModel? BuildThreadModel(ThreadDocument thread, ThreadCountsDocument threadCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
+    private static ConversationModel? BuildConversationModel(ConversationDocument conversation, ConversationCountsDocument conversationCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
     {
-        var model = ThreadModel.From(thread);
-        model.CommentCount = threadCounts.CommentCount;
-        model.ViewCount = threadCounts.ViewCount +1;
-        model.LikeCount = threadCounts.LikeCount;
+        var model = ConversationModel.From(conversation);
+        model.CommentCount = conversationCounts.CommentCount;
+        model.ViewCount = conversationCounts.ViewCount +1;
+        model.LikeCount = conversationCounts.LikeCount;
         
         if (comments != null)
         {
             if (commentCounts == null)
-                throw new InvalidOperationException($"Comments of thread {thread.UserId}/{thread.ThreadId} are present but comment counts is null.");
+                throw new InvalidOperationException($"Comments of conversation {conversation.UserId}/{conversation.ConversationId} are present but comment counts is null.");
 
             var sorted = comments
                 .Join(commentCounts, i => i.CommentId, o => o.CommentId, (i, o) => (i, o))
@@ -304,11 +304,11 @@ public sealed class ContentService : IContentService
             
             foreach (var (commentDocument, commentCountsDocument) in sorted)
             {
-                var comment = Comment.From(commentDocument);
+                var comment = CommentModel.From(commentDocument);
                 if (comment.CommentId != commentCountsDocument.CommentId)
                     throw new InvalidOperationException($"The comment {commentDocument.CommentId} does not match the counts.");
                 
-                Comment.Apply(comment, commentCountsDocument);
+                CommentModel.Apply(comment, commentCountsDocument);
                 model.LastComments.Add(comment);
             }
         }

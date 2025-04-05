@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features._Shared.Services;
 
-namespace SocialApp.WebApi.Data._Shared;
+namespace SocialApp.WebApi.Data.Shared;
 
 public abstract class CosmoContainer
 {

@@ -1,5 +1,5 @@
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 

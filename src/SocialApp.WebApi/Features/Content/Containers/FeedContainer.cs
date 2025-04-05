@@ -1,5 +1,5 @@
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 
@@ -16,11 +16,11 @@ public sealed class FeedContainer : CosmoContainer
         : base(database)
     { }
     
-    public async Task<(IReadOnlyList<FeedThreadDocument>, IReadOnlyList<FeedThreadCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? beforeThreadId, int limit, OperationContext context)
+    public async Task<(IReadOnlyList<FeedConversationDocument>, IReadOnlyList<FeedConversationCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? beforeConversationId, int limit, OperationContext context)
     {
         // ascending order would mean that the oldest ones come first and the most recent ones last.
         
-        var keyStart = FeedThreadDocument.KeyUserFeedStart(userId);
+        var keyStart = FeedConversationDocument.KeyUserFeedStart(userId);
 
         const string sql = @"
             select * 
@@ -35,31 +35,31 @@ public sealed class FeedContainer : CosmoContainer
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", keyStart.Pk)
             .WithParameter("@start", keyStart.Id)
-            .WithParameter("@end", beforeThreadId == null ? FeedThreadDocument.KeyUserFeedEnd(userId).Id : FeedThreadDocument.KeyUserFeedFrom(userId, beforeThreadId).Id)
+            .WithParameter("@end", beforeConversationId == null ? FeedConversationDocument.KeyUserFeedEnd(userId).Id : FeedConversationDocument.KeyUserFeedFrom(userId, beforeConversationId).Id)
             .WithParameter("@limit", limit * 2); 
         
-        var threads = new List<FeedThreadDocument>();
-        var threadCounts = new List<FeedThreadCountsDocument>();
+        var conversations = new List<FeedConversationDocument>();
+        var conversationCounts = new List<FeedConversationCountsDocument>();
         await foreach (var document in ExecuteQueryReaderAsync(query, keyStart.Pk, context))
         {
-            if(document is FeedThreadDocument threadDocument)
-                threads.Add(threadDocument);
-            else if (document is FeedThreadCountsDocument threadCountsDocument)
-                threadCounts.Add(threadCountsDocument);
+            if(document is FeedConversationDocument conversationDocument)
+                conversations.Add(conversationDocument);
+            else if (document is FeedConversationCountsDocument conversationCountsDocument)
+                conversationCounts.Add(conversationCountsDocument);
             else
                 throw new InvalidOperationException("Unexpected document: " + document.GetType().Name);
         }
         
-        return (threads, threadCounts);
+        return (conversations, conversationCounts);
     }
 
-    public async Task SaveFeedItemAsync(FeedThreadDocument feedItem, OperationContext context)
+    public async Task SaveFeedItemAsync(FeedConversationDocument feedItem, OperationContext context)
     {
         var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);
     }
 
-    public async Task SaveFeedItemAsync(FeedThreadCountsDocument feedItem, OperationContext context)
+    public async Task SaveFeedItemAsync(FeedConversationCountsDocument feedItem, OperationContext context)
     {
         var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
         context.AddRequestCharge(response.RequestCharge);

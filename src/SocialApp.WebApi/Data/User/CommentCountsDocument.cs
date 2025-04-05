@@ -1,21 +1,21 @@
-using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Shared;
 
 namespace SocialApp.WebApi.Data.User;
 
-public record CommentCountsDocument(string ThreadUserId, string ThreadId, string UserId, string CommentId, int LikeCount, int CommentCount, int ViewCount) 
-    : Document(Key(ThreadUserId, ThreadId, CommentId))
+public record CommentCountsDocument(string ConversationUserId, string ConversationId, string UserId, string CommentId, int LikeCount, int CommentCount, int ViewCount) 
+    : Document(Key(ConversationUserId, ConversationId, CommentId))
 {
-    public static DocumentKey Key(string threadUserId, string threadId, string commentId)
+    public static DocumentKey Key(string conversationUserId, string conversationId, string commentId)
     {
-        var pk = "user:"+threadUserId;
-        var id = $"thread:{threadId}:comment:{commentId}:counts";
+        var pk = "user:"+conversationUserId;
+        var id = $"conversation:{conversationId}:comment:{commentId}:counts";
         return new DocumentKey(pk, id);
     }
 
-    public static CommentCountsDocument? TryGenerateParentCommentCounts(ThreadCountsDocument tcounts)
-        => string.IsNullOrWhiteSpace(tcounts.ParentThreadId) 
+    public static CommentCountsDocument? TryGenerateParentCommentCounts(ConversationCountsDocument tcounts)
+        => string.IsNullOrWhiteSpace(tcounts.ParentConversationId) 
             ? null 
-            : new (tcounts.ParentThreadUserId, tcounts.ParentThreadId, tcounts.UserId, tcounts.ThreadId,
+            : new (tcounts.ParentConversationUserId, tcounts.ParentConversationId, tcounts.UserId, tcounts.ConversationId,
                 tcounts.LikeCount, tcounts.CommentCount, tcounts.ViewCount)
                 {
                     Deleted = tcounts.Deleted,

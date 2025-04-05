@@ -1,5 +1,5 @@
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Shared;
 
 namespace SocialApp.WebApi.Data.Account;
 

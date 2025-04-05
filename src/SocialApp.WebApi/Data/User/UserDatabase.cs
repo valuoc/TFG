@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Shared;
 
 namespace SocialApp.WebApi.Data.User;
 
@@ -11,7 +11,7 @@ public sealed class UserDatabase : CosmoDatabase
     
     protected override IEnumerable<IncludedPath> GetIndexedPaths()
     {
-        // We need to filter by thread
+        // We need to filter by conversation
         yield return new IncludedPath()
         {
             Path = "/sk/?"
@@ -24,7 +24,7 @@ public sealed class UserDatabase : CosmoDatabase
         [
             new CompositePath()
             {
-                Path = "/isRootThread",
+                Path = "/isRootConversation",
                 Order = CompositePathSortOrder.Ascending
             },
             new CompositePath()

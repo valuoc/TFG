@@ -5,11 +5,11 @@ namespace SocialApp.WebApi.Features.Content.Exceptions;
 public enum StreamProcessingError
 {
     UnexpectedError,
-    ThreadToParentComment,
-    ThreadToFeed,
-    ThreadCountToParentComment,
-    ThreadCountToFeed,
-    VerifyChildThreadCreation,
+    ConversationToParentComment,
+    ConversationToFeed,
+    ConversationCountToParentComment,
+    ConversationCountToFeed,
+    VerifyChildConversationCreation,
     VerifyLikePropagation
 }
 
