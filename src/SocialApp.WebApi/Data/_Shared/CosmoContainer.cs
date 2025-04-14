@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Content.Services;
 
 namespace SocialApp.WebApi.Data.Shared;
 
@@ -124,6 +125,30 @@ public abstract class CosmoContainer
                     documents[i] = document;
                 }
                 yield return (documents, continuation);
+            }
+        }
+    }
+    
+    public async Task ProcessConflictFeedAsync(IConflictMerger merger, CancellationToken cancel)
+    {
+        var conflictFeed = Container.Conflicts.GetConflictQueryIterator<ConflictProperties>();
+        while (conflictFeed.HasMoreResults)
+        {
+            var conflicts = await conflictFeed.ReadNextAsync(cancel);
+            var context = new OperationContext(cancel);
+            foreach (var conflict in conflicts)
+            {
+                var conflictingJson = Container.Conflicts.ReadConflictContent<JsonElement>(conflict);
+                var remoteConflict = DeserializeDocument(conflictingJson);
+                
+                var currentItem = await Container.Conflicts.ReadCurrentAsync<JsonElement>(conflict, new PartitionKey(remoteConflict.Pk), cancel);
+                var localConflict = DeserializeDocument(currentItem);
+                
+                if(await merger.MergeAsync(remoteConflict, localConflict, context))
+                {
+                    // Delete the conflict
+                    await Container.Conflicts.DeleteAsync(conflict, new PartitionKey(remoteConflict.Pk), cancel);
+                }
             }
         }
     }

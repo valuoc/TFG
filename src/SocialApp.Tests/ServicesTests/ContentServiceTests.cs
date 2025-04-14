@@ -307,6 +307,8 @@ public class ContentServiceTests: ServiceTestsBase
         context = OperationContext.New();
         await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
+        writeRcu += context.OperationCharge;
+        Console.WriteLine("TOTAL");
         Console.WriteLine(writeRcu);
     }
 }

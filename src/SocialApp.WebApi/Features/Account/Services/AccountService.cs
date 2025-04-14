@@ -67,7 +67,7 @@ public class AccountService : IAccountService
         return pendingUserAccount.UserId;
     }
     
-    private async Task RegisterAccountInternalAsync(AccountContainer accounts, string displayName, string password, PendingAccountDocument pendingUserAccount, OperationContext context)
+    private async Task  RegisterAccountInternalAsync(AccountContainer accounts, string displayName, string password, PendingAccountDocument pendingUserAccount, OperationContext context)
     {
         var userId = pendingUserAccount.UserId;
         var email = pendingUserAccount.Email;

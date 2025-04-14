@@ -323,4 +323,10 @@ public sealed class ContentContainer : CosmoContainer
         var key = CommentLikeDocument.Key(conversationUserId, conversationId, commentId, userId);
         return await TryGetAsync<CommentLikeDocument>(key, context);
     }
+
+    public async Task<ConversationCountsDocument?> GetConversationCountsAsync(string conversationUserId, string conversationId, OperationContext context)
+    {
+        var key = ConversationCountsDocument.Key(conversationUserId, conversationId);
+        return await TryGetAsync<ConversationCountsDocument>(key, context);
+    }
 }
