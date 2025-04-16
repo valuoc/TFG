@@ -147,6 +147,38 @@ public sealed class AccountContainer : CosmoContainer
         return emailLock;
     }
     
+    public async Task CreatePasswordLoginAsync(string userId, string email, string password, OperationContext context)
+    {
+        var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
+        var response = await Container.CreateItemAsync(passwordLogin,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+    }
+
+    public async Task<string?> FindPasswordLoginAsync(string email, string password, OperationContext context)
+    {
+        var loginKey = PasswordLoginDocument.Key(email);
+        var response = await Container.ReadItemAsync<PasswordLoginDocument>(loginKey.Id, new PartitionKey(loginKey.Pk), cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+        if (response.Resource == null || response.Resource.Password != Passwords.HashPassword(password))
+        {
+            return null;
+        }
+        return response.Resource.UserId;
+    }
+    
+    public async Task DeleteSessionDataAsync(string userId, OperationContext context)
+    {
+        try
+        {
+            var passwordLoginKey = PasswordLoginDocument.Key(userId);
+            var response = await Container.DeleteItemAsync<PasswordLoginDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+        }
+    }
+    
     public async Task CompleteAccountAsync(AccountContainer accounts, AccountDocument user, OperationContext context)
     {
         var response = await Container.ReplaceItemAsync(user with { Status = AccountStatus.Completed}, user.Id, new PartitionKey(user.Pk), _noResponseContent, context.Cancellation);

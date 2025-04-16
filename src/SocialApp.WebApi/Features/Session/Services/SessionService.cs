@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
@@ -16,12 +17,17 @@ public class SessionService
     
     private readonly UserDatabase _userDd;
     private readonly SessionDatabase _sessionDb;
+    private readonly AccountDatabase _accountDb;
 
-    public SessionService(UserDatabase userDd, SessionDatabase sessionDb)
+    public SessionService(UserDatabase userDd, SessionDatabase sessionDb, AccountDatabase accountDb)
     {
         _userDd = userDd;
         _sessionDb = sessionDb;
+        _accountDb = accountDb;
     }
+    
+    private AccountContainer GetAccountContainer()
+        => new(_accountDb);
     
     private SessionContainer GetSessionContainer()
         => new(_sessionDb);
@@ -33,8 +39,7 @@ public class SessionService
     {
         try
         {
-            var sessions = GetSessionContainer();
-            var userId = await sessions.FindPasswordLoginAsync(email, password, context);
+            var userId = await GetAccountContainer().FindPasswordLoginAsync(email, password, context);
             if (userId == null)
                 return null;
 
@@ -48,7 +53,7 @@ public class SessionService
                 Ttl = _sessionLengthSeconds
             };
             
-            await sessions.CreateSessionAsync(session, context);
+            await GetSessionContainer().CreateSessionAsync(session, context);
             return new UserSession(userId, session.SessionId, profile.DisplayName, profile.Handle);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)

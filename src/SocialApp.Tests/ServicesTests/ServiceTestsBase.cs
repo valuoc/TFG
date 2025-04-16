@@ -16,7 +16,7 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
-    protected bool RemoveContainerAfterTests = false;
+    protected bool RemoveContainerAfterTests = true;
     
     protected AccountService AccountService;
     protected SessionService SessionService;
@@ -62,7 +62,7 @@ public abstract class ServiceTestsBase
         _sessionDatabase = new SessionDatabase(_cosmosClient, _databaseId, _container);
 
         AccountService = new AccountService(_accountDatabase, _userDatabase, _sessionDatabase);
-        SessionService = new SessionService(_userDatabase, _sessionDatabase);
+        SessionService = new SessionService(_userDatabase, _sessionDatabase, _accountDatabase);
         FollowersService = new FollowersService(_userDatabase);
         ContentService = new ContentService(_userDatabase);
         FeedService = new FeedService(_userDatabase);

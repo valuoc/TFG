@@ -5,7 +5,6 @@ using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
 using SocialApp.WebApi.Features.Account.Exceptions;
-using SocialApp.WebApi.Features.Session.Containers;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
@@ -32,9 +31,6 @@ public class AccountService : IAccountService
     
     private AccountContainer GetAccountContainer()
         => new(_accountDb);
-    
-    private SessionContainer GetSessionContainer()
-        => new(_sessionDb);
 
     public async Task<string> RegisterAsync(string email, string handle, string displayName, string password, OperationContext context)
     {
@@ -61,7 +57,7 @@ public class AccountService : IAccountService
             if(await accounts.PendingAccountCleanUpAsync(pendingUserAccount, context))
             {
                 await GetProfileContainer().DeleteProfileDataAsync(pendingUserAccount.UserId, context);
-                await GetSessionContainer().DeleteSessionDataAsync(pendingUserAccount.UserId, context);
+                await accounts.DeleteSessionDataAsync(pendingUserAccount.UserId, context);
             }
         }
         return pendingUserAccount.UserId;
@@ -98,8 +94,7 @@ public class AccountService : IAccountService
             // Login is created on successful account.
             // If this step fails, user could use password recovery
             context.Signal("create-login");
-            var sessions = GetSessionContainer();
-            await sessions.CreatePasswordLoginAsync(userId, email, password, context);
+            await accounts.CreatePasswordLoginAsync(userId, email, password, context);
         }
         catch (CosmosException e)
         {
@@ -111,7 +106,6 @@ public class AccountService : IAccountService
     {
         var accounts = GetAccountContainer();
         var profiles = GetProfileContainer();
-        var sessions = GetSessionContainer();
         var pendingCount = 0;
 
         await foreach (var pending in accounts.GetExpiredPendingAccountsAsync(timeLimit, context))
@@ -121,7 +115,7 @@ public class AccountService : IAccountService
             {
                 await accounts.PendingAccountCleanUpAsync(pending, context);
                 await profiles.DeleteProfileDataAsync(pending.UserId, context);
-                await sessions.DeleteSessionDataAsync(pending.UserId, context);
+                await accounts.DeleteSessionDataAsync(pending.UserId, context);
             }
             catch (Exception e)
             {
