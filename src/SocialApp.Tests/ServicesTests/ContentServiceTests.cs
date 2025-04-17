@@ -224,6 +224,8 @@ public class ContentServiceTests: ServiceTestsBase
         var conversation2Id = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", OperationContext.New());
 
         await ContentService.ReactToConversationAsync(user1, user2.UserId, conversation2Id, false, OperationContext.New());
+        
+        await Task.Delay(1_000);
 
         var conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, conversation2Id, 5, OperationContext.New());
         Assert.That(conversation2.LikeCount, Is.EqualTo(0));
@@ -234,7 +236,8 @@ public class ContentServiceTests: ServiceTestsBase
         for (var i = 0; i < 2; i++)
         {
             await ContentService.ReactToConversationAsync(user1, user2.UserId, conversation2Id, true, OperationContext.New());
-
+            await Task.Delay(1_000);
+            
             conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, conversation2Id, 5, OperationContext.New());
             Assert.That(conversation2.LikeCount, Is.EqualTo(1));
 
@@ -245,7 +248,8 @@ public class ContentServiceTests: ServiceTestsBase
         for (var i = 0; i < 2; i++)
         {
             await ContentService.ReactToConversationAsync(user1, user2.UserId, conversation2Id, false, OperationContext.New());
-
+            await Task.Delay(1_000);
+            
             conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, conversation2Id, 5, OperationContext.New());
             Assert.That(conversation2.LikeCount, Is.EqualTo(0));
 

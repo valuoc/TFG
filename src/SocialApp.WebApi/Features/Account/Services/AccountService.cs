@@ -10,7 +10,7 @@ namespace SocialApp.WebApi.Features.Account.Services;
 
 public interface IAccountService
 {
-    Task<RegisterResponse> RegisterAsync(RegisterRequest request, OperationContext context);
+    Task<string> RegisterAsync(RegisterRequest request, OperationContext context);
 }
 
 public class AccountService : IAccountService
@@ -30,7 +30,7 @@ public class AccountService : IAccountService
     private AccountContainer GetAccountContainer()
         => new(_accountDb);
     
-    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, OperationContext context)
+    public async Task<string> RegisterAsync(RegisterRequest request, OperationContext context)
     {
         var accounts = GetAccountContainer();
         
@@ -59,7 +59,7 @@ public class AccountService : IAccountService
             }
         }
 
-        return new RegisterResponse() { UserId = pendingUserAccount.UserId };
+        return userId;
     }
     
     private async Task  RegisterAccountInternalAsync(AccountContainer accounts, string displayName, string password, PendingAccountDocument pendingUserAccount, OperationContext context)

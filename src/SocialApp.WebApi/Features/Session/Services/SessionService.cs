@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.Models.Session;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
@@ -11,7 +12,14 @@ using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Session.Services;
 
-public class SessionService
+public interface ISessionService
+{
+    Task<UserSession?> LoginWithPasswordAsync(LoginRequest request, OperationContext context);
+    Task<UserSession?> GetSessionAsync(string sessionId, OperationContext context);
+    Task EndSessionAsync(string sessionId, OperationContext context);
+}
+
+public class SessionService : ISessionService
 {
     private int _sessionLengthSeconds = 60*60;
     
@@ -35,11 +43,11 @@ public class SessionService
     private ProfileContainer GetProfileContainer()
         => new(_userDd);
 
-    public async Task<UserSession?> LoginWithPasswordAsync(string email, string password, OperationContext context)
+    public async Task<UserSession?> LoginWithPasswordAsync(LoginRequest request, OperationContext context)
     {
         try
         {
-            var userId = await GetAccountContainer().FindPasswordLoginAsync(email, password, context);
+            var userId = await GetAccountContainer().FindPasswordLoginAsync(request.Email, request.Password, context);
             if (userId == null)
                 return null;
 

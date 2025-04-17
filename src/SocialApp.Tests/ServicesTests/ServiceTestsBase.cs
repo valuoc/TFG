@@ -16,7 +16,7 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
-    protected bool RemoveContainerAfterTests = false;
+    protected bool RemoveContainerAfterTests = true;
     
     protected AccountService AccountService;
     protected SessionService SessionService;
@@ -102,7 +102,7 @@ public abstract class ServiceTestsBase
     {
         var userName = username + Guid.NewGuid().ToString("N");
         await AccountService.RegisterAsync(new ($"{userName}@xxx.com", userName, "Display"+userName, "pass"), OperationContext.New());
-        var session = await SessionService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.New());
+        var session = await SessionService.LoginWithPasswordAsync(new($"{userName}@xxx.com", "pass"), OperationContext.New());
         return session ?? throw new InvalidOperationException("Cannot find user");
     }
     
