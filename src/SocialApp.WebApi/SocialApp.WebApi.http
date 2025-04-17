@@ -1,6 +1,18 @@
-@SocialApp.WebApi_HostAddress = http://localhost:5081
+@hostAddress = http://localhost:5081
 
-GET {{SocialApp.WebApi_HostAddress}}/weatherforecast/
+GET {{hostAddress}}/health/
 Accept: application/json
-
 ###
+
+POST {{hostAddress}}/register/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "Email": "test3@test.com",
+    "Handle": "test3",
+    "DisplayName" : "test",
+    "Password" : "test"    
+}
+
+### 

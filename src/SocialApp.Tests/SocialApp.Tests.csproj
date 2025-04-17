@@ -39,6 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\SocialApp.ClientApi\SocialApp.ClientApi.csproj" />
       <ProjectReference Include="..\SocialApp.WebApi\SocialApp.WebApi.csproj" />
     </ItemGroup>
 

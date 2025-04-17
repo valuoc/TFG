@@ -16,7 +16,7 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
-    protected bool RemoveContainerAfterTests = true;
+    protected bool RemoveContainerAfterTests = false;
     
     protected AccountService AccountService;
     protected SessionService SessionService;
@@ -61,7 +61,7 @@ public abstract class ServiceTestsBase
         _userDatabase = new UserDatabase(_cosmosClient, _databaseId, _container);
         _sessionDatabase = new SessionDatabase(_cosmosClient, _databaseId, _container);
 
-        AccountService = new AccountService(_accountDatabase, _userDatabase, _sessionDatabase);
+        AccountService = new AccountService(_accountDatabase, _userDatabase);
         SessionService = new SessionService(_userDatabase, _sessionDatabase, _accountDatabase);
         FollowersService = new FollowersService(_userDatabase);
         ContentService = new ContentService(_userDatabase);
@@ -101,7 +101,7 @@ public abstract class ServiceTestsBase
     protected async Task<UserSession> CreateUserAsync(string username = "")
     {
         var userName = username + Guid.NewGuid().ToString("N");
-        await AccountService.RegisterAsync($"{userName}@xxx.com", userName, "Display"+userName, "pass", OperationContext.New());
+        await AccountService.RegisterAsync(new ($"{userName}@xxx.com", userName, "Display"+userName, "pass"), OperationContext.New());
         var session = await SessionService.LoginWithPasswordAsync($"{userName}@xxx.com", "pass", OperationContext.New());
         return session ?? throw new InvalidOperationException("Cannot find user");
     }

@@ -1,6 +1,6 @@
 using Microsoft.Azure.Cosmos;
+using SocialApp.Models.Account;
 using SocialApp.WebApi.Data.Account;
-using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
@@ -10,20 +10,18 @@ namespace SocialApp.WebApi.Features.Account.Services;
 
 public interface IAccountService
 {
-    Task<string> RegisterAsync(string email, string handle, string displayName, string password, OperationContext context);
+    Task<RegisterResponse> RegisterAsync(RegisterRequest request, OperationContext context);
 }
 
 public class AccountService : IAccountService
 {
     private readonly AccountDatabase _accountDb;
     private readonly UserDatabase _userDb;
-    private readonly SessionDatabase _sessionDb;
 
-    public AccountService(AccountDatabase accountDb, UserDatabase userDb, SessionDatabase sessionDb)
+    public AccountService(AccountDatabase accountDb, UserDatabase userDb)
     {
         _accountDb = accountDb;
         _userDb = userDb;
-        _sessionDb = sessionDb;
     }
     
     private ProfileContainer GetProfileContainer()
@@ -31,17 +29,17 @@ public class AccountService : IAccountService
     
     private AccountContainer GetAccountContainer()
         => new(_accountDb);
-
-    public async Task<string> RegisterAsync(string email, string handle, string displayName, string password, OperationContext context)
+    
+    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, OperationContext context)
     {
         var accounts = GetAccountContainer();
         
         var userId = Guid.NewGuid().ToString("N");
         
         context.Signal("pending-account");
-        var pendingUserAccount = await accounts.RegisterPendingAccountAsync(userId, email, handle, context);
+        var pendingUserAccount = await accounts.RegisterPendingAccountAsync(userId, request.Email, request.Handle, context);
 
-        await RegisterAccountInternalAsync(accounts, displayName, password, pendingUserAccount,context);
+        await RegisterAccountInternalAsync(accounts, request.DisplayName, request.Password, pendingUserAccount, context);
 
         context.SuppressCancellation();
         context.Signal("complete-pending-account");
@@ -60,7 +58,8 @@ public class AccountService : IAccountService
                 await accounts.DeleteSessionDataAsync(pendingUserAccount.UserId, context);
             }
         }
-        return pendingUserAccount.UserId;
+
+        return new RegisterResponse() { UserId = pendingUserAccount.UserId };
     }
     
     private async Task  RegisterAccountInternalAsync(AccountContainer accounts, string displayName, string password, PendingAccountDocument pendingUserAccount, OperationContext context)
