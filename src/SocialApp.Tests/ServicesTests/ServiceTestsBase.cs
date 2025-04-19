@@ -16,7 +16,7 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
-    protected bool RemoveContainerAfterTests = true;
+    protected bool RemoveContainerAfterTests = false;
     
     protected AccountService AccountService;
     protected SessionService SessionService;

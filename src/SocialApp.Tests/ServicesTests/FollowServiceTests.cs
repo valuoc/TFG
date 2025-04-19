@@ -14,7 +14,7 @@ public class FollowServiceTests: ServiceTestsBase
 
         for (var i = 0; i < 2; i++)
         {
-            await FollowersService.AddAsync(user1.UserId, user2.UserId, OperationContext.New());
+            await FollowersService.FollowAsync(user1.UserId, user2.UserId, OperationContext.New());
 
             var followers1 = await FollowersService.GetFollowersAsync(user1.UserId, OperationContext.New());
             Assert.That(followers1, Is.Empty);
@@ -33,7 +33,7 @@ public class FollowServiceTests: ServiceTestsBase
             Assert.That(followings2, Is.Empty);
         }
         
-        await FollowersService.RemoveAsync(user1.UserId, user2.UserId, OperationContext.New());
+        await FollowersService.UnfollowAsync(user1.UserId, user2.UserId, OperationContext.New());
     }
     
     [Test, Order(2)]
@@ -42,11 +42,11 @@ public class FollowServiceTests: ServiceTestsBase
         var user1 = await CreateUserAsync();
         var user2 = await CreateUserAsync();
 
-        await FollowersService.AddAsync(user1.UserId, user2.UserId, OperationContext.New());
+        await FollowersService.FollowAsync(user1.UserId, user2.UserId, OperationContext.New());
 
         for (var i = 0; i < 2; i++)
         {
-            await FollowersService.RemoveAsync(user1.UserId, user2.UserId, OperationContext.New());
+            await FollowersService.UnfollowAsync(user1.UserId, user2.UserId, OperationContext.New());
 
             var followers1 = await FollowersService.GetFollowersAsync(user1.UserId, OperationContext.New());
             Assert.That(followers1, Is.Empty);
@@ -71,7 +71,7 @@ public class FollowServiceTests: ServiceTestsBase
 
         var context = OperationContext.New();
         context.FailOnSignal("add-follower", CreateCosmoException());
-        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.AddAsync(user1.UserId, user2.UserId, context));
+        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.FollowAsync(user1.UserId, user2.UserId, context));
 
         var followers1 = await FollowersService.GetFollowersAsync(user1.UserId, OperationContext.New());
         Assert.That(followers1, Is.Empty);
@@ -81,7 +81,7 @@ public class FollowServiceTests: ServiceTestsBase
         Assert.That(followers2, Is.Empty);
 
         context = OperationContext.New();
-        await FollowersService.AddAsync(user1.UserId, user3.UserId, context);
+        await FollowersService.FollowAsync(user1.UserId, user3.UserId, context);
         followings1 = await FollowersService.GetFollowingsAsync(user1.UserId, OperationContext.New());
         Assert.That(followings1.Count, Is.EqualTo(1));
     }
@@ -95,7 +95,7 @@ public class FollowServiceTests: ServiceTestsBase
 
         var context = OperationContext.New();
         context.FailOnSignal("add-following", CreateCosmoException());
-        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.AddAsync(user1.UserId, user2.UserId, context));
+        Assert.ThrowsAsync<FollowerException>(()=> FollowersService.FollowAsync(user1.UserId, user2.UserId, context));
 
         var followers1 = await FollowersService.GetFollowersAsync(user1.UserId, OperationContext.New());
         Assert.That(followers1, Is.Empty);
@@ -105,7 +105,7 @@ public class FollowServiceTests: ServiceTestsBase
         Assert.That(followers2.Count, Is.EqualTo(1));
 
         context = OperationContext.New();
-        await FollowersService.AddAsync(user1.UserId, user3.UserId, context);
+        await FollowersService.FollowAsync(user1.UserId, user3.UserId, context);
         followings1 = await FollowersService.GetFollowingsAsync(user1.UserId, OperationContext.New());
         Assert.That(followings1.Count, Is.EqualTo(2));
     }

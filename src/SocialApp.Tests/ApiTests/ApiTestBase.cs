@@ -4,10 +4,8 @@ namespace SocialApp.Tests.ApiTests;
 
 public abstract class ApiTestBase
 {
-    protected readonly SocialAppClient Client;
-    protected ApiTestBase()
+    protected static SocialAppClient CreateClient()
     {
-        Client = new SocialAppClient(new Uri("http://localhost:5081"));
+        return new SocialAppClient(new Uri("http://localhost:5081"));
     }
-    
 }

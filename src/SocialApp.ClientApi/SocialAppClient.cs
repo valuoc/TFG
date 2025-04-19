@@ -17,6 +17,7 @@ public sealed class SocialAppClient
 
     public AccountService Account { get; private set; }
     public SessionService Session { get; private set; }
+    public FollowService Follow { get; private set; }
 
     public SocialAppClient(Uri baseAddress)
     {
@@ -27,6 +28,7 @@ public sealed class SocialAppClient
         };
         Account = new AccountService(this);
         Session = new SessionService(this);
+        Follow = new FollowService(this);
     }
 
     public async Task<TResponse> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
@@ -36,9 +38,22 @@ public sealed class SocialAppClient
         return JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
     }
     
+    public async Task<TResponse> GetAsync<TResponse>(string path, CancellationToken cancel)
+    {
+        using var response = await _httpClient.GetAsync(path, cancel);
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
+    }
+    
     public async Task PostAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
+        response.EnsureSuccessStatusCode();
+    }
+    
+    public async Task DeleteAsync(string path, CancellationToken cancel)
+    {
+        using var response = await _httpClient.DeleteAsync(path, cancel);
         response.EnsureSuccessStatusCode();
     }
     

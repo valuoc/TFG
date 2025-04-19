@@ -6,7 +6,15 @@ using SocialApp.WebApi.Features.Follow.Exceptions;
 
 namespace SocialApp.WebApi.Features.Follow.Services;
 
-public sealed class FollowersService
+public interface IFollowersService
+{
+    Task<IReadOnlyList<string>> GetFollowingsAsync(string userId, OperationContext context);
+    Task<IReadOnlyList<string>> GetFollowersAsync(string userId, OperationContext context);
+    Task FollowAsync(string followerId, string followedId, OperationContext context);
+    Task UnfollowAsync(string followerId, string followedId, OperationContext context);
+}
+
+public sealed class FollowersService : IFollowersService
 {
     private readonly UserDatabase _database;
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
@@ -58,7 +66,7 @@ public sealed class FollowersService
         }
     }
     
-    public async Task AddAsync(string followerId, string followedId, OperationContext context)
+    public async Task FollowAsync(string followerId, string followedId, OperationContext context)
     {
         try
         {
@@ -101,7 +109,7 @@ public sealed class FollowersService
         }
     }
     
-    public async Task RemoveAsync(string followerId, string followedId, OperationContext context)
+    public async Task UnfollowAsync(string followerId, string followedId, OperationContext context)
     {
         try
         {
