@@ -25,8 +25,8 @@ public class SessionApiTests : ApiTestBase
 
     private TestUser GenerateUser(int i)
     {
-        var name = $"User{i}" + Guid.NewGuid().ToString("N");
-        return new TestUser($"{name}@test.com", name, name, name);
+        var name = $"user{i}_" + Guid.NewGuid().ToString("N");
+        return new TestUser($"{name}@test.com", name, $"User{i}", name);
     }
     
     [Test, Order(1)]
