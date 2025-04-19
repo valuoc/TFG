@@ -104,6 +104,48 @@ public sealed class AccountContainer : CosmoContainer
         context.AddRequestCharge(response.RequestCharge);
         return user;
     }
+    
+    public async Task<string?> GetUserIdFromHandleAsync(string handle, OperationContext context)
+    {
+        try
+        {
+            var key = AccountHandleDocument.Key(handle);
+            var response = await Container.ReadItemAsync<AccountHandleDocument>(key.Id, new PartitionKey(key.Pk), cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+            return response.Resource?.UserId;
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            return null;
+        }
+    }
+    
+    public async Task<IReadOnlyList<string?>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
+    {
+        try
+        {
+            var keys = userIds.Select(x => AccountDocument.Key(x));
+            var requests = keys.Select(k => (k.Id, new PartitionKey(k.Pk))).ToList();
+            var response = await Container.ReadManyItemsAsync<AccountHandleDocument>(requests, cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+
+            var dic = response.Resource.ToDictionary(x => x.UserId, x => x.Handle);
+            var results = new List<string?>(userIds.Count);
+            for (var i = 0; i < userIds.Count; i++)
+            {
+                var handle = dic.GetValueOrDefault(userIds[i]);
+                results.Add(handle);
+            }
+
+            return results;
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
+        }
+    }
 
     public async Task<AccountHandleDocument> RegisterHandleAsync(string userId, string handle, OperationContext context)
     {

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.Shared;
@@ -6,7 +5,6 @@ using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Follow.Services;
-using SocialApp.WebApi.Features.Session.Models;
 using SocialApp.WebApi.Features.Session.Services;
 using SocialApp.WebApi.Infrastructure;
 
@@ -31,6 +29,7 @@ public static class RegisterDependencies
         services.AddSingleton<IAccountService, AccountService>();
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<IFollowersService, FollowersService>();
+        services.AddSingleton<IUserHandleService, UserHandleService>();
     }
 
     private static SessionDatabase GetSessionDatabase(IServiceProvider services)

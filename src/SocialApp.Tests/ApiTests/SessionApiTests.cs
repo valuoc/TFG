@@ -18,19 +18,19 @@ public class SessionApiTests : ApiTestBase
     [OneTimeSetUp]
     public async Task Setup()
     {
-        User1 = GenerateUser();
-        User2 = GenerateUser();
-        User3 = GenerateUser();
+        User1 = GenerateUser(1);
+        User2 = GenerateUser(2);
+        User3 = GenerateUser(3);
     }
 
-    private TestUser GenerateUser()
+    private TestUser GenerateUser(int i)
     {
-        var id = Guid.NewGuid().ToString("N");
-        return new TestUser($"{id}@test.com", id, id, id);
+        var name = $"User{i}" + Guid.NewGuid().ToString("N");
+        return new TestUser($"{name}@test.com", name, name, name);
     }
     
     [Test, Order(1)]
-    public async Task Should_Register_Account_And_Login()
+    public async Task Should_Register_Accounts_And_Login()
     {
         async Task<SocialAppClient> registerAsync(TestUser u)
         {
@@ -48,6 +48,7 @@ public class SessionApiTests : ApiTestBase
         
             var error = Assert.ThrowsAsync<HttpRequestException>(() => client.Session.LogoutAsync());
             Assert.That(error.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            await client.Session.LoginAsync(new LoginRequest(u.Email, u.Password));
             return client;
         }
         
@@ -62,13 +63,29 @@ public class SessionApiTests : ApiTestBase
             Clients.Add(users[i], clients[i]);
     }
     
-    [Test, Order(2)]
-    public async Task Should_Follow()
+    [Test, Order(3)]
+    public async Task Should_Follow_User1()
     {
-        await Clients[User1].Session.LoginAsync(new LoginRequest(User1.Email, User1.Password));
-        await Clients[User1].Session.LogoutAsync();
+        var client1 = Clients[User1];
+        var client2 = Clients[User2];
+        var client3 = Clients[User3];
+
+        var user1Followings = await client1.Follow.GetFollowingsAsync();
+        Assert.That(user1Followings, Is.Empty);
+
+        await client1.Follow.AddAsync(User2.Handle);
+        await client1.Follow.AddAsync(User3.Handle);
         
-        var error = Assert.ThrowsAsync<HttpRequestException>(() => Clients[User1].Session.LogoutAsync());
-        Assert.That(error.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        var follows = await client1.Follow.GetFollowingsAsync();
+        Assert.That(follows, Is.Not.Empty);
+        Assert.That(follows, Is.EquivalentTo(new[] { User2.Handle, User3.Handle }));
+        
+        var followers = await client2.Follow.GetFollowersAsync();
+        Assert.That(followers, Is.Not.Empty);
+        Assert.That(followers, Is.EquivalentTo(new[] { User1.Handle }));
+        
+        followers = await client3.Follow.GetFollowersAsync();
+        Assert.That(followers, Is.Not.Empty);
+        Assert.That(followers, Is.EquivalentTo(new[] { User1.Handle }));
     }
 }

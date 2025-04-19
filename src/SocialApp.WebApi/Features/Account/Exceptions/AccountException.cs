@@ -6,7 +6,8 @@ public enum AccountError
 {
     UnexpectedError,
     EmailAlreadyRegistered,
-    HandleAlreadyRegistered
+    HandleAlreadyRegistered,
+    HandleNotFound
 }
 public sealed class AccountException : SocialAppException
 {

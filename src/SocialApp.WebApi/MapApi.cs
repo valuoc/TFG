@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using SocialApp.Models.Account;
-using SocialApp.Models.Follows;
 using SocialApp.Models.Session;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
@@ -61,30 +60,30 @@ public static class MapApi
     
     private static void MapFollowers(WebApplication app)
     {
-        app.MapGet("/followers/", async (SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
+        app.MapGet("/followers/", async (SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
         {
             var session = await sessionGetter.GetUserSessionAsync(context);
-            await follows.GetFollowersAsync(session.UserId, context);
+            return await handles.GetHandleFromUserIdsAsync(await follows.GetFollowersAsync(session.UserId, context), context);
+        }).RequireAuthorization();
+        
+        app.MapGet("/follow/", async (SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
+        {
+            var session = await sessionGetter.GetUserSessionAsync(context);
+            return await handles.GetHandleFromUserIdsAsync(await follows.GetFollowingsAsync(session.UserId, context), context);
+        }).RequireAuthorization();
+        
+        app.MapPost("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
+        {
+            var session = await sessionGetter.GetUserSessionAsync(context);
+            var otherUserId = await handles.GetUserIdAsync(handle, context);
+            await follows.FollowAsync(session.UserId, otherUserId, context);
             
         }).RequireAuthorization();
         
-        app.MapGet("/followings/", async (SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
+        app.MapDelete("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
         {
             var session = await sessionGetter.GetUserSessionAsync(context);
-            await follows.GetFollowingsAsync(session.UserId, context);
-            
-        }).RequireAuthorization();
-        
-        app.MapPost("/followings/", async ([FromBody]OtherUserRequest model, SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
-        {
-            var session = await sessionGetter.GetUserSessionAsync(context);
-            await follows.FollowAsync(session.UserId, model.UserId, context);
-            
-        }).RequireAuthorization();
-        
-        app.MapDelete("/followings/{otherUserId}", async ([FromRoute]string otherUserId, SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
-        {
-            var session = await sessionGetter.GetUserSessionAsync(context);
+            var otherUserId = await handles.GetUserIdAsync(handle, context);
             await follows.UnfollowAsync(session.UserId, otherUserId, context);
         }).RequireAuthorization();
     }

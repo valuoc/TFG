@@ -34,7 +34,7 @@ public class AccountService : IAccountService
     {
         var accounts = GetAccountContainer();
         
-        var userId = Guid.NewGuid().ToString("N");
+        var userId = request.DisplayName.ToLowerInvariant() +"_"+ Guid.NewGuid().ToString("N");
         
         context.Signal("pending-account");
         var pendingUserAccount = await accounts.RegisterPendingAccountAsync(userId, request.Email, request.Handle, context);

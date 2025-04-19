@@ -1,6 +1,3 @@
-using SocialApp.Models.Account;
-using SocialApp.Models.Follows;
-
 namespace SocialApp.ClientApi.Services;
 
 public sealed class FollowService
@@ -19,16 +16,16 @@ public sealed class FollowService
     
     public async Task<IReadOnlyList<string>> GetFollowingsAsync(CancellationToken cancel = default)
     {
-        return await _client.GetAsync<IReadOnlyList<string>>("/followings", cancel);
+        return await _client.GetAsync<IReadOnlyList<string>>("/follow", cancel);
     }
     
-    public async Task FollowAsync(string otherUserId, CancellationToken cancel = default)
+    public async Task AddAsync(string otherUserId, CancellationToken cancel = default)
     {
-        await _client.PostAsync("/followings", new OtherUserRequest(){UserId = otherUserId}, cancel);
+        await _client.PostAsync($"/follow/{otherUserId}", cancel);
     }
     
-    public async Task UnfollowAsync(string otherUserId, CancellationToken cancel = default)
+    public async Task RemoveAsync(string otherUserId, CancellationToken cancel = default)
     {
-        await _client.DeleteAsync($"/followings/{otherUserId}", cancel);
+        await _client.DeleteAsync($"/follow/{otherUserId}", cancel);
     }
 }
