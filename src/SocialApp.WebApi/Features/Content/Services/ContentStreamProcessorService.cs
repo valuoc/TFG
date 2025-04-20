@@ -17,11 +17,15 @@ public interface IContentStreamProcessorService
 public sealed class ContentStreamProcessorService : IContentStreamProcessorService
 {
     private readonly UserDatabase _userDb;
-    
+    private readonly ILogger<ContentStreamProcessorService> _logger;
+
     private  int FeedItemTtl => (int)TimeSpan.FromDays(2).TotalSeconds;
     
-    public ContentStreamProcessorService(UserDatabase userDb)
-        => _userDb = userDb;
+    public ContentStreamProcessorService(UserDatabase userDb, ILogger<ContentStreamProcessorService> logger)
+    {
+        _userDb = userDb;
+        _logger = logger;
+    }
 
     private FeedContainer GetFeedContainer()
         => new(_userDb);
@@ -133,7 +137,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         if(context.OperationCharge == 0)
             return;
         
-        Console.WriteLine($"STREAM COST: Handle({document.GetType().Name}): {context.OperationCharge}");
+        _logger.LogInformation($"Handle({document.GetType().Name}): {context.OperationCharge}");
     }
 
     private async Task SyncConversationToParentCommentAsync(ContentContainer contents, ConversationDocument conversation, OperationContext context)

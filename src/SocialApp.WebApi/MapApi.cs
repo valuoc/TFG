@@ -44,13 +44,13 @@ public static class MapApi
     {
         var group = app.MapGroup("/conversation").RequireAuthorization();
 
-        group.MapPost("/", async (ContentRequest request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context, HttpContext http) =>
+        group.MapPost("/", async (ContentRequest request, SessionGetter sessionGetter, IContentService contents, OperationContext context, HttpContext http) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
             var conversationId = await contents.StartConversationAsync(session!, request.Content, context);
-            http.Response.Headers.Location = $"/conversation/{conversationId}";
+            http.Response.Headers.Location = $"/conversation/{session!.Handle}/{conversationId}";
             return Results.Ok();
         });
             
@@ -98,13 +98,14 @@ public static class MapApi
             return Results.Ok();
         });
         
-        group.MapPost("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, ContentRequest request, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapPost("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, ContentRequest request, IUserHandleService handles, IContentService contents, OperationContext context, HttpContext http) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
             var conversationUserId = await handles.GetUserIdAsync(handle, context);
-            await contents.CommentAsync(session!, conversationUserId, conversationId, request.Content, context);
+            var commentId = await contents.CommentAsync(session!, conversationUserId, conversationId, request.Content, context);
+            http.Response.Headers.Location = $"/conversation/{handle}/{conversationId}/comments/{commentId}";
             return Results.Ok();
         });
         

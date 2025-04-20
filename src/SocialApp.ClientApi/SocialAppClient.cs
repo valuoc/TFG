@@ -1,8 +1,19 @@
-﻿using System.Text;
+﻿using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using SocialApp.ClientApi.Services;
 
 namespace SocialApp.ClientApi;
+
+public class Response
+{
+    public required HttpResponseHeaders Headers { get; init; }
+}
+
+public sealed class Response<T> : Response
+{
+    public required T Content { get; init; }
+}
 
 public sealed class SocialAppClient
 {
@@ -33,47 +44,77 @@ public sealed class SocialAppClient
         Content = new ContentService(this);
     }
 
-    public async Task<TResponse> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
+    internal async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
         response.EnsureSuccessStatusCode();
-        return JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
+        var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
+        return new Response<TResponse>()
+        {
+            Headers = response.Headers,
+            Content = content
+        };
     }
     
-    public async Task<TResponse> GetAsync<TResponse>(string path, CancellationToken cancel)
+    internal async Task<Response<TResponse>> GetAsync<TResponse>(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.GetAsync(path, cancel);
         response.EnsureSuccessStatusCode();
-        return JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
+        var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
+        return new Response<TResponse>()
+        {
+            Headers = response.Headers,
+            Content = content
+        };
     }
     
-    public async Task PostAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
+    internal async Task<Response> PostAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
         response.EnsureSuccessStatusCode();
+        return new Response()
+        {
+            Headers = response.Headers,
+        };
     }
     
-    public async Task DeleteAsync(string path, CancellationToken cancel)
+    internal async Task<Response> DeleteAsync(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.DeleteAsync(path, cancel);
         response.EnsureSuccessStatusCode();
+        return new Response()
+        {
+            Headers = response.Headers,
+        };
     }
     
-    public async Task PostAsync(string path, CancellationToken cancel)
+    internal async Task<Response> PostAsync(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, null, cancel);
         response.EnsureSuccessStatusCode();
+        return new Response()
+        {
+            Headers = response.Headers,
+        };
     }
 
-    public async Task PutAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
+    internal async Task<Response> PutAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
         using var response = await _httpClient.PutAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
         response.EnsureSuccessStatusCode();
+        return new Response()
+        {
+            Headers = response.Headers,
+        };
     }
     
-    public async Task PutAsync(string path, CancellationToken cancel)
+    internal async Task<Response> PutAsync(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.PutAsync(path, null, cancel);
         response.EnsureSuccessStatusCode();
+        return new Response()
+        {
+            Headers = response.Headers,
+        };
     }
 }

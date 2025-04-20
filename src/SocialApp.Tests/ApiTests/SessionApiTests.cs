@@ -95,10 +95,32 @@ public class SessionApiTests : ApiTestBase
         var client2 = Clients[User2];
         var client3 = Clients[User3];
 
-        await client2.Content.StartConversationAsync("hello!!");
+        var conversationId = await client2.Content.StartConversationAsync("User2 post");
         var posts = await client2.Content.GetConversationsAsync(User2.Handle);
         Assert.That(posts, Is.Not.Empty);
         Assert.That(posts.Count, Is.EqualTo(1));
-        Assert.That(posts[0].Content, Is.EqualTo("hello!!"));
+        Assert.That(posts[0].ConversationId, Is.EqualTo(conversationId));
+        Assert.That(posts[0].Content, Is.EqualTo("User2 post"));
+        
+        var commentId = await client3.Content.CommentAsync(User2.Handle, conversationId, "User3 comment");
+        
+        posts = await client2.Content.GetConversationsAsync(User2.Handle);
+        Assert.That(posts, Is.Not.Empty);
+        Assert.That(posts.Count, Is.EqualTo(1));
+        Assert.That(posts[0].ConversationId, Is.EqualTo(conversationId));
+        Assert.That(posts[0].Content, Is.EqualTo("User2 post"));
+        Assert.That(posts[0].CommentCount, Is.EqualTo(1));
+        
+        var post = await client3.Content.GetConversationAsync(User2.Handle, conversationId);
+        Assert.That(post.CommentCount, Is.EqualTo(1));
+        Assert.That(post.LastComments.Count, Is.EqualTo(1));
+        Assert.That(post.LastComments[0].CommentId, Is.EqualTo(commentId));
+        Assert.That(post.LastComments[0].Content, Is.EqualTo("User3 comment"));
+        
+        post = await client2.Content.GetConversationAsync(User2.Handle, conversationId);
+        Assert.That(post.CommentCount, Is.EqualTo(1));
+        Assert.That(post.LastComments.Count, Is.EqualTo(1));
+        Assert.That(post.LastComments[0].CommentId, Is.EqualTo(commentId));
+        Assert.That(post.LastComments[0].Content, Is.EqualTo("User3 comment"));
     }
 }

@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
@@ -66,7 +67,7 @@ public abstract class ServiceTestsBase
         FollowersService = new FollowersService(_userDatabase);
         ContentService = new ContentService(_userDatabase);
         FeedService = new FeedService(_userDatabase);
-        ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase);
+        ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(new LoggerFactory()));
         
         await _userDatabase.InitializeAsync();
         

@@ -11,12 +11,14 @@ public sealed class FollowService
 
     public async Task<IReadOnlyList<string>> GetFollowersAsync(CancellationToken cancel = default)
     {
-        return await _client.GetAsync<IReadOnlyList<string>>("/followers", cancel);
+        var response = await _client.GetAsync<IReadOnlyList<string>>("/followers", cancel);
+        return response.Content;
     }
     
     public async Task<IReadOnlyList<string>> GetFollowingsAsync(CancellationToken cancel = default)
     {
-        return await _client.GetAsync<IReadOnlyList<string>>("/follow", cancel);
+        var response = await _client.GetAsync<IReadOnlyList<string>>("/follow", cancel);
+        return response.Content;
     }
     
     public async Task AddAsync(string otherUserId, CancellationToken cancel = default)
