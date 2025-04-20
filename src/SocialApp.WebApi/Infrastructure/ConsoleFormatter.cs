@@ -28,8 +28,6 @@ public class SocialAppConsoleFormatter : ConsoleFormatter
         var pos = logEntry.Category.LastIndexOf('.') + 1;
         var category = logEntry.Category.Substring(pos);
         textWriter.Write($"[{timestamp}] [{logLevelShort}] {category}: ");
-        Console.ForegroundColor = ConsoleColor.Green;
         textWriter.WriteLine($"{logEntry.Formatter(logEntry.State, logEntry.Exception)}");
-        Console.ResetColor();
     }
 }

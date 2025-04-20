@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using SocialApp.ClientApi.Services;
+using SocialApp.Models.Content;
 
 namespace SocialApp.ClientApi;
 
@@ -18,6 +19,7 @@ public sealed class SocialAppClient
     public AccountService Account { get; private set; }
     public SessionService Session { get; private set; }
     public FollowService Follow { get; private set; }
+    public ContentService Content { get; private set; }
 
     public SocialAppClient(Uri baseAddress)
     {
@@ -29,6 +31,7 @@ public sealed class SocialAppClient
         Account = new AccountService(this);
         Session = new SessionService(this);
         Follow = new FollowService(this);
+        Content = new ContentService(this);
     }
 
     public async Task<TResponse> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
@@ -60,6 +63,18 @@ public sealed class SocialAppClient
     public async Task PostAsync(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, null, cancel);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task PutAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
+    {
+        using var response = await _httpClient.PutAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
+        response.EnsureSuccessStatusCode();
+    }
+    
+    public async Task PutAsync(string path, CancellationToken cancel)
+    {
+        using var response = await _httpClient.PutAsync(path, null, cancel);
         response.EnsureSuccessStatusCode();
     }
 }

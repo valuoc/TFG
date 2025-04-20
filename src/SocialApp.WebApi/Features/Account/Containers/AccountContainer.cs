@@ -1,6 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data.Shared;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Exceptions;

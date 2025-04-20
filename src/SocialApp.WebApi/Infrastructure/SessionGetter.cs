@@ -15,19 +15,15 @@ public class SessionGetter
         _http = http;
     }
 
-    public async Task<UserSession> GetUserSessionAsync(OperationContext context)
+    public async Task<UserSession?> GetUserSessionAsync(OperationContext context)
     {
         var http = _http.HttpContext;
         
         var sessionId = http?.User.Claims.Where(x => x.Type == ClaimTypes.Sid).Select(x => x.Value).SingleOrDefault();
 
         if (sessionId == null)
-            throw new InvalidOperationException("No session identifier was found in the request.");
-
+            return null;
         var session =  await _sessions.GetSessionAsync(sessionId, context);
-        if(session == null)
-            throw new InvalidOperationException("No session was found in the request.");
-        
         return session;
     }
 }

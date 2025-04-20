@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data.Shared;
+using SocialApp.WebApi.Data._Shared;
 
 namespace SocialApp.WebApi.Data.User;
 

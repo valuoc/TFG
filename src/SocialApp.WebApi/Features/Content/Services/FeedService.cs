@@ -1,7 +1,7 @@
+using SocialApp.Models.Content;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
-using SocialApp.WebApi.Features.Content.Models;
 using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Services;
@@ -33,7 +33,7 @@ public sealed class FeedService : IFeedService
         var conversationsModels = new List<ConversationHeaderModel>(conversations.Count);
         foreach (var (conversationDoc, countsDoc) in sorted)
         {
-            var conversation = ConversationHeaderModel.From(conversationDoc);
+            var conversation = ContentModels.From(conversationDoc);
             conversation.CommentCount = countsDoc.CommentCount;
             conversation.ViewCount = countsDoc.ViewCount;
             conversation.LikeCount = countsDoc.LikeCount;

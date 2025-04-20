@@ -1,9 +1,9 @@
 using Microsoft.Azure.Cosmos;
+using SocialApp.Models.Content;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Content.Exceptions;
-using SocialApp.WebApi.Features.Content.Models;
 using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Content.Services;
@@ -254,7 +254,7 @@ public sealed class ContentService : IContentService
             var conversationsModels = new List<ConversationModel>(conversations.Count);
             foreach (var (conversationDoc, conversationCountsDocument) in sorted)
             {
-                var conversation = ConversationModel.From(conversationDoc);
+                var conversation = ContentModels.From(conversationDoc);
                 conversation.CommentCount = conversationCountsDocument.CommentCount;
                 conversation.ViewCount = conversationCountsDocument.ViewCount;
                 conversation.LikeCount = conversationCountsDocument.LikeCount;
@@ -278,8 +278,8 @@ public sealed class ContentService : IContentService
         var commentModels = new List<CommentModel>(comments.Count);
         foreach (var (commentDoc, countsDoc) in sorted)
         {
-            var comment = CommentModel.From(commentDoc);
-            CommentModel.Apply(comment, countsDoc);
+            var comment = ContentModels.From(commentDoc);
+            ContentModels.Apply(comment, countsDoc);
             commentModels.Add(comment);
         }
 
@@ -288,7 +288,7 @@ public sealed class ContentService : IContentService
     
     private static ConversationModel? BuildConversationModel(ConversationDocument conversation, ConversationCountsDocument conversationCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
     {
-        var model = ConversationModel.From(conversation);
+        var model = ContentModels.From(conversation);
         model.CommentCount = conversationCounts.CommentCount;
         model.ViewCount = conversationCounts.ViewCount +1;
         model.LikeCount = conversationCounts.LikeCount;
@@ -304,11 +304,11 @@ public sealed class ContentService : IContentService
             
             foreach (var (commentDocument, commentCountsDocument) in sorted)
             {
-                var comment = CommentModel.From(commentDocument);
+                var comment = ContentModels.From(commentDocument);
                 if (comment.CommentId != commentCountsDocument.CommentId)
                     throw new InvalidOperationException($"The comment {commentDocument.CommentId} does not match the counts.");
                 
-                CommentModel.Apply(comment, commentCountsDocument);
+                ContentModels.Apply(comment, commentCountsDocument);
                 model.LastComments.Add(comment);
             }
         }

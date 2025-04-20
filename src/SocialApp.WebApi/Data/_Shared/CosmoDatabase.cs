@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Cosmos;
 
-namespace SocialApp.WebApi.Data.Shared;
+namespace SocialApp.WebApi.Data._Shared;
 
 public abstract class CosmoDatabase
 {

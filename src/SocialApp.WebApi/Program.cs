@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Logging.Console;
 using SocialApp.WebApi;
 using SocialApp.WebApi.Infrastructure;
+using SocialApp.WebApi.Infrastructure.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.RegisterServices();
@@ -44,6 +45,7 @@ builder.Logging.AddConsoleFormatter<SocialAppConsoleFormatter, ConsoleFormatterO
 
 
 var app = builder.Build();
+app.UseMiddleware<RequestLog>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapApiEndpoints();

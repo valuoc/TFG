@@ -1,5 +1,5 @@
+using SocialApp.Models.Content;
 using SocialApp.WebApi.Features._Shared.Services;
-using SocialApp.WebApi.Features.Content.Models;
 
 namespace SocialApp.Tests.ServicesTests;
 

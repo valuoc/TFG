@@ -5,7 +5,7 @@ using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Content.Services;
 
-namespace SocialApp.WebApi.Data.Shared;
+namespace SocialApp.WebApi.Data._Shared;
 
 public abstract class CosmoContainer
 {

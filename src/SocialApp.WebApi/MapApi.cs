@@ -3,10 +3,13 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using SocialApp.Models.Account;
+using SocialApp.Models.Content;
 using SocialApp.Models.Session;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
+using SocialApp.WebApi.Features.Content.Services;
 using SocialApp.WebApi.Features.Follow.Services;
+using SocialApp.WebApi.Features.Session.Models;
 using SocialApp.WebApi.Features.Session.Services;
 using SocialApp.WebApi.Infrastructure;
 
@@ -14,29 +17,112 @@ namespace SocialApp.WebApi;
 
 public static class MapApi
 {
+    private static  async Task<(UserSession? session, IResult? problem)> GetUserIdOrProblemAsync(SessionGetter sessions, OperationContext context)
+    {
+        var session = await sessions.GetUserSessionAsync(context);
+        if (session == null)
+        {
+            return (null, Results.Unauthorized());
+        }
+        else
+        {
+            return (session, null);
+        }
+    }
+    
     public static void MapApiEndpoints(this WebApplication app)
     {
         MapAccount(app);
         MapSession(app);
         MapFollowers(app);
+        MapContent(app);
         
         app.MapGet("/health", () => "OK");
     }
 
+    private static void MapContent(WebApplication app)
+    {
+        var group = app.MapGroup("/conversation").RequireAuthorization();
+
+        group.MapPost("/", async (ContentRequest Request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+            
+        group.MapGet("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+        
+        // before in query string
+        group.MapGet("/{handle}/{conversationId}/comments/{before}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+        
+        group.MapPut("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+        
+        group.MapPut("/{handle}/{conversationId}/like", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+        
+        group.MapDelete("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+        
+        group.MapPost("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+        
+        group.MapGet("/{handle}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok();
+        });
+    }
+    
     private static void MapAccount(WebApplication app)
     {
-        app.MapPost("/register", async (RegisterRequest model, IAccountService accounts, CancellationToken cancel) =>
+        app.MapPost("/register", async (RegisterRequest model, IAccountService accounts, OperationContext context) =>
         {
-            var context = new OperationContext(cancel);
-            return await accounts.RegisterAsync(model, context);
+            await accounts.RegisterAsync(model, context);
+            return Results.Ok();
         });
     }
     
     private static void MapSession(WebApplication app)
     {
-        app.MapPost("/login", async (LoginRequest model, ISessionService sessions, HttpContext http) =>
+        app.MapPost("/login", async (LoginRequest model, ISessionService sessions, HttpContext http, OperationContext context) =>
         {
-            var context = new OperationContext(http.RequestAborted);
             var session = await sessions.LoginWithPasswordAsync(model, context);
             
             if(session?.SessionId == null)
@@ -47,14 +133,18 @@ public static class MapApi
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             
             var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
-            return http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, claimsPrincipal);
+            await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, claimsPrincipal);
+            return Results.Ok();
         });
         
         app.MapPost("/logout", async (SessionGetter sessionGetter, ISessionService sessions, OperationContext context, HttpContext http) =>
         {
-            var session = await sessionGetter.GetUserSessionAsync(context);
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
             await sessions.EndSessionAsync(session.SessionId, context);
-            return http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return Results.Ok();
         }).RequireAuthorization();
     }
     
@@ -62,29 +152,38 @@ public static class MapApi
     {
         app.MapGet("/followers/", async (SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
         {
-            var session = await sessionGetter.GetUserSessionAsync(context);
-            return await handles.GetHandleFromUserIdsAsync(await follows.GetFollowersAsync(session.UserId, context), context);
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok(await handles.GetHandleFromUserIdsAsync(await follows.GetFollowersAsync(session.UserId, context), context));
         }).RequireAuthorization();
         
         app.MapGet("/follow/", async (SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
         {
-            var session = await sessionGetter.GetUserSessionAsync(context);
-            return await handles.GetHandleFromUserIdsAsync(await follows.GetFollowingsAsync(session.UserId, context), context);
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            return Results.Ok(await handles.GetHandleFromUserIdsAsync(await follows.GetFollowingsAsync(session.UserId, context), context));
         }).RequireAuthorization();
         
         app.MapPost("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
         {
-            var session = await sessionGetter.GetUserSessionAsync(context);
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
             var otherUserId = await handles.GetUserIdAsync(handle, context);
             await follows.FollowAsync(session.UserId, otherUserId, context);
-            
+            return Results.Ok();
         }).RequireAuthorization();
         
         app.MapDelete("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
         {
-            var session = await sessionGetter.GetUserSessionAsync(context);
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
             var otherUserId = await handles.GetUserIdAsync(handle, context);
             await follows.UnfollowAsync(session.UserId, otherUserId, context);
+            return Results.Ok();
         }).RequireAuthorization();
     }
 }

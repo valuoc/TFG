@@ -1,5 +1,5 @@
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data.Shared;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Session.Models;
@@ -30,8 +30,11 @@ public sealed class SessionContainer : CosmoContainer
 
         var sessionDocument = response.Resource;
         if(sessionDocument.Ttl < sessionLengthSeconds / 4) // TODO: Patch ?
-            await Container.ReplaceItemAsync(sessionDocument with { Ttl = sessionLengthSeconds}, sessionId, requestOptions:_noResponseContent, cancellationToken: context.Cancellation);
-        
+        {
+            response = await Container.ReplaceItemAsync(sessionDocument with { Ttl = sessionLengthSeconds}, sessionId, requestOptions:_noResponseContent, cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+        }
+
         return new UserSession(sessionDocument.UserId, sessionId, sessionDocument.DisplayName, sessionDocument.Handle);
     }
     

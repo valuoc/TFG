@@ -1,6 +1,6 @@
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
-using SocialApp.WebApi.Data.Shared;
+using SocialApp.WebApi.Data._Shared;
 
 namespace SocialApp.Tests;
 
