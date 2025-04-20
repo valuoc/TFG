@@ -11,6 +11,7 @@ namespace SocialApp.WebApi.Features.Account.Services;
 public interface IAccountService
 {
     Task<string> RegisterAsync(RegisterRequest request, OperationContext context);
+    Task<int> RemovedExpiredPendingAccountsAsync(TimeSpan timeLimit, OperationContext context);
 }
 
 public class AccountService : IAccountService

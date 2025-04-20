@@ -18,15 +18,14 @@ public class SessionApiTests : ApiTestBase
     [OneTimeSetUp]
     public async Task Setup()
     {
-        User1 = GenerateUser(1);
-        User2 = GenerateUser(2);
-        User3 = GenerateUser(3);
-    }
-
-    private TestUser GenerateUser(int i)
-    {
-        var name = $"user{i}_" + Guid.NewGuid().ToString("N");
-        return new TestUser($"{name}@test.com", name, $"User{i}", name);
+        TestUser generateUser(int i)
+        {
+            var name = $"user{i}_" + Guid.NewGuid().ToString("N");
+            return new TestUser($"{name}@test.com", name, $"User{i}", name);
+        }
+        User1 = generateUser(1);
+        User2 = generateUser(2);
+        User3 = generateUser(3);
     }
     
     [Test, Order(1)]

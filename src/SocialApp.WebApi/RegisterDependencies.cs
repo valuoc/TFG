@@ -4,9 +4,11 @@ using SocialApp.WebApi.Data.Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
+using SocialApp.WebApi.Features.Content.Services;
 using SocialApp.WebApi.Features.Follow.Services;
 using SocialApp.WebApi.Features.Session.Services;
 using SocialApp.WebApi.Infrastructure;
+using SocialApp.WebApi.Infrastructure.Jobs;
 
 namespace SocialApp.WebApi;
 
@@ -29,7 +31,11 @@ public static class RegisterDependencies
         services.AddSingleton<IAccountService, AccountService>();
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<IFollowersService, FollowersService>();
+        services.AddSingleton<IContentStreamProcessorService, ContentStreamProcessorService>();
         services.AddSingleton<IUserHandleService>( s => new UserHandleServiceCacheDecorator(new UserHandleService(s.GetRequiredService<AccountDatabase>())));
+
+        services.AddHostedService<PendingAccountCleanJob>();
+        services.AddHostedService<ContentProcessorJob>();
     }
 
     private static SessionDatabase GetSessionDatabase(IServiceProvider services)

@@ -9,7 +9,12 @@ using SocialApp.WebApi.Features.Follow.Containers;
 
 namespace SocialApp.WebApi.Features.Content.Services;
 
-public sealed class ContentStreamProcessorService
+public interface IContentStreamProcessorService
+{
+    Task ProcessChangeFeedAsync(CancellationToken cancel);
+}
+
+public sealed class ContentStreamProcessorService : IContentStreamProcessorService
 {
     private readonly UserDatabase _userDb;
     

@@ -2,7 +2,9 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.Logging.Console;
 using SocialApp.WebApi;
+using SocialApp.WebApi.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.RegisterServices();
@@ -33,6 +35,14 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+builder.Logging.AddConsole(options =>
+{
+    options.FormatterName = "short";
+});
+
+builder.Logging.AddConsoleFormatter<SocialAppConsoleFormatter, ConsoleFormatterOptions>();
+
+
 var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
