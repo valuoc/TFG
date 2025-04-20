@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Logging.Console;
 using SocialApp.WebApi;
@@ -45,6 +46,22 @@ builder.Logging.AddConsoleFormatter<SocialAppConsoleFormatter, ConsoleFormatterO
 
 
 var app = builder.Build();
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+
+        var error = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new
+        {
+            message = "Oops!",
+            detail = error?.Message
+        }));
+    });
+});
 app.UseMiddleware<RequestLog>();
 app.UseAuthentication();
 app.UseAuthorization();

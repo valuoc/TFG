@@ -62,7 +62,7 @@ public class SessionApiTests : ApiTestBase
             Clients.Add(users[i], clients[i]);
     }
     
-    [Test, Order(3)]
+    [Test, Order(2)]
     public async Task Should_Follow_User1()
     {
         var client1 = Clients[User1];
@@ -86,5 +86,19 @@ public class SessionApiTests : ApiTestBase
         followers = await client3.Follow.GetFollowersAsync();
         Assert.That(followers, Is.Not.Empty);
         Assert.That(followers, Is.EquivalentTo(new[] { User1.Handle }));
+    }
+
+    [Test, Order(3)]
+    public async Task Should_Create_Content()
+    {
+        var client1 = Clients[User1];
+        var client2 = Clients[User2];
+        var client3 = Clients[User3];
+
+        await client2.Content.StartConversationAsync("hello!!");
+        var posts = await client2.Content.GetConversationsAsync(User2.Handle);
+        Assert.That(posts, Is.Not.Empty);
+        Assert.That(posts.Count, Is.EqualTo(1));
+        Assert.That(posts[0].Content, Is.EqualTo("hello!!"));
     }
 }

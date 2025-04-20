@@ -44,70 +44,75 @@ public static class MapApi
     {
         var group = app.MapGroup("/conversation").RequireAuthorization();
 
-        group.MapPost("/", async (ContentRequest Request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapPost("/", async (ContentRequest request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context, HttpContext http) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
+            var conversationId = await contents.StartConversationAsync(session!, request.Content, context);
+            http.Response.Headers.Location = $"/conversation/{conversationId}";
             return Results.Ok();
         });
             
-        group.MapGet("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var conversationUserId = await handles.GetUserIdAsync(handle, context);
+            return Results.Ok(await contents.GetConversationAsync(conversationUserId, conversationId, 5, context));
+        }).AllowAnonymous();
+        
+        group.MapGet("/{handle}/{conversationId}/comments", async (string handle, string conversationId, string? before, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        {
+            var conversationUserId = await handles.GetUserIdAsync(handle, context);
+            return Results.Ok(await contents.GetPreviousCommentsAsync(conversationUserId, conversationId, before, 5, context));
+        }).AllowAnonymous();
+        
+        group.MapPut("/{handle}/{conversationId}", async (string handle, string conversationId, ContentRequest request, SessionGetter sessionGetter, IContentService contents, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
+            if (session!.Handle != handle)
+                return Results.Unauthorized();
+            await contents.UpdateConversationAsync(session, conversationId, request.Content, context);
             return Results.Ok();
         });
         
-        // before in query string
-        group.MapGet("/{handle}/{conversationId}/comments/{before}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapPut("/{handle}/{conversationId}/like", async (string handle, string conversationId, ReactContent request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
+            var conversationUserId = await handles.GetUserIdAsync(handle, context);
+            await contents.ReactToConversationAsync(session!, conversationUserId, conversationId, request.Like, context);
             return Results.Ok();
         });
         
-        group.MapPut("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapDelete("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, IContentService contents, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
+            if (session!.Handle != handle)
+                return Results.Unauthorized();
+            await contents.DeleteConversationAsync(session!, conversationId, context);
             return Results.Ok();
         });
         
-        group.MapPut("/{handle}/{conversationId}/like", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapPost("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, ContentRequest request, IUserHandleService handles, IContentService contents, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
+            var conversationUserId = await handles.GetUserIdAsync(handle, context);
+            await contents.CommentAsync(session!, conversationUserId, conversationId, request.Content, context);
             return Results.Ok();
         });
         
-        group.MapDelete("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}", async (string handle, string? after, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            return Results.Ok();
-        });
-        
-        group.MapPost("/{handle}/{conversationId}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
-        {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            return Results.Ok();
-        });
-        
-        group.MapGet("/{handle}", async (SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
-        {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            return Results.Ok();
-        });
+            var conversationUserId = await handles.GetUserIdAsync(handle, context);
+            return Results.Ok(await contents.GetUserConversationsAsync(conversationUserId, after, 10, context));
+        }).AllowAnonymous();
     }
     
     private static void MapAccount(WebApplication app)

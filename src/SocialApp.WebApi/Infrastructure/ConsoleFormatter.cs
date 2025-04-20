@@ -28,6 +28,11 @@ public class SocialAppConsoleFormatter : ConsoleFormatter
         var pos = logEntry.Category.LastIndexOf('.') + 1;
         var category = logEntry.Category.Substring(pos);
         textWriter.Write($"[{timestamp}] [{logLevelShort}] {category}: ");
-        textWriter.WriteLine($"{logEntry.Formatter(logEntry.State, logEntry.Exception)}");
+        var error = string.Empty;
+        if (logEntry.Exception is not null)
+        {
+            error = '\n' + logEntry.Exception.Message + '\n' + logEntry.Exception.StackTrace;
+        }
+        textWriter.WriteLine($"{logEntry.Formatter(logEntry.State, logEntry.Exception)}{error}");
     }
 }

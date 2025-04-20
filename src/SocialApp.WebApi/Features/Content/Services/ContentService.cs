@@ -15,9 +15,9 @@ public interface IContentService
     Task UpdateConversationAsync(UserSession user, string conversationId, string content, OperationContext context);
     Task ReactToConversationAsync(UserSession user, string conversationUserId, string conversationId, bool like, OperationContext context);
     Task DeleteConversationAsync(UserSession user, string conversationId, OperationContext context);
-    Task<ConversationModel> GetConversationAsync(UserSession user, string userId, string conversationId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(UserSession user, string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<ConversationModel>> GetUserConversationsAsync(UserSession user, string? afterConversationId, int limit, OperationContext context);
+    Task<ConversationModel> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<ConversationModel>> GetUserConversationsAsync(string conversationUserId, string? afterConversationId, int limit, OperationContext context);
 }
 
 public sealed class ContentService : IContentService
@@ -202,16 +202,16 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<ConversationModel> GetConversationAsync(UserSession user, string userId, string conversationId, int lastCommentCount, OperationContext context)
+    public async Task<ConversationModel> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context)
     {
         var contents = GetContentsContainer();
         try
         {
-            var documents = await contents.GetAllConversationDocumentsAsync(userId, conversationId, lastCommentCount, context);
+            var documents = await contents.GetAllConversationDocumentsAsync(conversationUserId, conversationId, lastCommentCount, context);
             if(documents.Conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
 
-            await contents.IncreaseViewsAsync(user.UserId, conversationId, context);
+            await contents.IncreaseViewsAsync(conversationUserId, conversationId, context);
             return BuildConversationModel(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts);
         }
         catch (CosmosException e)
@@ -220,7 +220,7 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(UserSession user, string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context)
+    public async Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context)
     {
         try
         {
@@ -237,13 +237,13 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<ConversationModel>> GetUserConversationsAsync(UserSession user, string? afterConversationId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ConversationModel>> GetUserConversationsAsync(string conversationUserId, string? afterConversationId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 
         try
         {
-            var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(user.UserId, afterConversationId, limit, context);
+            var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(conversationUserId, afterConversationId, limit, context);
             if (conversations == null || conversations.Count == 0)
                 return Array.Empty<ConversationModel>();
             

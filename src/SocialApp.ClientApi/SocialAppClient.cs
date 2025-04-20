@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
 using SocialApp.ClientApi.Services;
-using SocialApp.Models.Content;
 
 namespace SocialApp.ClientApi;
 

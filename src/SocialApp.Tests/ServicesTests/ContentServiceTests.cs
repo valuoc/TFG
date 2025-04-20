@@ -16,7 +16,7 @@ public class ContentServiceTests: ServiceTestsBase
         Console.WriteLine(context.OperationCharge);
 
         context = OperationContext.New();
-        var conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, context);
+        var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
 
         Assert.That(conversation1, Is.Not.Null);
@@ -37,27 +37,27 @@ public class ContentServiceTests: ServiceTestsBase
         var commentId = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "This is a comment.", OperationContext.New());
         
         // Comment is a conversation on its own
-        var conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, commentId, 5, OperationContext.New());
+        var conversation2 = await ContentService.GetConversationAsync(user2.UserId, commentId, 5, OperationContext.New());
         Assert.That(conversation2, Is.Not.Null);
         Assert.That(conversation2.ViewCount, Is.EqualTo(1));
         Assert.That(conversation2.CommentCount, Is.EqualTo(0));
         Assert.That(conversation2.Content, Is.EqualTo("This is a comment."));
         
         // Comment appears as comment
-        var conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation1, Is.Not.Null);
         Assert.That(conversation1.CommentCount, Is.EqualTo(1));
         Assert.That(conversation1.Content, Is.EqualTo("This is a conversation."));
         
         commentId = await ContentService.CommentAsync(user1, user1.UserId, conversation1Id, "This is a self-reply.", OperationContext.New());
         
-        conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, commentId, 5, OperationContext.New());
+        conversation1 = await ContentService.GetConversationAsync(user1.UserId, commentId, 5, OperationContext.New());
         Assert.That(conversation1, Is.Not.Null);
         Assert.That(conversation1.ViewCount, Is.EqualTo(1));
         Assert.That(conversation1.CommentCount, Is.EqualTo(0));
         Assert.That(conversation1.Content, Is.EqualTo("This is a self-reply."));
         
-        conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+        conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation1, Is.Not.Null);
         Assert.That(conversation1.ViewCount, Is.EqualTo(2));
         Assert.That(conversation1.CommentCount, Is.EqualTo(2));
@@ -94,7 +94,7 @@ public class ContentServiceTests: ServiceTestsBase
         }
 
         context = OperationContext.New();
-        var conversation = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, context);
+        var conversation = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
         Assert.That(conversation, Is.Not.Null);
         Assert.That(conversation.LastComments.Count, Is.EqualTo(5));
@@ -102,19 +102,19 @@ public class ContentServiceTests: ServiceTestsBase
         for (var i = 0; i < 5; i++)
             Assert.That(conversation.LastComments[i].Content, Is.EqualTo((i+6).ToString()));
         
-        var prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, conversation1Id, conversation.LastComments[0].CommentId, 2, OperationContext.New());
+        var prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, conversation1Id, conversation.LastComments[0].CommentId, 2, OperationContext.New());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments.Count, Is.EqualTo(2));
         for (var i = 0; i < 2; i++)
             Assert.That(prevComments[i].Content, Is.EqualTo((i+4).ToString()));
         
-        prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, conversation1Id, prevComments[0].CommentId, 3, OperationContext.New());
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, conversation1Id, prevComments[0].CommentId, 3, OperationContext.New());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments.Count, Is.EqualTo(3));
         for (var i = 0; i < 3; i++)
             Assert.That(prevComments[i].Content, Is.EqualTo((i+1).ToString()));
         
-        prevComments = await ContentService.GetPreviousCommentsAsync(user1, user1.UserId, conversation1Id, prevComments[0].CommentId, 3, OperationContext.New());
+        prevComments = await ContentService.GetPreviousCommentsAsync(user1.UserId, conversation1Id, prevComments[0].CommentId, 3, OperationContext.New());
         Assert.That(prevComments, Is.Not.Null);
         Assert.That(prevComments, Is.Empty);
     }
@@ -149,20 +149,20 @@ public class ContentServiceTests: ServiceTestsBase
         }
 
         context = OperationContext.New();
-        var conversations = await ContentService.GetUserConversationsAsync(user1, null, 5, context);
+        var conversations = await ContentService.GetUserConversationsAsync(user1.UserId, null, 5, context);
         Console.WriteLine(context.OperationCharge);
         Assert.That(conversations, Is.Not.Null);
         Assert.That(conversations.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
             Assert.That(conversations[i].Content, Is.EqualTo((10 - i).ToString()));
         
-        conversations = await ContentService.GetUserConversationsAsync(user1, conversations[^1].ConversationId, 5, OperationContext.New());
+        conversations = await ContentService.GetUserConversationsAsync(user1.UserId, conversations[^1].ConversationId, 5, OperationContext.New());
         Assert.That(conversations, Is.Not.Null);
         Assert.That(conversations.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
             Assert.That(conversations[i].Content, Is.EqualTo((5 - i).ToString()));
         
-        conversations = await ContentService.GetUserConversationsAsync(user1, conversations[^1].ConversationId, 5, OperationContext.New());
+        conversations = await ContentService.GetUserConversationsAsync(user1.UserId, conversations[^1].ConversationId, 5, OperationContext.New());
         Assert.That(conversations, Is.Not.Null);
         Assert.That(conversations.Count, Is.EqualTo(0));
     }
@@ -177,10 +177,10 @@ public class ContentServiceTests: ServiceTestsBase
         var conversation2Id = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", OperationContext.New());
         await ContentService.UpdateConversationAsync(user2, conversation2Id, "Updated!", OperationContext.New());
         
-        var conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation1.LastComments[0].Content, Is.EqualTo("Updated!"));
         
-        var conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, conversation2Id, 5, OperationContext.New());
+        var conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
         Assert.That(conversation2.Content, Is.EqualTo("Updated!"));
     }
     
@@ -194,7 +194,7 @@ public class ContentServiceTests: ServiceTestsBase
         var comment2Id = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", OperationContext.New());
         var comment1Id = await ContentService.CommentAsync(user1, user1.UserId, conversation1Id, "Child Reply !!!", OperationContext.New());
 
-        var conversation = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation, Is.Not.Null);
         Assert.That(conversation.CommentCount, Is.EqualTo(2));
         Assert.That(conversation.LastComments.Count, Is.EqualTo(2));
@@ -205,9 +205,9 @@ public class ContentServiceTests: ServiceTestsBase
         Console.WriteLine(context.OperationCharge);
         Console.WriteLine(context.DebugMetrics);
         
-        Assert.ThrowsAsync<ContentException>(() => ContentService.GetConversationAsync(user2, user2.UserId, comment2Id, 5, OperationContext.New()));
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetConversationAsync(user2.UserId, comment2Id, 5, OperationContext.New()));
         
-        conversation = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+        conversation = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation, Is.Not.Null);
         Assert.That(conversation.CommentCount, Is.EqualTo(1));
         Assert.That(conversation.LastComments.Count, Is.EqualTo(1));
@@ -227,10 +227,10 @@ public class ContentServiceTests: ServiceTestsBase
         
         await Task.Delay(1_000);
 
-        var conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, conversation2Id, 5, OperationContext.New());
+        var conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
         Assert.That(conversation2.LikeCount, Is.EqualTo(0));
 
-        var conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation1.LastComments[0].LikeCount, Is.EqualTo(0));
         
         for (var i = 0; i < 2; i++)
@@ -238,10 +238,10 @@ public class ContentServiceTests: ServiceTestsBase
             await ContentService.ReactToConversationAsync(user1, user2.UserId, conversation2Id, true, OperationContext.New());
             await Task.Delay(1_000);
             
-            conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, conversation2Id, 5, OperationContext.New());
+            conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
             Assert.That(conversation2.LikeCount, Is.EqualTo(1));
 
-            conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+            conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
             Assert.That(conversation1.LastComments[0].LikeCount, Is.EqualTo(1));
         }
         
@@ -250,10 +250,10 @@ public class ContentServiceTests: ServiceTestsBase
             await ContentService.ReactToConversationAsync(user1, user2.UserId, conversation2Id, false, OperationContext.New());
             await Task.Delay(1_000);
             
-            conversation2 = await ContentService.GetConversationAsync(user2, user2.UserId, conversation2Id, 5, OperationContext.New());
+            conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
             Assert.That(conversation2.LikeCount, Is.EqualTo(0));
 
-            conversation1 = await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, OperationContext.New());
+            conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
             Assert.That(conversation1.LastComments[0].LikeCount, Is.EqualTo(0));
         }
     }
@@ -309,7 +309,7 @@ public class ContentServiceTests: ServiceTestsBase
         }
 
         context = OperationContext.New();
-        await ContentService.GetConversationAsync(user1, user1.UserId, conversation1Id, 5, context);
+        await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
         writeRcu += context.OperationCharge;
         Console.WriteLine("TOTAL");

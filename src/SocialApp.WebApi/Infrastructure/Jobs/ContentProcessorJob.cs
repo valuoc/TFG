@@ -35,6 +35,9 @@ public sealed class ContentProcessorJob : BackgroundService
             {
                 await _contents.ProcessChangeFeedAsync(stoppingToken);
             }
+            catch (OperationCanceledException)
+            {
+            }
             catch (Exception e)
             {
                 _logger.LogError(e, "Error processing the content stream.");

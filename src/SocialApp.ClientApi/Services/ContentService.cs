@@ -21,8 +21,8 @@ public sealed class ContentService
     public async Task UpdateConversationAsync(string handle, string conversationId, string content, CancellationToken cancel = default)
         => await _client.PutAsync($"/conversation/{handle}/{conversationId}", new ContentRequest{ Content = content}, cancel);
     
-    public async Task ReactToConversationAsync(string handle, string conversationId, CancellationToken cancel = default)
-        => await _client.PutAsync($"/conversation/{handle}/{conversationId}/like", cancel);
+    public async Task ReactToConversationAsync(string handle, string conversationId, bool like, CancellationToken cancel = default)
+        => await _client.PutAsync($"/conversation/{handle}/{conversationId}/like", new ReactContent(){ Like = like}, cancel);
     
     public async Task DeleteConversationAsync(string handle, string conversationId, CancellationToken cancel = default)
         => await _client.DeleteAsync($"/conversation/{handle}/{conversationId}", cancel);

@@ -46,6 +46,9 @@ public sealed class PendingAccountCleanJob : BackgroundService
                     removed = await _accounts.RemovedExpiredPendingAccountsAsync(TimeSpan.FromSeconds(PendingAccountCheckIntervalSeconds), context);   
                 } while (removed > 0);
             }
+            catch (OperationCanceledException)
+            {
+            }
             catch (Exception e)
             {
                 _logger.LogError(e, "Error trying remove pending account cleaning job.");
