@@ -1,6 +1,7 @@
 using System.Net;
 using SocialApp.ClientApi;
 using SocialApp.Models.Account;
+using SocialApp.Models.Content;
 using SocialApp.Models.Session;
 
 namespace SocialApp.Tests.ApiTests;
@@ -148,5 +149,57 @@ public class SessionApiTests : ApiTestBase
         
         posts = await client2.Content.GetConversationsAsync(User2.Handle);
         Assert.That(posts, Is.Empty);
+    }
+
+    [Test, Order(4)]
+    public async Task Should_Paginate_Content()
+    {
+        var client1 = Clients[User1];
+        var client2 = Clients[User2];
+        var client3 = Clients[User3];
+
+        string lastUser2ConversationId = string.Empty;
+        string lastUser3ConversationId = string.Empty;
+        
+        for (var i = 1; i <= 20; i++)
+        {
+            lastUser2ConversationId = await client2.Content.StartConversationAsync("User2 post " + i);
+            lastUser3ConversationId = await client3.Content.StartConversationAsync("User3 post " + i);
+        }
+
+        for (var i = 1; i <= 10; i++)
+        {
+            await client1.Content.CommentAsync(User3.Handle, lastUser3ConversationId,  "User1 comment " + i);
+        }
+        
+        var posts = await client2.Content.GetConversationsAsync(User2.Handle);
+        Assert.That(posts, Is.Not.Empty);
+        Assert.That(posts.Count, Is.EqualTo(10));
+        for (var i = 0; i < 10; i++)
+            Assert.That(posts[i].Content, Is.EqualTo("User2 post " + (20 - i)));
+        
+        posts = await client2.Content.GetConversationsAsync(User2.Handle, posts.Last().ConversationId);
+        Assert.That(posts, Is.Not.Empty);
+        Assert.That(posts.Count, Is.EqualTo(10));
+        for (var i = 0; i < 10; i++)
+            Assert.That(posts[i].Content, Is.EqualTo("User2 post " + (10 - i)));
+        
+        posts = await client2.Content.GetConversationsAsync(User2.Handle, posts.Last().ConversationId);
+        Assert.That(posts, Is.Empty);
+        
+        IReadOnlyList<CommentModel> comments = (await client3.Content.GetConversationAsync(User3.Handle, lastUser3ConversationId)).LastComments;
+        Assert.That(comments, Is.Not.Empty);
+        Assert.That(comments.Count, Is.EqualTo(5));
+        for (var i = 0; i < 5; i++)
+            Assert.That(comments[i].Content, Is.EqualTo("User1 comment " + (6 + i)));
+        
+        comments = await client3.Content.GetConversationCommentsBeforeAsync(User3.Handle, lastUser3ConversationId, comments.First().CommentId);
+        Assert.That(comments, Is.Not.Empty);
+        Assert.That(comments.Count, Is.EqualTo(5));
+        for (var i = 0; i < 5; i++)
+            Assert.That(comments[i].Content, Is.EqualTo("User1 comment " + (1 + i)));
+        
+        comments = await client3.Content.GetConversationCommentsBeforeAsync(User3.Handle, lastUser3ConversationId, comments.First().CommentId);
+        Assert.That(comments, Is.Empty);
     }
 }

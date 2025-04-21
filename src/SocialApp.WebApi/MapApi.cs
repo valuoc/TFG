@@ -109,10 +109,10 @@ public static class MapApi
             return Results.Ok();
         });
         
-        group.MapGet("/{handle}", async (string handle, string? after, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}", async (string handle, string? before, IUserHandleService handles, IContentService contents, OperationContext context) =>
         {
             var conversationUserId = await handles.GetUserIdAsync(handle, context);
-            return Results.Ok(await contents.GetUserConversationsAsync(conversationUserId, after, 10, context));
+            return Results.Ok(await contents.GetUserConversationsAsync(conversationUserId, before, 10, context));
         }).AllowAnonymous();
     }
     

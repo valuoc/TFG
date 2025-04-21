@@ -39,7 +39,7 @@ public sealed class ContentContainer : CosmoContainer
         return new AllConversationDocuments(conversation, conversationCounts, null, null);
     }
     
-    public async Task<(IReadOnlyList<ConversationDocument>, IReadOnlyList<ConversationCountsDocument>)> GetUserConversationsDocumentsAsync(string userId, string? afterConversationId, int limit, OperationContext context)
+    public async Task<(IReadOnlyList<ConversationDocument>, IReadOnlyList<ConversationCountsDocument>)> GetUserConversationsDocumentsAsync(string userId, string? beforeConversationId, int limit, OperationContext context)
     {
         var key = ConversationDocument.KeyUserConversationsEnd(userId);
 
@@ -56,7 +56,7 @@ public sealed class ContentContainer : CosmoContainer
         
         var query = new QueryDefinition(sql)
             .WithParameter("@pk", key.Pk)
-            .WithParameter("@id", afterConversationId == null ? key.Id : ConversationDocument.Key(userId, afterConversationId).Id)
+            .WithParameter("@id", beforeConversationId == null ? key.Id : ConversationDocument.Key(userId, beforeConversationId).Id)
             .WithParameter("@limit", limit * 2);
         
         var conversations = new List<ConversationDocument>();

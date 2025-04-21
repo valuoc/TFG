@@ -17,7 +17,7 @@ public interface IContentService
     Task DeleteConversationAsync(UserSession user, string conversationId, OperationContext context);
     Task<ConversationModel> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context);
     Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<ConversationHeaderModel>> GetUserConversationsAsync(string conversationUserId, string? afterConversationId, int limit, OperationContext context);
+    Task<IReadOnlyList<ConversationHeaderModel>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context);
 }
 
 public sealed class ContentService : IContentService
@@ -237,13 +237,13 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<ConversationHeaderModel>> GetUserConversationsAsync(string conversationUserId, string? afterConversationId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ConversationHeaderModel>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 
         try
         {
-            var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(conversationUserId, afterConversationId, limit, context);
+            var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(conversationUserId, beforeConversationId, limit, context);
             if (conversations == null || conversations.Count == 0)
                 return Array.Empty<ConversationHeaderModel>();
             

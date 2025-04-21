@@ -36,8 +36,6 @@ public sealed class ContentService
         return response.Headers?.Location?.ToString().Substring(response.Headers.Location.ToString().LastIndexOf('/') + 1) ?? string.Empty;
     }
 
-    public async Task<IReadOnlyList<ConversationHeaderModel>> GetConversationsAsync(string handle, CancellationToken cancel = default)
-        => (await _client.GetAsync<IReadOnlyList<ConversationHeaderModel>>($"/conversation/{handle}", cancel)).Content;
-
-
+    public async Task<IReadOnlyList<ConversationHeaderModel>> GetConversationsAsync(string handle, string? before = null, CancellationToken cancel = default)
+        => (await _client.GetAsync<IReadOnlyList<ConversationHeaderModel>>($"/conversation/{handle}?before={before}", cancel)).Content;
 }
