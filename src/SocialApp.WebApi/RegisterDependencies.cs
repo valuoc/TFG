@@ -32,6 +32,7 @@ public static class RegisterDependencies
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<IFollowersService, FollowersService>();
         services.AddSingleton<IContentService, ContentService>();
+        services.AddSingleton<IFeedService, FeedService>();
         services.AddSingleton<IContentStreamProcessorService, ContentStreamProcessorService>();
         services.AddSingleton<IUserHandleService>( s => new UserHandleServiceCacheDecorator(new UserHandleService(s.GetRequiredService<AccountDatabase>())));
 

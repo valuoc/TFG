@@ -30,6 +30,7 @@ public sealed class SocialAppClient
     public SessionService Session { get; private set; }
     public FollowService Follow { get; private set; }
     public ContentService Content { get; private set; }
+    public FeedService Feed { get; private set; }
 
     public SocialAppClient(Uri baseAddress)
     {
@@ -42,6 +43,7 @@ public sealed class SocialAppClient
         Session = new SessionService(this);
         Follow = new FollowService(this);
         Content = new ContentService(this);
+        Feed = new FeedService(this);
     }
 
     internal async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)

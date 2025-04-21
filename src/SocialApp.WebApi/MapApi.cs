@@ -36,6 +36,7 @@ public static class MapApi
         MapSession(app);
         MapFollowers(app);
         MapContent(app);
+        MapFeed(app);
         
         app.MapGet("/health", () => "OK");
     }
@@ -123,6 +124,18 @@ public static class MapApi
             await accounts.RegisterAsync(model, context);
             return Results.Ok();
         });
+    }
+    
+    private static void MapFeed(WebApplication app)
+    {
+        app.MapGet("/feed", async (string? before, SessionGetter sessionGetter, IFeedService feeds, OperationContext context) =>
+        {
+            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            if (problem != null)
+                return problem;
+            var posts = await feeds.GetFeedAsync(session!, before, context);
+            return Results.Ok(posts);
+        }).RequireAuthorization();
     }
     
     private static void MapSession(WebApplication app)

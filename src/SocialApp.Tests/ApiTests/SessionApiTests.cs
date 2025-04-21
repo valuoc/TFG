@@ -202,4 +202,14 @@ public class SessionApiTests : ApiTestBase
         comments = await client3.Content.GetConversationCommentsBeforeAsync(User3.Handle, lastUser3ConversationId, comments.First().CommentId);
         Assert.That(comments, Is.Empty);
     }
+
+    [Test, Order(5)]
+    public async Task Should_Paginate_Feed()
+    {
+        var client1 = Clients[User1];
+
+        var posts = await client1.Feed.FeedAsync();
+        Assert.That(posts, Is.Not.Empty);
+        Assert.That(posts.Count, Is.EqualTo(10));
+    }
 }

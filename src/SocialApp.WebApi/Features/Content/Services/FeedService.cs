@@ -24,7 +24,7 @@ public sealed class FeedService : IFeedService
     public async Task<IReadOnlyList<ConversationHeaderModel>> GetFeedAsync(UserSession session, string? afterConversationId, OperationContext context)
     {
         var feeds = GetFeedContainer();
-        var (conversations, conversationCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, afterConversationId, 5, context);
+        var (conversations, conversationCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, afterConversationId, 10, context);
         
         var sorted = conversations
             .Join(conversationCounts, i => i.ConversationId, o => o.ConversationId, (i, o) => (i, o))
