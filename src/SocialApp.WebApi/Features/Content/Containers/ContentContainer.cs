@@ -19,7 +19,7 @@ public sealed class ContentContainer : CosmoContainer
     private static readonly double _secondsInADay = TimeSpan.FromDays(1).TotalSeconds;
     
     public ContentContainer(UserDatabase database)
-        :base(database) { }
+        :base(database, "contents") { }
     
     public async Task<AllConversationDocuments> CreateConversationAsync(ConversationDocument conversation, OperationContext context)
     {

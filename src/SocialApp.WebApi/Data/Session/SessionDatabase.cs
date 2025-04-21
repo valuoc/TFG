@@ -8,6 +8,6 @@ namespace SocialApp.WebApi.Data.Session;
 /// </summary>
 public sealed class SessionDatabase : CosmoDatabase
 {
-    public SessionDatabase(CosmosClient cosmosClient, string databaseId, string containerId)
-        :base(cosmosClient, databaseId, containerId) { }
+    public SessionDatabase(CosmosClient cosmosClient, IConfiguration configuration)
+        :base(cosmosClient, configuration) { }
 }

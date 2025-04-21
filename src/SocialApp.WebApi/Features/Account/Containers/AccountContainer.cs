@@ -13,7 +13,7 @@ public sealed class AccountContainer : CosmoContainer
     private static readonly TransactionalBatchItemRequestOptions _transactionNoResponse = new() { EnableContentResponseOnWrite = false };
     
     public AccountContainer(AccountDatabase database)
-    : base(database)
+    : base(database, "accounts")
     { }
     
     public async Task DeletePendingAccountAsync(PendingAccountDocument pendingUserAccount, OperationContext context)

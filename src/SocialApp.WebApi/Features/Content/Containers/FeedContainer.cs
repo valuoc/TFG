@@ -13,7 +13,7 @@ public sealed class FeedContainer : CosmoContainer
     private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
     
     public FeedContainer(UserDatabase database)
-        : base(database)
+        : base(database, "feeds")
     { }
     
     public async Task<(IReadOnlyList<FeedConversationDocument>, IReadOnlyList<FeedConversationCountsDocument>)> GetUserFeedDocumentsAsync(string userId, string? beforeConversationId, int limit, OperationContext context)

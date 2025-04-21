@@ -6,8 +6,8 @@ namespace SocialApp.WebApi.Data.User;
 
 public sealed class UserDatabase : CosmoDatabase
 {
-    public UserDatabase(CosmosClient cosmosClient, string databaseId, string containerId)
-        :base(cosmosClient, databaseId, containerId) { }
+    public UserDatabase(CosmosClient cosmosClient, IConfiguration configuration)
+        :base(cosmosClient, configuration) { }
     
     protected override IEnumerable<IncludedPath> GetIndexedPaths()
     {

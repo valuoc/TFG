@@ -1,6 +1,7 @@
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.Tests;
 
@@ -77,20 +78,15 @@ public class PricingTest
     [OneTimeSetUp]
     public async Task Setup()
     {
-        IConfiguration config = new ConfigurationBuilder()
+        IConfiguration configuration = new ConfigurationBuilder()
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile("appsettings.Local.json", optional: true)
             .Build();
         
-        var endpoint = config.GetValue<string>("CosmosDb:Endpoint", null) ?? throw new InvalidOperationException("Missing CosmosDb Endpoint");
-        var authKey = config.GetValue<string>("CosmosDb:AuthKey", null) ?? throw new InvalidOperationException("Missing CosmosDb AuthKey");
-        var applicationName = config.GetValue<string>("CosmosDb:ApplicationName", null) ?? throw new InvalidOperationException("Missing CosmosDb ApplicationName");
-        
         _cosmosClient = CosmoDatabase.CreateCosmosClient
         (
-            endpoint, 
-            authKey, 
-            applicationName
+            configuration.GetSection("CosmosDb:User"),
+            configuration.GetValue<string>("CosmosDb:ApplicationName") ?? throw new SocialAppConfigurationException("Missing CosmosDb ApplicationName")
         );
         
         Database database = await _cosmosClient.CreateDatabaseIfNotExistsAsync(_containerId);

@@ -8,7 +8,7 @@ namespace SocialApp.WebApi.Features.Follow.Containers;
 public sealed class FollowContainer : CosmoContainer
 {
     public FollowContainer(UserDatabase userDatabase)
-        :base(userDatabase) { }
+        :base(userDatabase, "follows") { }
     
     public async Task SaveFollowingsAsync(FollowingListDocument followings, OperationContext context)
     {

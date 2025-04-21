@@ -10,6 +10,6 @@ namespace SocialApp.WebApi.Data.Account;
 
 public sealed class AccountDatabase : CosmoDatabase
 {
-    public AccountDatabase(CosmosClient cosmosClient, string databaseId, string containerId)
-        :base(cosmosClient, databaseId, containerId) { }
+    public AccountDatabase(CosmosClient cosmosClient, IConfiguration configuration)
+        :base(cosmosClient, configuration) { }
 }

@@ -19,6 +19,8 @@ public abstract class ServiceTestsBase
 {
     protected bool RemoveContainerAfterTests = false;
     
+    private readonly IConfiguration _configuration;
+    
     protected AccountService AccountService;
     protected SessionService SessionService;
     protected FollowersService FollowersService;
@@ -31,36 +33,31 @@ public abstract class ServiceTestsBase
     private SessionDatabase _sessionDatabase;
     
     private CosmosClient _cosmosClient;
-
-    private readonly string _container = "test";
-    private readonly string _databaseId = "socialapp";
     
     private readonly CancellationTokenSource _changeFeedCancellationToken = new CancellationTokenSource();
     
     public Exception FeedError { get; private set; }
+
+    protected ServiceTestsBase()
+    {
+        _configuration = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.Local.json", optional: true)
+            .Build();
+    }
     
     [OneTimeSetUp]
     public async Task Setup()
     {
-        IConfiguration config = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json", optional: false)
-            .AddJsonFile("appsettings.Local.json", optional: true)
-            .Build();
-        
-        var endpoint = config.GetValue<string>("CosmosDb:Endpoint", null) ?? throw new InvalidOperationException("Missing CosmosDb Endpoint");
-        var authKey = config.GetValue<string>("CosmosDb:AuthKey", null) ?? throw new InvalidOperationException("Missing CosmosDb AuthKey");
-        var applicationName = config.GetValue<string>("CosmosDb:ApplicationName", null) ?? throw new InvalidOperationException("Missing CosmosDb ApplicationName");
-        
         _cosmosClient = CosmoDatabase.CreateCosmosClient
         (
-            endpoint, 
-            authKey, 
-            applicationName
+            _configuration.GetSection("CosmosDb:User"),
+            _configuration.GetValue<string>("CosmosDb:ApplicationName") ?? throw new SocialAppConfigurationException("Missing CosmosDb ApplicationName")
         );
         
-        _accountDatabase = new AccountDatabase(_cosmosClient, _databaseId, _container);
-        _userDatabase = new UserDatabase(_cosmosClient, _databaseId, _container);
-        _sessionDatabase = new SessionDatabase(_cosmosClient, _databaseId, _container);
+        _accountDatabase = new AccountDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Account"));
+        _userDatabase = new UserDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:User"));
+        _sessionDatabase = new SessionDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Session"));
 
         AccountService = new AccountService(_accountDatabase, _userDatabase);
         SessionService = new SessionService(_userDatabase, _sessionDatabase, _accountDatabase);
@@ -93,7 +90,7 @@ public abstract class ServiceTestsBase
         await _changeFeedCancellationToken.CancelAsync();
         _changeFeedCancellationToken.Dispose();
         if(RemoveContainerAfterTests)
-            await _cosmosClient.GetDatabase(_databaseId).GetContainer(_container).DeleteContainerAsync();
+            await _cosmosClient.GetDatabase(_configuration.GetValue<string>("CosmosDb:User:Id")).GetContainer(_configuration.GetValue<string>("CosmosDb:User:Containers:Contents:Id")).DeleteContainerAsync();
         _cosmosClient.Dispose();
         if(feedError != null)
             throw feedError;

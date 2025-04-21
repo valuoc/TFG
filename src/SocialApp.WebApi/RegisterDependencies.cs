@@ -41,55 +41,40 @@ public static class RegisterDependencies
 
     private static SessionDatabase GetSessionDatabase(IServiceProvider services)
     {
-        var config = services.GetRequiredService<IConfiguration>();
-            
-        var endpoint = config.GetValue<string>("CosmosDb:Endpoint", null) ?? throw new InvalidOperationException("Missing CosmosDb Endpoint");
-        var authKey = config.GetValue<string>("CosmosDb:AuthKey", null) ?? throw new InvalidOperationException("Missing CosmosDb AuthKey");
-        var applicationName = config.GetValue<string>("CosmosDb:ApplicationName", null) ?? throw new InvalidOperationException("Missing CosmosDb ApplicationName");
+        var configuration = services.GetRequiredService<IConfiguration>();
         
         var cosmosClient = CosmoDatabase.CreateCosmosClient
         (
-            endpoint, 
-            authKey, 
-            applicationName
+            configuration.GetSection("CosmosDb:Session"),
+            configuration.GetValue<string>("CosmosDb:ApplicationName") ?? throw new SocialAppConfigurationException("Missing CosmosDb ApplicationName")
         );
             
-        return new SessionDatabase(cosmosClient, "socialapp", "test");
+        return new SessionDatabase(cosmosClient, configuration.GetSection("CosmosDb:Session"));
     }
 
     private static UserDatabase GetUserDatabase(IServiceProvider services)
     {
-        var config = services.GetRequiredService<IConfiguration>();
-            
-        var endpoint = config.GetValue<string>("CosmosDb:Endpoint", null) ?? throw new InvalidOperationException("Missing CosmosDb Endpoint");
-        var authKey = config.GetValue<string>("CosmosDb:AuthKey", null) ?? throw new InvalidOperationException("Missing CosmosDb AuthKey");
-        var applicationName = config.GetValue<string>("CosmosDb:ApplicationName", null) ?? throw new InvalidOperationException("Missing CosmosDb ApplicationName");
+        var configuration = services.GetRequiredService<IConfiguration>();
         
         var cosmosClient = CosmoDatabase.CreateCosmosClient
         (
-            endpoint, 
-            authKey, 
-            applicationName
+            configuration.GetSection("CosmosDb:User"),
+            configuration.GetValue<string>("CosmosDb:ApplicationName") ?? throw new SocialAppConfigurationException("Missing CosmosDb ApplicationName")
         );
             
-        return new UserDatabase(cosmosClient, "socialapp", "test");
+        return new UserDatabase(cosmosClient, configuration.GetSection("CosmosDb:User"));
     }
 
     private static AccountDatabase GetAccountDatabase(IServiceProvider services)
     {
-        var config = services.GetRequiredService<IConfiguration>();
-            
-        var endpoint = config.GetValue<string>("CosmosDb:Endpoint", null) ?? throw new InvalidOperationException("Missing CosmosDb Endpoint");
-        var authKey = config.GetValue<string>("CosmosDb:AuthKey", null) ?? throw new InvalidOperationException("Missing CosmosDb AuthKey");
-        var applicationName = config.GetValue<string>("CosmosDb:ApplicationName", null) ?? throw new InvalidOperationException("Missing CosmosDb ApplicationName");
+        var configuration = services.GetRequiredService<IConfiguration>();
         
         var cosmosClient = CosmoDatabase.CreateCosmosClient
         (
-            endpoint, 
-            authKey, 
-            applicationName
+            configuration.GetSection("CosmosDb:Account"),
+            configuration.GetValue<string>("CosmosDb:ApplicationName") ?? throw new SocialAppConfigurationException("Missing CosmosDb ApplicationName")
         );
             
-        return new AccountDatabase(cosmosClient, "socialapp", "test");
+        return new AccountDatabase(cosmosClient, configuration.GetSection("CosmosDb:Account"));
     }
 }

@@ -11,7 +11,7 @@ public sealed class SessionContainer : CosmoContainer
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
 
     public SessionContainer(SessionDatabase database)
-        :base(database)
+        :base(database, "sessions")
     { }
     
     public async Task CreateSessionAsync(SessionDocument session, OperationContext context)

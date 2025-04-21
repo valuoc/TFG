@@ -12,9 +12,9 @@ public abstract class CosmoContainer
     protected readonly Container Container;
     private readonly CosmoDatabase _database;
 
-    protected CosmoContainer(CosmoDatabase database)
+    protected CosmoContainer(CosmoDatabase database, string name)
     {
-        Container = database.GetContainer();
+        Container = database.GetContainer(name);
         _database = database;
     }
 

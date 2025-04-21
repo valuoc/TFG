@@ -13,7 +13,7 @@ public sealed class ProfileContainer : CosmoContainer
     private static readonly TransactionalBatchItemRequestOptions _transactionNoResponse = new() { EnableContentResponseOnWrite = false };
     
     public ProfileContainer(UserDatabase database)
-        :base(database)
+        :base(database, "profiles")
     { }
     
     public async Task CreateUserProfileAsync(string userId, ProfileDocument profile, OperationContext context)
