@@ -78,7 +78,7 @@ public static class MapApi
             return Results.Ok();
         });
         
-        group.MapPut("/{handle}/{conversationId}/like", async (string handle, string conversationId, ReactContent request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapPut("/{handle}/{conversationId}/like", async (string handle, string conversationId, ReactRequest request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)

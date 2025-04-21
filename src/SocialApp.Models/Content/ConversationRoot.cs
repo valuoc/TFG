@@ -1,6 +1,6 @@
 namespace SocialApp.Models.Content;
 
-public class ConversationHeaderModel
+public class ConversationRoot
 {
     public string UserId { get; set; }
     public string ConversationId  { get; set; }

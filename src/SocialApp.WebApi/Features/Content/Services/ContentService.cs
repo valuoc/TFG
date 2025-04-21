@@ -2,6 +2,7 @@ using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Content;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Features.Session.Models;
@@ -15,16 +16,20 @@ public interface IContentService
     Task UpdateConversationAsync(UserSession user, string conversationId, string content, OperationContext context);
     Task ReactToConversationAsync(UserSession user, string conversationUserId, string conversationId, bool like, OperationContext context);
     Task DeleteConversationAsync(UserSession user, string conversationId, OperationContext context);
-    Task<ConversationModel> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<ConversationHeaderModel>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context);
+    Task<Conversation> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<ConversationComment>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<ConversationRoot>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context);
 }
 
 public sealed class ContentService : IContentService
 {
     private readonly UserDatabase _userDb;
-    public ContentService(UserDatabase userDb)
-        => _userDb = userDb;
+    private readonly IUserHandleService _userHandleService;
+    public ContentService(UserDatabase userDb, IUserHandleService userHandleService)
+    {
+        _userDb = userDb;
+        _userHandleService = userHandleService;
+    }
 
     private ContentContainer GetContentsContainer()
         => new(_userDb);
@@ -202,7 +207,7 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<ConversationModel> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context)
+    public async Task<Conversation> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context)
     {
         var contents = GetContentsContainer();
         try
@@ -212,7 +217,7 @@ public sealed class ContentService : IContentService
                 throw new ContentException(ContentError.ContentNotFound);
 
             await contents.IncreaseViewsAsync(conversationUserId, conversationId, context);
-            return BuildConversationModel(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts);
+            return await BuildConversationModelAsync(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts);
         }
         catch (CosmosException e)
         {
@@ -220,16 +225,16 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<CommentModel>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context)
+    public async Task<IReadOnlyList<ConversationComment>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
             var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(conversationUserId, conversationId, commentId, lastCommentCount, context);
             if (comments == null)
-                return Array.Empty<CommentModel>();
+                return Array.Empty<ConversationComment>();
 
-            return BuildCommentList(comments, commentCounts);
+            return await BuildCommentListAsync(comments, commentCounts);
         }
         catch (CosmosException e)
         {
@@ -237,7 +242,7 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<ConversationHeaderModel>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ConversationRoot>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 
@@ -245,20 +250,17 @@ public sealed class ContentService : IContentService
         {
             var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(conversationUserId, beforeConversationId, limit, context);
             if (conversations == null || conversations.Count == 0)
-                return Array.Empty<ConversationHeaderModel>();
+                return Array.Empty<ConversationRoot>();
             
             var sorted = conversations
                 .Join(conversationCounts, i => i.ConversationId, o => o.ConversationId, (i, o) => (i, o))
                 .OrderByDescending(x => x.i.Sk);
 
-            var conversationsModels = new List<ConversationHeaderModel>(conversations.Count);
+            var conversationsModels = new List<ConversationRoot>(conversations.Count);
             foreach (var (conversationDoc, conversationCountsDocument) in sorted)
             {
-                var conversation = ContentModels.From(conversationDoc);
-                conversation.CommentCount = conversationCountsDocument.CommentCount;
-                conversation.ViewCount = conversationCountsDocument.ViewCount;
-                conversation.LikeCount = conversationCountsDocument.LikeCount;
-                conversationsModels.Add(conversation);
+                var conversation = await BuildConversationAsync(conversationDoc, conversationCountsDocument);
+                conversationsModels.Add(conversation.Root);
             }
             
             return conversationsModels;
@@ -269,29 +271,26 @@ public sealed class ContentService : IContentService
         }
     }
     
-    private static IReadOnlyList<CommentModel> BuildCommentList(List<CommentDocument> comments, List<CommentCountsDocument>? commentCounts)
+    private async Task<IReadOnlyList<ConversationComment>> BuildCommentListAsync(List<CommentDocument> comments, List<CommentCountsDocument>? commentCounts)
     {
         var sorted = comments
             .Join(commentCounts, i => i.CommentId, o => o.CommentId, (i, o) => (i, o))
             .OrderBy(x => x.i.Sk);
 
-        var commentModels = new List<CommentModel>(comments.Count);
+        var commentModels = new List<ConversationComment>(comments.Count);
         foreach (var (commentDoc, countsDoc) in sorted)
         {
-            var comment = ContentModels.From(commentDoc);
-            ContentModels.Apply(comment, countsDoc);
+            var comment = await BuildCommentAsync(commentDoc, countsDoc);
             commentModels.Add(comment);
         }
 
         return commentModels;
     }
     
-    private static ConversationModel? BuildConversationModel(ConversationDocument conversation, ConversationCountsDocument conversationCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
+    private async Task<Conversation> BuildConversationModelAsync(ConversationDocument conversation, ConversationCountsDocument conversationCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
     {
-        var model = ContentModels.From(conversation);
-        model.CommentCount = conversationCounts.CommentCount;
-        model.ViewCount = conversationCounts.ViewCount +1;
-        model.LikeCount = conversationCounts.LikeCount;
+        var model = await BuildConversationAsync(conversation, conversationCounts);
+        model.Root.ViewCount++;
         
         if (comments != null)
         {
@@ -304,15 +303,42 @@ public sealed class ContentService : IContentService
             
             foreach (var (commentDocument, commentCountsDocument) in sorted)
             {
-                var comment = ContentModels.From(commentDocument);
-                if (comment.CommentId != commentCountsDocument.CommentId)
+                if (commentDocument.CommentId != commentCountsDocument.CommentId)
                     throw new InvalidOperationException($"The comment {commentDocument.CommentId} does not match the counts.");
                 
-                ContentModels.Apply(comment, commentCountsDocument);
+                var comment = await BuildCommentAsync(commentDocument, commentCountsDocument);
                 model.LastComments.Add(comment);
             }
         }
 
         return model;
     }
+    
+    private async Task<ConversationComment> BuildCommentAsync(CommentDocument comment, CommentCountsDocument counts)
+        => new()
+        {
+            UserId = comment.UserId,
+            CommentId = comment.CommentId,
+            Content = comment.Content,
+            LastModify = comment.LastModify,
+            ViewCount = counts.ViewCount,
+            CommentCount = counts.CommentCount,
+            LikeCount = counts.LikeCount
+        };
+
+    private async Task<Conversation> BuildConversationAsync(ConversationDocument conversation, ConversationCountsDocument counts)
+        => new()
+        {
+            Root = new ConversationRoot()
+            {
+                UserId = conversation.UserId,
+                ConversationId = conversation.ConversationId,
+                Content = conversation.Content,
+                LastModify = conversation.LastModify,
+                CommentCount = counts.CommentCount,
+                ViewCount = counts.ViewCount,
+                LikeCount = counts.LikeCount,
+            },
+            LastComments = new List<ConversationComment>()
+        };
 }

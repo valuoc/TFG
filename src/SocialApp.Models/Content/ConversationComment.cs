@@ -1,6 +1,6 @@
 namespace SocialApp.Models.Content;
 
-public sealed class CommentModel
+public sealed class ConversationComment
 {
     public string UserId { get; set; }
     public string CommentId  { get; set; }

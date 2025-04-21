@@ -90,7 +90,7 @@ public class FeedServiceTests : ServiceTestsBase
 
         await Task.Delay(5_000);
 
-        List<ConversationHeaderModel> feed = new List<ConversationHeaderModel>();
+        List<ConversationRoot> feed = new List<ConversationRoot>();
         feed.AddRange(await FeedService.GetFeedAsync(user1, null, OperationContext.New()));
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);

@@ -11,8 +11,8 @@ public sealed class FeedClient
         _client = client;
     }
 
-    public async Task<IReadOnlyList<ConversationHeaderModel>> FeedAsync(string? before = null, CancellationToken cancel = default)
+    public async Task<IReadOnlyList<ConversationRoot>> FeedAsync(string? before = null, CancellationToken cancel = default)
     {
-        return (await _client.GetAsync<IReadOnlyList<ConversationHeaderModel>>($"/feed?before={before}", cancel)).Content;
+        return (await _client.GetAsync<IReadOnlyList<ConversationRoot>>($"/feed?before={before}", cancel)).Content;
     }
 }

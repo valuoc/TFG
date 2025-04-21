@@ -20,11 +20,11 @@ public class ContentFeedServiceTests: ServiceTestsBase
         await Task.Delay(2_000);
         
         var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
-        Assert.That(conversation1.CommentCount, Is.EqualTo(1));
+        Assert.That(conversation1.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation1.LastComments[0].CommentCount, Is.EqualTo(1));
         
         var conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
-        Assert.That(conversation2.CommentCount, Is.EqualTo(1));
+        Assert.That(conversation2.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation2.LastComments[0].CommentCount, Is.EqualTo(0));
     }
     
@@ -44,7 +44,7 @@ public class ContentFeedServiceTests: ServiceTestsBase
         var conversation  = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         var commentConversation = await ContentService.GetConversationAsync(user2.UserId, conversation.LastComments[0].CommentId, 5, OperationContext.New());
         Assert.That(commentConversation, Is.Not.Null);
-        Assert.That(commentConversation.Content, Is.EqualTo("Child"));
+        Assert.That(commentConversation.Root.Content, Is.EqualTo("Child"));
     }
     
     [Test, Order(2)]
@@ -64,10 +64,10 @@ public class ContentFeedServiceTests: ServiceTestsBase
         
         var commentConversation = await ContentService.GetConversationAsync(user2.UserId, commentId, 5, OperationContext.New());
         Assert.That(commentConversation, Is.Not.Null);
-        Assert.That(commentConversation.Content, Is.EqualTo("Child !!!"));
+        Assert.That(commentConversation.Root.Content, Is.EqualTo("Child !!!"));
         
         var conversation  = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
-        Assert.That(conversation.CommentCount, Is.EqualTo(1));
+        Assert.That(conversation.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation.LastComments[0].Content, Is.EqualTo("Child !!!"));
     }
     
@@ -92,7 +92,7 @@ public class ContentFeedServiceTests: ServiceTestsBase
         
         var conversation = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation, Is.Not.Null);
-        Assert.That(conversation.CommentCount, Is.EqualTo(1));
+        Assert.That(conversation.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation.LastComments.Count, Is.EqualTo(1));
         Assert.That(conversation.LastComments[^1].Content, Is.EqualTo("Child Reply !!!"));
     }
@@ -116,7 +116,7 @@ public class ContentFeedServiceTests: ServiceTestsBase
         await Task.Delay(2_000);
         
         var conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
-        Assert.That(conversation2.LikeCount, Is.EqualTo(like ? 1 : 0));
+        Assert.That(conversation2.Root.LikeCount, Is.EqualTo(like ? 1 : 0));
 
         var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation1.LastComments[0].LikeCount, Is.EqualTo(like ? 1 : 0));

@@ -62,8 +62,9 @@ public abstract class ServiceTestsBase
         AccountService = new AccountService(_accountDatabase, _userDatabase);
         SessionService = new SessionService(_userDatabase, _sessionDatabase, _accountDatabase);
         FollowersService = new FollowersService(_userDatabase);
-        ContentService = new ContentService(_userDatabase);
-        FeedService = new FeedService(_userDatabase);
+        var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_accountDatabase));
+        ContentService = new ContentService(_userDatabase, userHandleService);
+        FeedService = new FeedService(_userDatabase, userHandleService);
         ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(new LoggerFactory()));
         
         await _userDatabase.InitializeAsync();

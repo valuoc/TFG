@@ -117,17 +117,17 @@ public class SessionApiTests : ApiTestBase
         Assert.That(posts[0].ViewCount, Is.EqualTo(0));
         
         var post = await client3.Content.GetConversationAsync(User2.Handle, user2ConversationId);
-        Assert.That(post.CommentCount, Is.EqualTo(1));
-        Assert.That(post.ViewCount, Is.EqualTo(1));
-        Assert.That(post.LikeCount, Is.EqualTo(1));
+        Assert.That(post.Root.CommentCount, Is.EqualTo(1));
+        Assert.That(post.Root.ViewCount, Is.EqualTo(1));
+        Assert.That(post.Root.LikeCount, Is.EqualTo(1));
         Assert.That(post.LastComments.Count, Is.EqualTo(1));
         Assert.That(post.LastComments[0].CommentId, Is.EqualTo(user3CommentId));
         Assert.That(post.LastComments[0].Content, Is.EqualTo("User3 comment"));
         
         post = await client2.Content.GetConversationAsync(User2.Handle, user2ConversationId);
-        Assert.That(post.CommentCount, Is.EqualTo(1));
-        Assert.That(post.ViewCount, Is.EqualTo(2));
-        Assert.That(post.LikeCount, Is.EqualTo(1));
+        Assert.That(post.Root.CommentCount, Is.EqualTo(1));
+        Assert.That(post.Root.ViewCount, Is.EqualTo(2));
+        Assert.That(post.Root.LikeCount, Is.EqualTo(1));
         Assert.That(post.LastComments.Count, Is.EqualTo(1));
         Assert.That(post.LastComments[0].CommentId, Is.EqualTo(user3CommentId));
         Assert.That(post.LastComments[0].Content, Is.EqualTo("User3 comment"));
@@ -138,7 +138,7 @@ public class SessionApiTests : ApiTestBase
         
         await client1.Content.ReactToConversationAsync(User2.Handle, user2ConversationId, false);
         post = await client3.Content.GetConversationAsync(User2.Handle, user2ConversationId);
-        Assert.That(post.LikeCount, Is.EqualTo(0));
+        Assert.That(post.Root.LikeCount, Is.EqualTo(0));
         
         var ex = Assert.ThrowsAsync<HttpRequestException>(() => client3.Content.DeleteConversationAsync(User2.Handle, user2ConversationId));
         Assert.That(ex.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
@@ -187,7 +187,7 @@ public class SessionApiTests : ApiTestBase
         posts = await client2.Content.GetConversationsAsync(User2.Handle, posts.Last().ConversationId);
         Assert.That(posts, Is.Empty);
         
-        IReadOnlyList<CommentModel> comments = (await client3.Content.GetConversationAsync(User3.Handle, lastUser3ConversationId)).LastComments;
+        IReadOnlyList<ConversationComment> comments = (await client3.Content.GetConversationAsync(User3.Handle, lastUser3ConversationId)).LastComments;
         Assert.That(comments, Is.Not.Empty);
         Assert.That(comments.Count, Is.EqualTo(5));
         for (var i = 0; i < 5; i++)
