@@ -87,6 +87,10 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                         
                         case CommentCountsDocument doc:
                             break;
+                        
+                        default:
+                            //_logger.LogWarning("Content processor processing unexpected document: '{fullName}'", document.GetType().FullName);
+                            break;
                     }
                 }
                 catch (CosmosException e)

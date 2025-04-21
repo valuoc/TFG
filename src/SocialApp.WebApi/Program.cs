@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Logging.Console;
 using SocialApp.WebApi;
+using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Infrastructure;
 using SocialApp.WebApi.Infrastructure.Middlewares;
 
@@ -50,15 +52,22 @@ app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = "application/json";
-
         var error = context.Features.Get<IExceptionHandlerFeature>()?.Error;
 
+        context.Response.StatusCode = error switch
+        {
+            ContentException { Error: ContentError.ContentNotFound } => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status500InternalServerError
+        };
+        
+        context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(JsonSerializer.Serialize(new
         {
-            message = "Oops!",
-            detail = error?.Message
+            message = error switch
+            {
+                SocialAppException saex => saex.Message,
+                _ => "Oops! something went wrong."
+            }
         }));
     });
 });

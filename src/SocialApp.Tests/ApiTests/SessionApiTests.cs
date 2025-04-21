@@ -95,32 +95,58 @@ public class SessionApiTests : ApiTestBase
         var client2 = Clients[User2];
         var client3 = Clients[User3];
 
-        var conversationId = await client2.Content.StartConversationAsync("User2 post");
+        var user2ConversationId = await client2.Content.StartConversationAsync("User2 post");
         var posts = await client2.Content.GetConversationsAsync(User2.Handle);
         Assert.That(posts, Is.Not.Empty);
         Assert.That(posts.Count, Is.EqualTo(1));
-        Assert.That(posts[0].ConversationId, Is.EqualTo(conversationId));
+        Assert.That(posts[0].ConversationId, Is.EqualTo(user2ConversationId));
         Assert.That(posts[0].Content, Is.EqualTo("User2 post"));
+
+        await client1.Content.ReactToConversationAsync(User2.Handle, user2ConversationId, true);
         
-        var commentId = await client3.Content.CommentAsync(User2.Handle, conversationId, "User3 comment");
+        var user3CommentId = await client3.Content.CommentAsync(User2.Handle, user2ConversationId, "User3 comment");
         
         posts = await client2.Content.GetConversationsAsync(User2.Handle);
         Assert.That(posts, Is.Not.Empty);
         Assert.That(posts.Count, Is.EqualTo(1));
-        Assert.That(posts[0].ConversationId, Is.EqualTo(conversationId));
+        Assert.That(posts[0].ConversationId, Is.EqualTo(user2ConversationId));
         Assert.That(posts[0].Content, Is.EqualTo("User2 post"));
         Assert.That(posts[0].CommentCount, Is.EqualTo(1));
+        Assert.That(posts[0].LikeCount, Is.EqualTo(1));
+        Assert.That(posts[0].ViewCount, Is.EqualTo(0));
         
-        var post = await client3.Content.GetConversationAsync(User2.Handle, conversationId);
+        var post = await client3.Content.GetConversationAsync(User2.Handle, user2ConversationId);
         Assert.That(post.CommentCount, Is.EqualTo(1));
+        Assert.That(post.ViewCount, Is.EqualTo(1));
+        Assert.That(post.LikeCount, Is.EqualTo(1));
         Assert.That(post.LastComments.Count, Is.EqualTo(1));
-        Assert.That(post.LastComments[0].CommentId, Is.EqualTo(commentId));
+        Assert.That(post.LastComments[0].CommentId, Is.EqualTo(user3CommentId));
         Assert.That(post.LastComments[0].Content, Is.EqualTo("User3 comment"));
         
-        post = await client2.Content.GetConversationAsync(User2.Handle, conversationId);
+        post = await client2.Content.GetConversationAsync(User2.Handle, user2ConversationId);
         Assert.That(post.CommentCount, Is.EqualTo(1));
+        Assert.That(post.ViewCount, Is.EqualTo(2));
+        Assert.That(post.LikeCount, Is.EqualTo(1));
         Assert.That(post.LastComments.Count, Is.EqualTo(1));
-        Assert.That(post.LastComments[0].CommentId, Is.EqualTo(commentId));
+        Assert.That(post.LastComments[0].CommentId, Is.EqualTo(user3CommentId));
         Assert.That(post.LastComments[0].Content, Is.EqualTo("User3 comment"));
+        
+        await client3.Content.UpdateConversationAsync(User3.Handle, user3CommentId, "User3 comment UPDATED");
+        post = await client3.Content.GetConversationAsync(User2.Handle, user2ConversationId);
+        Assert.That(post.LastComments[0].Content, Is.EqualTo("User3 comment UPDATED"));
+        
+        await client1.Content.ReactToConversationAsync(User2.Handle, user2ConversationId, false);
+        post = await client3.Content.GetConversationAsync(User2.Handle, user2ConversationId);
+        Assert.That(post.LikeCount, Is.EqualTo(0));
+        
+        var ex = Assert.ThrowsAsync<HttpRequestException>(() => client3.Content.DeleteConversationAsync(User2.Handle, user2ConversationId));
+        Assert.That(ex.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+
+        await client2.Content.DeleteConversationAsync(User2.Handle, user2ConversationId);
+        ex = Assert.ThrowsAsync<HttpRequestException>(() => client3.Content.GetConversationAsync(User2.Handle, user2ConversationId));
+        Assert.That(ex.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        
+        posts = await client2.Content.GetConversationsAsync(User2.Handle);
+        Assert.That(posts, Is.Empty);
     }
 }

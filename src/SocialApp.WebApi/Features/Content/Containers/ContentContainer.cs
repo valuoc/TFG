@@ -198,19 +198,6 @@ public sealed class ContentContainer : CosmoContainer
         return null;
     }
     
-    public async Task ReplaceDocumentAsync<T>(T document, OperationContext context)
-        where T : Document
-    {
-        var response = await Container.ReplaceItemAsync
-        (
-            document,
-            document.Id, new PartitionKey(document.Pk),
-            new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = false },
-            context.Cancellation
-        );
-        context.AddRequestCharge(response.RequestCharge);
-    }
-    
     public async Task RemoveConversationAsync(ConversationDocument document, OperationContext context)
     {
         var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));

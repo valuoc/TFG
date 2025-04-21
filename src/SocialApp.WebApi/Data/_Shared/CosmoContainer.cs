@@ -59,6 +59,19 @@ public abstract class CosmoContainer
         }
     }
     
+    public async Task ReplaceDocumentAsync<T>(T document, OperationContext context)
+        where T : Document
+    {
+        var response = await Container.ReplaceItemAsync
+        (
+            document,
+            document.Id, new PartitionKey(document.Pk),
+            new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = false },
+            context.Cancellation
+        );
+        context.AddRequestCharge(response.RequestCharge);
+    }
+    
     protected async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
     {
         using var itemIterator = Container.GetItemQueryIterator<JsonElement>(query, null, new QueryRequestOptions

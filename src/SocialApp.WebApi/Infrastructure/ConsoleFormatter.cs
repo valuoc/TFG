@@ -31,7 +31,7 @@ public class SocialAppConsoleFormatter : ConsoleFormatter
         var error = string.Empty;
         if (logEntry.Exception is not null)
         {
-            error = '\n' + logEntry.Exception.Message + '\n' + logEntry.Exception.StackTrace;
+            error = $"\n{logEntry.Exception.GetType().Name}:{logEntry.Exception.Message}\n{logEntry.Exception.StackTrace}";
         }
         textWriter.WriteLine($"{logEntry.Formatter(logEntry.State, logEntry.Exception)}{error}");
     }
