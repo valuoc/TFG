@@ -19,7 +19,7 @@ public class FeedServiceTests : ServiceTestsBase
         var now = DateTimeOffset.UtcNow;
         
         var moments = Enumerable
-            .Range(0, 10)
+            .Range(0, 20)
             .Select(i => i + 1)
             .OrderBy(x => Guid.NewGuid())
             .ToArray();
@@ -40,16 +40,16 @@ public class FeedServiceTests : ServiceTestsBase
         var feed = await FeedService.GetFeedAsync(user1, null, OperationContext.New());
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
-        Assert.That(feed.Count, Is.EqualTo(5));
+        Assert.That(feed.Count, Is.EqualTo(10));
         for (var i = 0; i < feed.Count; i++)
-            Assert.That(feed[i].Content, Is.EqualTo((10-i).ToString()));
+            Assert.That(feed[i].Content, Is.EqualTo((20-i).ToString()));
         
         feed = await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New());
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
-        Assert.That(feed.Count, Is.EqualTo(5));
+        Assert.That(feed.Count, Is.EqualTo(10));
         for (var i = 0; i < feed.Count; i++)
-            Assert.That(feed[i].Content, Is.EqualTo((5-i).ToString()));
+            Assert.That(feed[i].Content, Is.EqualTo((10-i).ToString()));
         
         feed = await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New());
         Assert.That(feed, Is.Not.Null);
@@ -69,7 +69,7 @@ public class FeedServiceTests : ServiceTestsBase
         var now = DateTimeOffset.UtcNow;
         
         var moments = Enumerable
-            .Range(0, 10)
+            .Range(0, 20)
             .Select(i => i + 1)
             .OrderBy(x => Guid.NewGuid())
             .ToArray();
@@ -94,9 +94,9 @@ public class FeedServiceTests : ServiceTestsBase
         feed.AddRange(await FeedService.GetFeedAsync(user1, null, OperationContext.New()));
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
-        Assert.That(feed.Count, Is.EqualTo(5));
-        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New()));
         Assert.That(feed.Count, Is.EqualTo(10));
+        feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New()));
+        Assert.That(feed.Count, Is.EqualTo(20));
 
         var user2UpdatedConversationId = user2ConversationIds.OrderBy(x => Guid.NewGuid()).First();
         var user3DeletedConversationId = user3ConversationIds.OrderBy(x => Guid.NewGuid()).First();
@@ -112,7 +112,7 @@ public class FeedServiceTests : ServiceTestsBase
         feed.AddRange(await FeedService.GetFeedAsync(user1, feed.Last().ConversationId, OperationContext.New()));
         Assert.That(feed, Is.Not.Null);
         Assert.That(feed, Is.Not.Empty);
-        Assert.That(feed.Count, Is.EqualTo(9));
+        Assert.That(feed.Count, Is.EqualTo(19));
         var updatedFeed = feed.Single(x => x.ConversationId == user2UpdatedConversationId);
         Assert.That(updatedFeed.Content, Is.EqualTo("Updated !!"));
         Assert.That(updatedFeed.LikeCount, Is.EqualTo(1));

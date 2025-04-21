@@ -1,7 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using SocialApp.ClientApi.Services;
+using SocialApp.ClientApi.Clients;
 
 namespace SocialApp.ClientApi;
 
@@ -27,10 +27,10 @@ public sealed class SocialAppClient
     };
 
     public AccountService Account { get; private set; }
-    public SessionService Session { get; private set; }
-    public FollowService Follow { get; private set; }
-    public ContentService Content { get; private set; }
-    public FeedService Feed { get; private set; }
+    public SessionClient Session { get; private set; }
+    public FollowClient Follow { get; private set; }
+    public ContentClient Content { get; private set; }
+    public FeedClient Feed { get; private set; }
 
     public SocialAppClient(Uri baseAddress)
     {
@@ -40,10 +40,10 @@ public sealed class SocialAppClient
             BaseAddress = baseAddress
         };
         Account = new AccountService(this);
-        Session = new SessionService(this);
-        Follow = new FollowService(this);
-        Content = new ContentService(this);
-        Feed = new FeedService(this);
+        Session = new SessionClient(this);
+        Follow = new FollowClient(this);
+        Content = new ContentClient(this);
+        Feed = new FeedClient(this);
     }
 
     internal async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)

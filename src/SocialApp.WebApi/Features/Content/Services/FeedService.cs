@@ -8,7 +8,7 @@ namespace SocialApp.WebApi.Features.Content.Services;
 
 public interface IFeedService
 {
-    Task<IReadOnlyList<ConversationHeaderModel>> GetFeedAsync(UserSession session, string? afterConversationId, OperationContext context);
+    Task<IReadOnlyList<ConversationHeaderModel>> GetFeedAsync(UserSession session, string? beforeConversationId, OperationContext context);
 }
 
 public sealed class FeedService : IFeedService
@@ -21,10 +21,10 @@ public sealed class FeedService : IFeedService
     private FeedContainer GetFeedContainer()
         => new(_userDb);
     
-    public async Task<IReadOnlyList<ConversationHeaderModel>> GetFeedAsync(UserSession session, string? afterConversationId, OperationContext context)
+    public async Task<IReadOnlyList<ConversationHeaderModel>> GetFeedAsync(UserSession session, string? beforeConversationId, OperationContext context)
     {
         var feeds = GetFeedContainer();
-        var (conversations, conversationCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, afterConversationId, 10, context);
+        var (conversations, conversationCounts) = await feeds.GetUserFeedDocumentsAsync(session.UserId, beforeConversationId, 10, context);
         
         var sorted = conversations
             .Join(conversationCounts, i => i.ConversationId, o => o.ConversationId, (i, o) => (i, o))

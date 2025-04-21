@@ -1,12 +1,12 @@
 using SocialApp.Models.Session;
 
-namespace SocialApp.ClientApi.Services;
+namespace SocialApp.ClientApi.Clients;
 
-public sealed class SessionService
+public sealed class SessionClient
 {
     private readonly SocialAppClient _client;
 
-    public SessionService(SocialAppClient client)
+    public SessionClient(SocialAppClient client)
     {
         _client = client;
     }

@@ -4,8 +4,8 @@ namespace SocialApp.Tests.ApiTests;
 
 public abstract class ApiTestBase
 {
-    protected static SocialAppClient CreateClient()
+    protected static SocialAppClient CreateClient(string url)
     {
-        return new SocialAppClient(new Uri("http://localhost:5081"));
+        return new SocialAppClient(new Uri(url));
     }
 }

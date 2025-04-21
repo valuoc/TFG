@@ -1,10 +1,10 @@
-namespace SocialApp.ClientApi.Services;
+namespace SocialApp.ClientApi.Clients;
 
-public sealed class FollowService
+public sealed class FollowClient
 {
     private readonly SocialAppClient _client;
 
-    public FollowService(SocialAppClient client)
+    public FollowClient(SocialAppClient client)
     {
         _client = client;
     }

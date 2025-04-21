@@ -34,7 +34,7 @@ public class SessionApiTests : ApiTestBase
     {
         async Task<SocialAppClient> registerAsync(TestUser u)
         {
-            var client = CreateClient();
+            var client = CreateClient("http://localhost:5081");
             await client.Account.RegisterAsync(new RegisterRequest
             {
                 Email = u.Email,

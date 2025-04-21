@@ -1,12 +1,12 @@
 using SocialApp.Models.Content;
 
-namespace SocialApp.ClientApi.Services;
+namespace SocialApp.ClientApi.Clients;
 
-public sealed class ContentService
+public sealed class ContentClient
 {
     private readonly SocialAppClient _client;
 
-    public ContentService(SocialAppClient client)
+    public ContentClient(SocialAppClient client)
         => _client = client;
 
     public async Task<string> StartConversationAsync(string content, CancellationToken cancel = default)
