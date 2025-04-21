@@ -87,11 +87,11 @@ public sealed class ContentContainer : CosmoContainer
         ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
-    public async Task<CommentDocument?> GetCommentAsync(string userId, string conversationId, string commentId, OperationContext context)
+    public async Task<CommentDocument?> GetCommentAsync(string conversationUserId, string conversationId, string commentId, OperationContext context)
     {
         try
         {
-            var key = CommentDocument.Key(userId, conversationId, commentId);
+            var key = CommentDocument.Key(conversationUserId, conversationId, commentId);
             var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
             if(response.Resource is { Deleted: false })

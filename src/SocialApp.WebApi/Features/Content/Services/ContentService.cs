@@ -12,13 +12,13 @@ namespace SocialApp.WebApi.Features.Content.Services;
 public interface IContentService
 {
     Task<string> StartConversationAsync(UserSession user, string content, OperationContext context);
-    Task<string> CommentAsync(UserSession user, string conversationUserId, string conversationId, string content, OperationContext context);
+    Task<string> CommentAsync(UserSession user, string handle, string conversationId, string content, OperationContext context);
     Task UpdateConversationAsync(UserSession user, string conversationId, string content, OperationContext context);
-    Task ReactToConversationAsync(UserSession user, string conversationUserId, string conversationId, bool like, OperationContext context);
+    Task ReactToConversationAsync(UserSession user, string handle, string conversationId, bool like, OperationContext context);
     Task DeleteConversationAsync(UserSession user, string conversationId, OperationContext context);
-    Task<Conversation> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<ConversationComment>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context);
-    Task<IReadOnlyList<ConversationRoot>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context);
+    Task<Conversation> GetConversationAsync(string handle, string conversationId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<ConversationComment>> GetPreviousCommentsAsync(string handle, string conversationId, string commentId, int lastCommentCount, OperationContext context);
+    Task<IReadOnlyList<ConversationRoot>> GetUserConversationsAsync(string handle, string? beforeConversationId, int limit, OperationContext context);
 }
 
 public sealed class ContentService : IContentService
@@ -50,13 +50,14 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<string> CommentAsync(UserSession user, string conversationUserId, string conversationId, string content, OperationContext context)
+    public async Task<string> CommentAsync(UserSession user, string handle, string conversationId, string content, OperationContext context)
     {
         try
         {
             var commentId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = GetContentsContainer();
-            
+
+            var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
             var comment = new CommentDocument(conversationUserId, conversationId, user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0);
             var conversation = new ConversationDocument(user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0, conversationUserId, conversationId);
             
@@ -119,12 +120,13 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task ReactToConversationAsync(UserSession user, string conversationUserId, string conversationId, bool like, OperationContext context)
+    public async Task ReactToConversationAsync(UserSession user, string handle, string conversationId, bool like, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
 
+            var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
             var conversation = await contents.GetConversationDocumentAsync(conversationUserId, conversationId, context);
             
             if(conversation == null)
@@ -207,11 +209,12 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<Conversation> GetConversationAsync(string conversationUserId, string conversationId, int lastCommentCount, OperationContext context)
+    public async Task<Conversation> GetConversationAsync(string handle, string conversationId, int lastCommentCount, OperationContext context)
     {
         var contents = GetContentsContainer();
         try
         {
+            var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
             var documents = await contents.GetAllConversationDocumentsAsync(conversationUserId, conversationId, lastCommentCount, context);
             if(documents.Conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
@@ -225,11 +228,12 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<ConversationComment>> GetPreviousCommentsAsync(string conversationUserId, string conversationId, string commentId, int lastCommentCount, OperationContext context)
+    public async Task<IReadOnlyList<ConversationComment>> GetPreviousCommentsAsync(string handle, string conversationId, string commentId, int lastCommentCount, OperationContext context)
     {
         try
         {
             var contents = GetContentsContainer();
+            var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
             var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(conversationUserId, conversationId, commentId, lastCommentCount, context);
             if (comments == null)
                 return Array.Empty<ConversationComment>();
@@ -242,12 +246,13 @@ public sealed class ContentService : IContentService
         }
     }
     
-    public async Task<IReadOnlyList<ConversationRoot>> GetUserConversationsAsync(string conversationUserId, string? beforeConversationId, int limit, OperationContext context)
+    public async Task<IReadOnlyList<ConversationRoot>> GetUserConversationsAsync(string handle, string? beforeConversationId, int limit, OperationContext context)
     {
         var contents = GetContentsContainer();
 
         try
         {
+            var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
             var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(conversationUserId, beforeConversationId, limit, context);
             if (conversations == null || conversations.Count == 0)
                 return Array.Empty<ConversationRoot>();

@@ -13,17 +13,17 @@ public class ContentFeedServiceTests: ServiceTestsBase
         var user2 = await CreateUserAsync();
 
         var conversation1Id = await ContentService.StartConversationAsync(user1, "Root", OperationContext.New());
-        var conversation2Id = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", OperationContext.New());
-        var conversation3Id = await ContentService.CommentAsync(user1, user2.UserId, conversation2Id, "Grandchild", OperationContext.New());
+        var conversation2Id = await ContentService.CommentAsync(user2, user1.Handle, conversation1Id, "Child", OperationContext.New());
+        var conversation3Id = await ContentService.CommentAsync(user1, user2.Handle, conversation2Id, "Grandchild", OperationContext.New());
 
         // Uses Change Feed
         await Task.Delay(2_000);
         
-        var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation1 = await ContentService.GetConversationAsync(user1.Handle, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation1.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation1.LastComments[0].CommentCount, Is.EqualTo(1));
         
-        var conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
+        var conversation2 = await ContentService.GetConversationAsync(user2.Handle, conversation2Id, 5, OperationContext.New());
         Assert.That(conversation2.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation2.LastComments[0].CommentCount, Is.EqualTo(0));
     }
@@ -37,12 +37,12 @@ public class ContentFeedServiceTests: ServiceTestsBase
         var conversation1Id = await ContentService.StartConversationAsync(user1, "Root", OperationContext.New());
         var context = OperationContext.New();
         context.FailOnSignal("create-comment-conversation", CreateCosmoException());
-        await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", context);
+        await ContentService.CommentAsync(user2, user1.Handle, conversation1Id, "Child", context);
 
         await Task.Delay(2_000);
         
-        var conversation  = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
-        var commentConversation = await ContentService.GetConversationAsync(user2.UserId, conversation.LastComments[0].CommentId, 5, OperationContext.New());
+        var conversation  = await ContentService.GetConversationAsync(user1.Handle, conversation1Id, 5, OperationContext.New());
+        var commentConversation = await ContentService.GetConversationAsync(user2.Handle, conversation.LastComments[0].CommentId, 5, OperationContext.New());
         Assert.That(commentConversation, Is.Not.Null);
         Assert.That(commentConversation.Root.Content, Is.EqualTo("Child"));
     }
@@ -54,7 +54,7 @@ public class ContentFeedServiceTests: ServiceTestsBase
         var user2 = await CreateUserAsync();
 
         var conversation1Id = await ContentService.StartConversationAsync(user1, "Root", OperationContext.New());
-        var commentId = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", OperationContext.New());
+        var commentId = await ContentService.CommentAsync(user2, user1.Handle, conversation1Id, "Child", OperationContext.New());
         
         var context = OperationContext.New();
         context.FailOnSignal("update-comment", CreateCosmoException());
@@ -62,11 +62,11 @@ public class ContentFeedServiceTests: ServiceTestsBase
 
         await Task.Delay(2_000);
         
-        var commentConversation = await ContentService.GetConversationAsync(user2.UserId, commentId, 5, OperationContext.New());
+        var commentConversation = await ContentService.GetConversationAsync(user2.Handle, commentId, 5, OperationContext.New());
         Assert.That(commentConversation, Is.Not.Null);
         Assert.That(commentConversation.Root.Content, Is.EqualTo("Child !!!"));
         
-        var conversation  = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation  = await ContentService.GetConversationAsync(user1.Handle, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation.LastComments[0].Content, Is.EqualTo("Child !!!"));
     }
@@ -78,19 +78,19 @@ public class ContentFeedServiceTests: ServiceTestsBase
         var user2 = await CreateUserAsync();
 
         var conversation1Id = await ContentService.StartConversationAsync(user1, "Root", OperationContext.New());
-        var comment2Id = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", OperationContext.New());
-        var comment1Id = await ContentService.CommentAsync(user1, user1.UserId, conversation1Id, "Child Reply !!!", OperationContext.New());
+        var comment2Id = await ContentService.CommentAsync(user2, user1.Handle, conversation1Id, "Child", OperationContext.New());
+        var comment1Id = await ContentService.CommentAsync(user1, user1.Handle, conversation1Id, "Child Reply !!!", OperationContext.New());
 
         Console.WriteLine("delete " + comment2Id);
         var context = OperationContext.New();
         context.FailOnSignal("delete-comment", CreateCosmoException());
         await ContentService.DeleteConversationAsync(user2, comment2Id, context);
         
-        Assert.ThrowsAsync<ContentException>(() => ContentService.GetConversationAsync(user2.UserId, comment2Id, 5, OperationContext.New()));
+        Assert.ThrowsAsync<ContentException>(() => ContentService.GetConversationAsync(user2.Handle, comment2Id, 5, OperationContext.New()));
 
         await Task.Delay(5_000);
         
-        var conversation = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation = await ContentService.GetConversationAsync(user1.Handle, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation, Is.Not.Null);
         Assert.That(conversation.Root.CommentCount, Is.EqualTo(1));
         Assert.That(conversation.LastComments.Count, Is.EqualTo(1));
@@ -107,18 +107,18 @@ public class ContentFeedServiceTests: ServiceTestsBase
         var user2 = await CreateUserAsync();
 
         var conversation1Id = await ContentService.StartConversationAsync(user1, "Root", OperationContext.New());
-        var conversation2Id = await ContentService.CommentAsync(user2, user1.UserId, conversation1Id, "Child", OperationContext.New());
+        var conversation2Id = await ContentService.CommentAsync(user2, user1.Handle, conversation1Id, "Child", OperationContext.New());
 
         var context = OperationContext.New();
         context.FailOnSignal("react-conversation", CreateCosmoException());
-        await ContentService.ReactToConversationAsync(user1, user2.UserId, conversation2Id, like, context);
+        await ContentService.ReactToConversationAsync(user1, user2.Handle, conversation2Id, like, context);
 
         await Task.Delay(2_000);
         
-        var conversation2 = await ContentService.GetConversationAsync(user2.UserId, conversation2Id, 5, OperationContext.New());
+        var conversation2 = await ContentService.GetConversationAsync(user2.Handle, conversation2Id, 5, OperationContext.New());
         Assert.That(conversation2.Root.LikeCount, Is.EqualTo(like ? 1 : 0));
 
-        var conversation1 = await ContentService.GetConversationAsync(user1.UserId, conversation1Id, 5, OperationContext.New());
+        var conversation1 = await ContentService.GetConversationAsync(user1.Handle, conversation1Id, 5, OperationContext.New());
         Assert.That(conversation1.LastComments[0].LikeCount, Is.EqualTo(like ? 1 : 0));
     }
 }

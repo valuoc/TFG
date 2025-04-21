@@ -55,16 +55,14 @@ public static class MapApi
             return Results.Ok();
         });
             
-        group.MapGet("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}/{conversationId}", async (string handle, string conversationId, IContentService contents, OperationContext context) =>
         {
-            var conversationUserId = await handles.GetUserIdAsync(handle, context);
-            return Results.Ok(await contents.GetConversationAsync(conversationUserId, conversationId, 5, context));
+            return Results.Ok(await contents.GetConversationAsync(handle, conversationId, 5, context));
         }).AllowAnonymous();
         
-        group.MapGet("/{handle}/{conversationId}/comments", async (string handle, string conversationId, string? before, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}/{conversationId}/comments", async (string handle, string conversationId, string? before, IContentService contents, OperationContext context) =>
         {
-            var conversationUserId = await handles.GetUserIdAsync(handle, context);
-            return Results.Ok(await contents.GetPreviousCommentsAsync(conversationUserId, conversationId, before, 5, context));
+            return Results.Ok(await contents.GetPreviousCommentsAsync(handle, conversationId, before, 5, context));
         }).AllowAnonymous();
         
         group.MapPut("/{handle}/{conversationId}", async (string handle, string conversationId, ContentRequest request, SessionGetter sessionGetter, IContentService contents, OperationContext context) =>
@@ -78,13 +76,12 @@ public static class MapApi
             return Results.Ok();
         });
         
-        group.MapPut("/{handle}/{conversationId}/like", async (string handle, string conversationId, ReactRequest request, SessionGetter sessionGetter, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapPut("/{handle}/{conversationId}/like", async (string handle, string conversationId, ReactRequest request, SessionGetter sessionGetter, IContentService contents, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
-            var conversationUserId = await handles.GetUserIdAsync(handle, context);
-            await contents.ReactToConversationAsync(session!, conversationUserId, conversationId, request.Like, context);
+            await contents.ReactToConversationAsync(session!, handle, conversationId, request.Like, context);
             return Results.Ok();
         });
         
@@ -99,21 +96,19 @@ public static class MapApi
             return Results.Ok();
         });
         
-        group.MapPost("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, ContentRequest request, IUserHandleService handles, IContentService contents, OperationContext context, HttpContext http) =>
+        group.MapPost("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, ContentRequest request, IContentService contents, OperationContext context, HttpContext http) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
-            var conversationUserId = await handles.GetUserIdAsync(handle, context);
-            var commentId = await contents.CommentAsync(session!, conversationUserId, conversationId, request.Content, context);
+            var commentId = await contents.CommentAsync(session!, handle, conversationId, request.Content, context);
             http.Response.Headers.Location = $"/conversation/{handle}/{conversationId}/comments/{commentId}";
             return Results.Ok();
         });
         
-        group.MapGet("/{handle}", async (string handle, string? before, IUserHandleService handles, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}", async (string handle, string? before, IContentService contents, OperationContext context) =>
         {
-            var conversationUserId = await handles.GetUserIdAsync(handle, context);
-            return Results.Ok(await contents.GetUserConversationsAsync(conversationUserId, before, 10, context));
+            return Results.Ok(await contents.GetUserConversationsAsync(handle, before, 10, context));
         }).AllowAnonymous();
     }
     

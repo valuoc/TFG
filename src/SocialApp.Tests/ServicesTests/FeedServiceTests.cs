@@ -103,7 +103,7 @@ public class FeedServiceTests : ServiceTestsBase
 
         await ContentService.UpdateConversationAsync(user2, user2UpdatedConversationId, "Updated !!", OperationContext.New());
         await ContentService.DeleteConversationAsync(user3, user3DeletedConversationId, OperationContext.New());
-        await ContentService.ReactToConversationAsync(user1, user2.UserId, user2UpdatedConversationId, true, OperationContext.New());
+        await ContentService.ReactToConversationAsync(user1, user2.Handle, user2UpdatedConversationId, true, OperationContext.New());
         
         await Task.Delay(5_000);
         
