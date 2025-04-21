@@ -2,7 +2,7 @@ namespace SocialApp.Models.Content;
 
 public sealed class ConversationComment
 {
-    public string UserId { get; set; }
+    public string Handle { get; set; }
     public string CommentId  { get; set; }
     public string Content { get; set; }
     public DateTime LastModify { get; set; }

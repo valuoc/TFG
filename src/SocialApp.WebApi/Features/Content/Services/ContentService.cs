@@ -217,7 +217,7 @@ public sealed class ContentService : IContentService
                 throw new ContentException(ContentError.ContentNotFound);
 
             await contents.IncreaseViewsAsync(conversationUserId, conversationId, context);
-            return await BuildConversationModelAsync(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts);
+            return await BuildConversationModelAsync(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts, context);
         }
         catch (CosmosException e)
         {
@@ -234,7 +234,7 @@ public sealed class ContentService : IContentService
             if (comments == null)
                 return Array.Empty<ConversationComment>();
 
-            return await BuildCommentListAsync(comments, commentCounts);
+            return await BuildCommentListAsync(comments, commentCounts, context);
         }
         catch (CosmosException e)
         {
@@ -259,7 +259,7 @@ public sealed class ContentService : IContentService
             var conversationsModels = new List<ConversationRoot>(conversations.Count);
             foreach (var (conversationDoc, conversationCountsDocument) in sorted)
             {
-                var conversation = await BuildConversationAsync(conversationDoc, conversationCountsDocument);
+                var conversation = await BuildConversationAsync(conversationDoc, conversationCountsDocument, context);
                 conversationsModels.Add(conversation.Root);
             }
             
@@ -271,7 +271,7 @@ public sealed class ContentService : IContentService
         }
     }
     
-    private async Task<IReadOnlyList<ConversationComment>> BuildCommentListAsync(List<CommentDocument> comments, List<CommentCountsDocument>? commentCounts)
+    private async Task<IReadOnlyList<ConversationComment>> BuildCommentListAsync(List<CommentDocument> comments, List<CommentCountsDocument>? commentCounts, OperationContext context)
     {
         var sorted = comments
             .Join(commentCounts, i => i.CommentId, o => o.CommentId, (i, o) => (i, o))
@@ -280,16 +280,16 @@ public sealed class ContentService : IContentService
         var commentModels = new List<ConversationComment>(comments.Count);
         foreach (var (commentDoc, countsDoc) in sorted)
         {
-            var comment = await BuildCommentAsync(commentDoc, countsDoc);
+            var comment = await BuildCommentAsync(commentDoc, countsDoc, context);
             commentModels.Add(comment);
         }
 
         return commentModels;
     }
     
-    private async Task<Conversation> BuildConversationModelAsync(ConversationDocument conversation, ConversationCountsDocument conversationCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts)
+    private async Task<Conversation> BuildConversationModelAsync(ConversationDocument conversation, ConversationCountsDocument conversationCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts, OperationContext context)
     {
-        var model = await BuildConversationAsync(conversation, conversationCounts);
+        var model = await BuildConversationAsync(conversation, conversationCounts, context);
         model.Root.ViewCount++;
         
         if (comments != null)
@@ -306,7 +306,7 @@ public sealed class ContentService : IContentService
                 if (commentDocument.CommentId != commentCountsDocument.CommentId)
                     throw new InvalidOperationException($"The comment {commentDocument.CommentId} does not match the counts.");
                 
-                var comment = await BuildCommentAsync(commentDocument, commentCountsDocument);
+                var comment = await BuildCommentAsync(commentDocument, commentCountsDocument, context);
                 model.LastComments.Add(comment);
             }
         }
@@ -314,10 +314,10 @@ public sealed class ContentService : IContentService
         return model;
     }
     
-    private async Task<ConversationComment> BuildCommentAsync(CommentDocument comment, CommentCountsDocument counts)
+    private async Task<ConversationComment> BuildCommentAsync(CommentDocument comment, CommentCountsDocument counts, OperationContext context)
         => new()
         {
-            UserId = comment.UserId,
+            Handle = await _userHandleService.GetHandleFromUserIdAsync(comment.UserId, context),
             CommentId = comment.CommentId,
             Content = comment.Content,
             LastModify = comment.LastModify,
@@ -326,12 +326,12 @@ public sealed class ContentService : IContentService
             LikeCount = counts.LikeCount
         };
 
-    private async Task<Conversation> BuildConversationAsync(ConversationDocument conversation, ConversationCountsDocument counts)
+    private async Task<Conversation> BuildConversationAsync(ConversationDocument conversation, ConversationCountsDocument counts, OperationContext context)
         => new()
         {
             Root = new ConversationRoot()
             {
-                UserId = conversation.UserId,
+                Handle = await _userHandleService.GetHandleFromUserIdAsync(conversation.UserId, context),
                 ConversationId = conversation.ConversationId,
                 Content = conversation.Content,
                 LastModify = conversation.LastModify,

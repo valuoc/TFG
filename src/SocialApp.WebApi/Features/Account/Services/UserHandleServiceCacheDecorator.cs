@@ -21,6 +21,16 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
         _userIdCache.TryAdd(handle, userId);
         return userId;
     }
+    
+    public async Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context)
+    {
+        if(!_handleCache.TryGetValue(userId, out string handle))
+        {
+            handle = await _inner.GetHandleFromUserIdAsync(userId, context);
+            _handleCache.TryAdd(userId, handle);
+        }
+        return handle;
+    }
 
     public async Task<IReadOnlyList<string?>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
     {

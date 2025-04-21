@@ -8,7 +8,8 @@ namespace SocialApp.WebApi.Features.Account.Services;
 public interface IUserHandleService
 {
     Task<string> GetUserIdAsync(string handle, OperationContext context);
-    Task<IReadOnlyList<string?>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context);
+    Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context);
+    Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context);
 }
 
 public class UserHandleService : IUserHandleService
@@ -32,12 +33,18 @@ public class UserHandleService : IUserHandleService
         return userId;
     }
 
-    public async Task<IReadOnlyList<string?>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
     {
         if (userIds == null || userIds.Count == 0)
             return userIds;
         
         var accounts = GetAccountContainer();
         return await accounts.GetHandleFromUserIdsAsync(userIds, context);
+    }
+
+    public async Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context)
+    {
+        var accounts = GetAccountContainer();
+        return await accounts.GetHandleFromUserIdAsync(userId, context);
     }
 }

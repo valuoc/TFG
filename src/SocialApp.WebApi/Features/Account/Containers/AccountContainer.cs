@@ -121,7 +121,7 @@ public sealed class AccountContainer : CosmoContainer
         }
     }
     
-    public async Task<IReadOnlyList<string?>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
     {
         try
         {
@@ -131,11 +131,11 @@ public sealed class AccountContainer : CosmoContainer
             context.AddRequestCharge(response.RequestCharge);
 
             var dic = response.Resource.ToDictionary(x => x.UserId, x => x.Handle);
-            var results = new List<string?>(userIds.Count);
+            var results = new List<string>(userIds.Count);
             for (var i = 0; i < userIds.Count; i++)
             {
                 var handle = dic.GetValueOrDefault(userIds[i]);
-                results.Add(handle);
+                results.Add(handle ?? "???");
             }
 
             return results;
@@ -145,6 +145,12 @@ public sealed class AccountContainer : CosmoContainer
             context.AddRequestCharge(e.RequestCharge);
             throw;
         }
+    }
+    
+    public async Task<string?> GetHandleFromUserIdAsync(string userId, OperationContext context)
+    {
+        var response = await GetHandleFromUserIdsAsync([userId], context);
+        return response?.FirstOrDefault() ?? "???";
     }
 
     public async Task<AccountHandleDocument> RegisterHandleAsync(string userId, string handle, OperationContext context)

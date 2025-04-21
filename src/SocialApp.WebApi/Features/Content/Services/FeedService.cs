@@ -38,16 +38,16 @@ public sealed class FeedService : IFeedService
         var conversationsModels = new List<ConversationRoot>(conversations.Count);
         foreach (var (conversationDoc, countsDoc) in sorted)
         {
-            var conversation = await FeedConversationAsync(conversationDoc, countsDoc);
+            var conversation = await FeedConversationAsync(conversationDoc, countsDoc, context);
             conversationsModels.Add(conversation);
         }
         return conversationsModels;
     }
     
-    private async Task<ConversationRoot> FeedConversationAsync(FeedConversationDocument conversation, FeedConversationCountsDocument counts)
+    private async Task<ConversationRoot> FeedConversationAsync(FeedConversationDocument conversation, FeedConversationCountsDocument counts, OperationContext context)
         => new()
         {
-            UserId = conversation.FeedUserId,
+            Handle = await _userHandleService.GetHandleFromUserIdAsync(conversation.FeedUserId, context),
             ConversationId = conversation.ConversationId,
             Content = conversation.Content,
             LastModify = conversation.LastModify,
