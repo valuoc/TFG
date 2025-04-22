@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
@@ -16,6 +17,7 @@ public static class RegisterDependencies
 {
     public static void RegisterServices(this IServiceCollection services)
     {
+        services.AddMemoryCache();
         services.AddHttpContextAccessor();
         services.AddScoped<OperationContext>(s =>
         {
@@ -34,7 +36,10 @@ public static class RegisterDependencies
         services.AddSingleton<IContentService, ContentService>();
         services.AddSingleton<IFeedService, FeedService>();
         services.AddSingleton<IContentStreamProcessorService, ContentStreamProcessorService>();
-        services.AddSingleton<IUserHandleService>( s => new UserHandleServiceCacheDecorator(new UserHandleService(s.GetRequiredService<AccountDatabase>())));
+        services.AddSingleton<IUserHandleService>(s => new UserHandleServiceCacheDecorator
+        (
+            new UserHandleService(s.GetRequiredService<AccountDatabase>()), s.GetRequiredService<IMemoryCache>()
+        ));
 
         services.AddHostedService<PendingAccountCleanJob>();
         services.AddHostedService<ContentProcessorJob>();

@@ -1,45 +1,61 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Memory;
 using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
 public sealed class UserHandleServiceCacheDecorator : IUserHandleService
 {
-    private ConcurrentDictionary<string, string> _handleCache = new();
-    private ConcurrentDictionary<string, string> _userIdCache = new();
-    
     private readonly IUserHandleService _inner;
-    public UserHandleServiceCacheDecorator(IUserHandleService inner)
-        => _inner = inner;
+    private readonly IMemoryCache _cache;
+
+    public UserHandleServiceCacheDecorator(IUserHandleService inner, IMemoryCache cache)
+    {
+        _inner = inner;
+        _cache = cache;
+    }
 
     public async Task<string> GetUserIdAsync(string handle, OperationContext context)
     {
-        if(_userIdCache.TryGetValue(handle, out string userId))
+        var key = $"handle>{handle}";
+        if(_cache.TryGetValue(key, out string userId) && userId != null)
             return userId;
         
         userId = await _inner.GetUserIdAsync(handle, context);
-        _userIdCache.TryAdd(handle, userId);
+        
+        _cache.Set(key, userId, new MemoryCacheEntryOptions()
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+        });
+
         return userId;
     }
     
     public async Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context)
     {
-        if(!_handleCache.TryGetValue(userId, out string handle))
+        var key = $"userid>{userId}";
+        if(_cache.TryGetValue(key, out string handle) && handle != null)
+            return handle;
+        
+        handle = await _inner.GetHandleFromUserIdAsync(userId, context);
+        
+        _cache.Set(key, handle, new MemoryCacheEntryOptions()
         {
-            handle = await _inner.GetHandleFromUserIdAsync(userId, context);
-            _handleCache.TryAdd(userId, handle);
-        }
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+        });
+        
         return handle;
     }
 
-    public async Task<IReadOnlyList<string?>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
     {
         List<string> missing = null;
         List<int> missinIndexes = null;
         List<string> result = new List<string>(userIds.Count);
         for (var i = 0; i < userIds.Count; i++)
         {
-            if (!_handleCache.TryGetValue(userIds[i], out var userId))
+            var key = $"userid>{userIds[i]}";
+            if (!_cache.TryGetValue(key, out string userId))
             {
                 userId = null;
                 missing ??= new List<string>();
@@ -60,7 +76,12 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
                 var missingResult = missingUsers[i];
                 result[index] = missingResult;
                 if(!string.IsNullOrWhiteSpace(missingResult))
-                    _handleCache.TryAdd(userIds[index], missingResult);
+                {
+                    _cache.Set($"userid>{userIds[i]}", missingResult, new MemoryCacheEntryOptions()
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+                    });
+                }
             }
         }
         return result;

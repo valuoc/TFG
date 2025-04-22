@@ -10,17 +10,17 @@ public class AccountServiceTests : ServiceTestsBase
     public async Task RegisterUser_ValidUser_RegistersUser()
     {
         var userName = Guid.NewGuid().ToString("N");
-        var id1 = await AccountService.RegisterAsync(new ($"{userName}@xxx.com", userName, "Display"+userName, "pass"), OperationContext.New());
-        Console.WriteLine(id1);
+        var context = OperationContext.New();
+        var id1 = await AccountService.RegisterAsync(new ($"{userName}@xxx.com", userName, "Display"+userName, "pass"), context);
+        Console.WriteLine($"Cost of registering a player: {context.OperationCharge}");
+        
         var userName2 = Guid.NewGuid().ToString("N");
         var id2 = await AccountService.RegisterAsync(new ($"{userName2}@xxx.com", userName2, "Display"+userName2, "pass"), OperationContext.New());
-        Console.WriteLine(id2);
+
 
         var session = await SessionService.LoginWithPasswordAsync(new ($"{userName}@xxx.com", "pass"), OperationContext.New());
-        Console.WriteLine(session.SessionId);
+
         var user = await SessionService.GetSessionAsync(session.SessionId, OperationContext.New());
-        Console.WriteLine(user.UserId);
-        Console.WriteLine(user);
         
         await SessionService.EndSessionAsync(session, OperationContext.New());
         await SessionService.EndSessionAsync(session, OperationContext.New());

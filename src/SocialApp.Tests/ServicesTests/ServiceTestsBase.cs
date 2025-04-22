@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SocialApp.WebApi.Data._Shared;
@@ -17,7 +18,7 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
-    protected bool RemoveContainerAfterTests = false;
+    protected bool RemoveContainerAfterTests = true;
     
     private readonly IConfiguration _configuration;
     
@@ -61,7 +62,7 @@ public abstract class ServiceTestsBase
 
         AccountService = new AccountService(_accountDatabase, _userDatabase);
         SessionService = new SessionService(_userDatabase, _sessionDatabase, _accountDatabase);
-        var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_accountDatabase));
+        var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_accountDatabase), new MemoryCache(new MemoryCacheOptions()));
         FollowersService = new FollowersService(_userDatabase, userHandleService);
         ContentService = new ContentService(_userDatabase, userHandleService);
         FeedService = new FeedService(_userDatabase, userHandleService);
