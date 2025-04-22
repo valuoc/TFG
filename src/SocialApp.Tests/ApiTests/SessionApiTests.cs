@@ -208,8 +208,16 @@ public class SessionApiTests : ApiTestBase
     {
         var client1 = Clients[User1];
 
-        var posts = await client1.Feed.FeedAsync();
-        Assert.That(posts, Is.Not.Empty);
-        Assert.That(posts.Count, Is.EqualTo(10));
+        var posts1 = await client1.Feed.FeedAsync();
+        Assert.That(posts1, Is.Not.Empty);
+        Assert.That(posts1.Count, Is.EqualTo(10));
+        Assert.That(posts1[^2].Content, Is.EqualTo("User3 post 16"));
+        Assert.That(posts1[^1].Content, Is.EqualTo("User2 post 16"));
+        
+        var posts2 = await client1.Feed.FeedAsync(posts1.Last().ConversationId);
+        Assert.That(posts2, Is.Not.Empty);
+        Assert.That(posts2.Count, Is.EqualTo(10));
+        Assert.That(posts2[0].Content, Is.EqualTo("User3 post 15"));
+        Assert.That(posts2[1].Content, Is.EqualTo("User2 post 15"));
     }
 }
