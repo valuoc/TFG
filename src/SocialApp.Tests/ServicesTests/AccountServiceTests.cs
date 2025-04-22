@@ -22,8 +22,8 @@ public class AccountServiceTests : ServiceTestsBase
         Console.WriteLine(user.UserId);
         Console.WriteLine(user);
         
-        await SessionService.EndSessionAsync(session.SessionId, OperationContext.New());
-        await SessionService.EndSessionAsync(session.SessionId, OperationContext.New());
+        await SessionService.EndSessionAsync(session, OperationContext.New());
+        await SessionService.EndSessionAsync(session, OperationContext.New());
     }
 
     [Test, Order(2)]

@@ -156,7 +156,7 @@ public static class MapApi
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
-            await sessions.EndSessionAsync(session.SessionId, context);
+            await sessions.EndSessionAsync(session!, context);
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Results.Ok();
         }).RequireAuthorization();
@@ -164,39 +164,37 @@ public static class MapApi
     
     private static void MapFollowers(WebApplication app)
     {
-        app.MapGet("/followers/", async (SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
+        app.MapGet("/followers/", async (SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
-            return Results.Ok(await handles.GetHandleFromUserIdsAsync(await follows.GetFollowersAsync(session.UserId, context), context));
+            return Results.Ok(await follows.GetFollowersAsync(session!, context));
         }).RequireAuthorization();
         
-        app.MapGet("/follow/", async (SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
+        app.MapGet("/follow/", async (SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
-            return Results.Ok(await handles.GetHandleFromUserIdsAsync(await follows.GetFollowingsAsync(session.UserId, context), context));
+            return Results.Ok(await follows.GetFollowingsAsync(session!, context));
         }).RequireAuthorization();
         
-        app.MapPost("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
+        app.MapPost("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
-            var otherUserId = await handles.GetUserIdAsync(handle, context);
-            await follows.FollowAsync(session.UserId, otherUserId, context);
+            await follows.FollowAsync(session!, handle, context);
             return Results.Ok();
         }).RequireAuthorization();
         
-        app.MapDelete("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IUserHandleService handles, IFollowersService follows, OperationContext context) =>
+        app.MapDelete("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
         {
             var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
             if (problem != null)
                 return problem;
-            var otherUserId = await handles.GetUserIdAsync(handle, context);
-            await follows.UnfollowAsync(session.UserId, otherUserId, context);
+            await follows.UnfollowAsync(session!, handle, context);
             return Results.Ok();
         }).RequireAuthorization();
     }

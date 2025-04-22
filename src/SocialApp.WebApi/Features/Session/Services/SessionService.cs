@@ -16,7 +16,7 @@ public interface ISessionService
 {
     Task<UserSession?> LoginWithPasswordAsync(LoginRequest request, OperationContext context);
     Task<UserSession?> GetSessionAsync(string sessionId, OperationContext context);
-    Task EndSessionAsync(string sessionId, OperationContext context);
+    Task EndSessionAsync(UserSession session, OperationContext context);
 }
 
 public class SessionService : ISessionService
@@ -91,12 +91,12 @@ public class SessionService : ISessionService
         }
     }
 
-    public async Task EndSessionAsync(string sessionId, OperationContext context)
+    public async Task EndSessionAsync(UserSession session, OperationContext context)
     {
         try
         {
             var sessions = GetSessionContainer();
-            await sessions.EndSessionAsync(sessionId, context);
+            await sessions.EndSessionAsync(session.SessionId, context);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {

@@ -13,8 +13,8 @@ public class FeedServiceTests : ServiceTestsBase
         var user2 = await CreateUserAsync("user2");
         var user3 = await CreateUserAsync("user3");
         
-        await FollowersService.FollowAsync(user1.UserId, user2.UserId, OperationContext.New());
-        await FollowersService.FollowAsync(user1.UserId, user3.UserId, OperationContext.New());
+        await FollowersService.FollowAsync(user1, user2.Handle, OperationContext.New());
+        await FollowersService.FollowAsync(user1, user3.Handle, OperationContext.New());
 
         var now = DateTimeOffset.UtcNow;
         
@@ -63,8 +63,8 @@ public class FeedServiceTests : ServiceTestsBase
         var user2 = await CreateUserAsync("user2");
         var user3 = await CreateUserAsync("user3");
         
-        await FollowersService.FollowAsync(user1.UserId, user2.UserId, OperationContext.New());
-        await FollowersService.FollowAsync(user1.UserId, user3.UserId, OperationContext.New());
+        await FollowersService.FollowAsync(user1, user2.Handle, OperationContext.New());
+        await FollowersService.FollowAsync(user1, user3.Handle, OperationContext.New());
 
         var now = DateTimeOffset.UtcNow;
         

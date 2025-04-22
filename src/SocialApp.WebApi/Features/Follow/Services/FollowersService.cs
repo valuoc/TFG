@@ -1,44 +1,49 @@
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Follow.Containers;
 using SocialApp.WebApi.Features.Follow.Exceptions;
+using SocialApp.WebApi.Features.Session.Models;
 
 namespace SocialApp.WebApi.Features.Follow.Services;
 
 public interface IFollowersService
 {
-    Task<IReadOnlyList<string>> GetFollowingsAsync(string userId, OperationContext context);
-    Task<IReadOnlyList<string>> GetFollowersAsync(string userId, OperationContext context);
-    Task FollowAsync(string followerId, string followedId, OperationContext context);
-    Task UnfollowAsync(string followerId, string followedId, OperationContext context);
+    Task<IReadOnlyList<string>> GetFollowingsAsync(UserSession session, OperationContext context);
+    Task<IReadOnlyList<string>> GetFollowersAsync(UserSession session, OperationContext context);
+    Task FollowAsync(UserSession session, string handle, OperationContext context);
+    Task UnfollowAsync(UserSession session, string handle, OperationContext context);
 }
 
 public sealed class FollowersService : IFollowersService
 {
     private readonly UserDatabase _database;
-    private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
-    
-    public FollowersService(UserDatabase database)
-        => _database = database;
+    private readonly IUserHandleService _userHandleService;
+ 
+    public FollowersService(UserDatabase database, IUserHandleService userHandleService)
+    {
+        _database = database;
+        _userHandleService = userHandleService;
+    }
 
     private FollowContainer GetContainer()
         => new(_database);
 
-    public async Task<IReadOnlyList<string>> GetFollowingsAsync(string userId, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetFollowingsAsync(UserSession session, OperationContext context)
     {
         try
         {
             var container = GetContainer();
         
-            var followingList = await container.GetFollowingAsync(userId, context);
+            var followingList = await container.GetFollowingAsync(session.UserId, context);
             if (followingList?.Following?.Count > 0)
             {
                 var list = new List<string>(followingList.Following.Count);
                 foreach (var following in followingList.Following)
                 {
                     if(following.Value == FollowingStatus.Ready)
-                        list.Add(following.Key);
+                        list.Add(await _userHandleService.GetHandleFromUserIdAsync(following.Key, context));
                 }
                 return list;
             }
@@ -51,14 +56,15 @@ public sealed class FollowersService : IFollowersService
         }
     }
     
-    public async Task<IReadOnlyList<string>> GetFollowersAsync(string userId, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetFollowersAsync(UserSession session, OperationContext context)
     {
         try
         {
             var container = GetContainer();
         
-            var followerList = await container.GetFollowersAsync(userId, context);
-            return followerList?.Followers?.ToList() ?? [];
+            var followerList = await container.GetFollowersAsync(session.UserId, context);
+            var list = followerList?.Followers?.ToList() ?? [];
+            return await _userHandleService.GetHandleFromUserIdsAsync(list, context);
         }
         catch (CosmosException e)
         {
@@ -66,12 +72,14 @@ public sealed class FollowersService : IFollowersService
         }
     }
     
-    public async Task FollowAsync(string followerId, string followedId, OperationContext context)
+    public async Task FollowAsync(UserSession session, string handle, OperationContext context)
     {
         try
         {
             var container = GetContainer();
-        
+
+            var followerId = session.UserId;
+            var followedId = await _userHandleService.GetUserIdAsync(handle, context);
             var followingList = await container.GetFollowingAsync(followerId, context);
             followingList ??= new FollowingListDocument(followerId);
             followingList.Following ??= new();
@@ -109,12 +117,14 @@ public sealed class FollowersService : IFollowersService
         }
     }
     
-    public async Task UnfollowAsync(string followerId, string followedId, OperationContext context)
+    public async Task UnfollowAsync(UserSession session, string handle, OperationContext context)
     {
         try
         {
             var container = GetContainer();
         
+            var followerId = session.UserId;
+            var followedId = await _userHandleService.GetUserIdAsync(handle, context);
             var followingList = await container.GetFollowingAsync(followerId, context);
             followingList ??= new FollowingListDocument(followerId);
             followingList.Following ??= new();
