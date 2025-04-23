@@ -1,4 +1,4 @@
-using SocialApp.WebApi.Data.Account;
+using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
 using SocialApp.WebApi.Features.Account.Exceptions;
@@ -14,20 +14,20 @@ public interface IUserHandleService
 
 public class UserHandleService : IUserHandleService
 {
-    private readonly AccountDatabase _accountDb;
+    private readonly UserDatabase _userDb;
 
-    public UserHandleService(AccountDatabase accountDb)
+    public UserHandleService(UserDatabase userDb)
     {
-        _accountDb = accountDb;
+        _userDb = userDb;
     }
     
-    private AccountContainer GetAccountContainer()
-        => new(_accountDb);
+    private ProfileContainer GetProfileContainer()
+        => new(_userDb);
 
     public async Task<string> GetUserIdAsync(string handle, OperationContext context)
     {
-        var accounts = GetAccountContainer();
-        var userId = await accounts.GetUserIdFromHandleAsync(handle, context);
+        var profiles = GetProfileContainer();
+        var userId = await profiles.GetUserIdFromHandleAsync(handle, context);
         if (string.IsNullOrWhiteSpace(userId))
             throw new AccountException(AccountError.HandleNotFound);
         return userId;
@@ -38,13 +38,13 @@ public class UserHandleService : IUserHandleService
         if (userIds == null || userIds.Count == 0)
             return userIds;
         
-        var accounts = GetAccountContainer();
-        return await accounts.GetHandleFromUserIdsAsync(userIds, context);
+        var profiles = GetProfileContainer();
+        return await profiles.GetHandleFromUserIdsAsync(userIds, context);
     }
 
     public async Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context)
     {
-        var accounts = GetAccountContainer();
-        return await accounts.GetHandleFromUserIdAsync(userId, context);
+        var profiles = GetProfileContainer();
+        return await profiles.GetHandleFromUserIdAsync(userId, context);
     }
 }

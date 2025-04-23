@@ -75,4 +75,4 @@ app.UseMiddleware<RequestLog>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapApiEndpoints();
-app.Run();
+app.Run("http://localhost:7000");

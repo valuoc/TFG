@@ -47,11 +47,12 @@ public class SessionService : ISessionService
     {
         try
         {
-            var userId = await GetAccountContainer().FindPasswordLoginAsync(request.Email, request.Password, context);
+            var profiles = GetProfileContainer();
+            var userId = await profiles.FindPasswordLoginAsync(request.Email, request.Password, context);
             if (userId == null)
                 return null;
 
-            var profile = await GetProfileContainer().GetProfileAsync(userId, context);
+            var profile = await profiles.GetProfileAsync(userId, context);
 
             if (profile == null)
                 return null;

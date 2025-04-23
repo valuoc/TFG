@@ -1,0 +1,13 @@
+socialapp >
+
+region add useast1 http://localhost:1111
+
+useast1 register user1
+
+useast1 user1 login user1 
+
+useast1 user1 conversation start "hola hola!"
+
+useast1 user1 conversation 123 comment "lalala"
+
+useast1 user1 conversation 123

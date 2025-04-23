@@ -18,11 +18,13 @@ public class AccountService : IAccountService
 {
     private readonly AccountDatabase _accountDb;
     private readonly UserDatabase _userDb;
+    private readonly ILogger<AccountService> _logger;
 
-    public AccountService(AccountDatabase accountDb, UserDatabase userDb)
+    public AccountService(AccountDatabase accountDb, UserDatabase userDb, ILogger<AccountService> logger)
     {
         _accountDb = accountDb;
         _userDb = userDb;
+        _logger = logger;
     }
     
     private ProfileContainer GetProfileContainer()
@@ -38,63 +40,48 @@ public class AccountService : IAccountService
         var userId = request.DisplayName.ToLowerInvariant() +"_"+ Guid.NewGuid().ToString("N");
         
         context.Signal("pending-account");
-        var pendingUserAccount = await accounts.RegisterPendingAccountAsync(userId, request.Email, request.Handle, context);
+        var pending = await accounts.RegisterPendingAccountAsync(userId, request.Email, request.Handle, context);
 
-        await RegisterAccountInternalAsync(accounts, request.DisplayName, request.Password, pendingUserAccount, context);
+        await RegisterAccountInternalAsync(accounts, request.DisplayName, request.Password, pending, context);
 
         context.SuppressCancellation();
         context.Signal("complete-pending-account");
         
         try
         {
-            await accounts.DeletePendingAccountAsync(pendingUserAccount, context);
+            await accounts.DeletePendingAccountAsync(pending, context);
         }
-        catch (CosmosException)
+        catch (CosmosException ex)
         {
-            // Log ?
-            context.Signal("clean-up-after-error");
-            if(await accounts.PendingAccountCleanUpAsync(pendingUserAccount, context))
-            {
-                await GetProfileContainer().DeleteProfileDataAsync(pendingUserAccount.UserId, context);
-                await accounts.DeleteSessionDataAsync(pendingUserAccount.UserId, context);
-            }
+            _logger.LogWarning(ex, "Unable to delete pending account.");
         }
 
         return userId;
     }
     
-    private async Task  RegisterAccountInternalAsync(AccountContainer accounts, string displayName, string password, PendingAccountDocument pendingUserAccount, OperationContext context)
+    private async Task RegisterAccountInternalAsync(AccountContainer accounts, string displayName, string password, PendingAccountDocument pendingUserAccount, OperationContext context)
     {
         var userId = pendingUserAccount.UserId;
         var email = pendingUserAccount.Email;
         var handle = pendingUserAccount.Handle;
 
-        var emailLock = await accounts.RegisterEmailAsync(userId, email, context);
-        var handleLock = await accounts.RegisterHandleAsync(userId, handle, context);
+        await accounts.AttemptEmailLockAsync(userId, email, context);
+        await accounts.AttemptHandleLockAsync(userId, handle, context);
 
         try
         {
-            context.Signal("user");
-            var user = await accounts.CreateAccountAsPendingAsync(userId, email, handle, context);
-
-            context.Signal("complete-email-lock");
-            await accounts.CompleteEmailLockAsync(emailLock, context);
-        
-            context.Signal("complete-handle-lock");
-            await accounts.CompleteHandleLock(handleLock, context);
+            var profiles = GetProfileContainer();
+            
+            context.Signal("create-handle");
+            var handleDocument = new HandleDocument(handle, userId);
+            await profiles.RegisterHandleAsync(handleDocument, context);
+            
+            context.Signal("create-login");
+            await profiles.CreatePasswordLoginAsync(userId, email, password, context);
             
             context.Signal("create-profile");
-            var profiles = GetProfileContainer();
             var profile = new ProfileDocument(userId, displayName, email, handle);
             await profiles.CreateUserProfileAsync(userId, profile, context);
-
-            context.Signal("complete-user");
-            await accounts.CompleteAccountAsync(accounts, user, context);
-
-            // Login is created on successful account.
-            // If this step fails, user could use password recovery
-            context.Signal("create-login");
-            await accounts.CreatePasswordLoginAsync(userId, email, password, context);
         }
         catch (CosmosException e)
         {
@@ -110,16 +97,28 @@ public class AccountService : IAccountService
 
         await foreach (var pending in accounts.GetExpiredPendingAccountsAsync(timeLimit, context))
         {
-            pendingCount++;
             try
             {
-                await accounts.PendingAccountCleanUpAsync(pending, context);
-                await profiles.DeleteProfileDataAsync(pending.UserId, context);
-                await accounts.DeleteSessionDataAsync(pending.UserId, context);
+                var profile = await profiles.GetProfileAsync(pending.UserId, context);
+                if (profile == null)
+                {
+                    if (await accounts.TryDeleteAccountLocksAsync(pending, context))
+                    {
+                        if(await profiles.DeletePendingDataAsync(pending, context))
+                        {
+                            await accounts.DeletePendingAccountAsync(pending, context);
+                            pendingCount++;
+                        }
+                    }
+                }
+                else // The profile document exists, therefore the account was created
+                { 
+                    await accounts.DeletePendingAccountAsync(pending, context);
+                }
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                _logger.LogError(e, "Failed to remove pending account.");
             }
         }
         

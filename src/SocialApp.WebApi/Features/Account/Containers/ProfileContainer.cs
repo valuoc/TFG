@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Exceptions;
@@ -46,16 +47,57 @@ public sealed class ProfileContainer : CosmoContainer
         return profile;
     }
     
-    public async Task DeleteProfileDataAsync(string userId, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
     {
         try
         {
-            var profileKey = ProfileDocument.Key(userId);
-            var response = await Container.DeleteItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), _noResponseContent, context.Cancellation);
+            var keys = userIds.Select(x => ProfileDocument.Key(x));
+            var requests = keys.Select(k => (k.Id, new PartitionKey(k.Pk))).ToList();
+            var response = await Container.ReadManyItemsAsync<ProfileDocument>(requests, cancellationToken: context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
+
+            var dic = response.Resource.ToDictionary(x => x.UserId, x => x.Handle);
+            var results = new List<string>(userIds.Count);
+            for (var i = 0; i < userIds.Count; i++)
+            {
+                var handle = dic.GetValueOrDefault(userIds[i]);
+                results.Add(handle ?? "???");
+            }
+
+            return results;
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
+        }
+    }
+    
+    public async Task<string?> GetHandleFromUserIdAsync(string userId, OperationContext context)
+    {
+        var response = await GetHandleFromUserIdsAsync([userId], context);
+        return response?.FirstOrDefault() ?? "???";
+    }
+    
+    public async Task RegisterHandleAsync(HandleDocument handle, OperationContext context)
+    {
+        var response = await Container.CreateItemAsync(handle,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+    }
+    
+    public async Task<string?> GetUserIdFromHandleAsync(string handle, OperationContext context)
+    {
+        try
+        {
+            var key = HandleLockDocument.Key(handle);
+            var response = await Container.ReadItemAsync<HandleLockDocument>(key.Id, new PartitionKey(key.Pk), cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+            return response.Resource?.UserId;
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {
+            context.AddRequestCharge(e.RequestCharge);
+            return null;
         }
     }
     
@@ -70,5 +112,76 @@ public sealed class ProfileContainer : CosmoContainer
                     throw new AccountException(error, new CosmosException($"{error}. Batch failed at position [{i}]: {sub.StatusCode}. {response.ErrorMessage}", sub.StatusCode, 0, i.ToString(), 0));
             }
         }
+    }
+    
+    public async Task CreatePasswordLoginAsync(string userId, string email, string password, OperationContext context)
+    {
+        var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
+        var response = await Container.CreateItemAsync(passwordLogin,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+    }
+
+    public async Task<string?> FindPasswordLoginAsync(string email, string password, OperationContext context)
+    {
+        var loginKey = PasswordLoginDocument.Key(email);
+        var response = await Container.ReadItemAsync<PasswordLoginDocument>(loginKey.Id, new PartitionKey(loginKey.Pk), cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+        if (response.Resource == null || response.Resource.Password != Passwords.HashPassword(password))
+        {
+            return null;
+        }
+        return response.Resource.UserId;
+    }
+    
+    public async Task<bool> DeletePendingDataAsync(PendingAccountDocument pending, OperationContext context)
+    {
+        var success = true;
+        
+        try
+        {
+            var profileKey = ProfileDocument.Key(pending.UserId);
+            var response = await Container.DeleteItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+
+        }
+        catch (Exception e)
+        {
+            success = false;
+        }
+        
+        try
+        {
+            var passwordLoginKey = PasswordLoginDocument.Key(pending.UserId);
+            var response = await Container.DeleteItemAsync<PasswordLoginDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+
+        }
+        catch (Exception e)
+        {
+            success = false;
+        }
+        
+        
+        try
+        {
+            var passwordLoginKey = HandleLockDocument.Key(pending.UserId);
+            var response = await Container.DeleteItemAsync<HandleLockDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+
+        }
+        catch (Exception e)
+        {
+            success = false;
+        }
+        return success;
     }
 }

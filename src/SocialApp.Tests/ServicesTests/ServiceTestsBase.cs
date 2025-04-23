@@ -3,6 +3,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
@@ -18,7 +19,7 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
-    protected bool RemoveContainerAfterTests = true;
+    protected bool RemoveContainerAfterTests = false;
     
     private readonly IConfiguration _configuration;
     
@@ -56,17 +57,20 @@ public abstract class ServiceTestsBase
             _configuration.GetValue<string>("CosmosDb:ApplicationName") ?? throw new SocialAppConfigurationException("Missing CosmosDb ApplicationName")
         );
         
+        var loggerFactory = new NullLoggerFactory();
+        
         _accountDatabase = new AccountDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Account"));
         _userDatabase = new UserDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:User"));
         _sessionDatabase = new SessionDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Session"));
 
-        AccountService = new AccountService(_accountDatabase, _userDatabase);
+        AccountService = new AccountService(_accountDatabase, _userDatabase, new Logger<AccountService>(loggerFactory));
         SessionService = new SessionService(_userDatabase, _sessionDatabase, _accountDatabase);
-        var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_accountDatabase), new MemoryCache(new MemoryCacheOptions()));
+        var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_userDatabase), new MemoryCache(new MemoryCacheOptions()));
         FollowersService = new FollowersService(_userDatabase, userHandleService);
         ContentService = new ContentService(_userDatabase, userHandleService);
         FeedService = new FeedService(_userDatabase, userHandleService);
-        ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(new LoggerFactory()));
+       
+        ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(loggerFactory));
         
         await _userDatabase.InitializeAsync();
         

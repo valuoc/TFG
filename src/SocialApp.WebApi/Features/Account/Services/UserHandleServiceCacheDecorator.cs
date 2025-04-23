@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using SocialApp.WebApi.Features._Shared.Services;
 
@@ -14,10 +14,16 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
         _inner = inner;
         _cache = cache;
     }
+    
+    private static string HandleKey(string handle)
+        => $"handle>{handle}";
+    
+    private static string UserIdKey(string userId)
+        => $"userid>{userId}";
 
     public async Task<string> GetUserIdAsync(string handle, OperationContext context)
     {
-        var key = $"handle>{handle}";
+        var key = HandleKey(handle);
         if(_cache.TryGetValue(key, out string userId) && userId != null)
             return userId;
         
@@ -30,10 +36,10 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
 
         return userId;
     }
-    
+
     public async Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context)
     {
-        var key = $"userid>{userId}";
+        var key = UserIdKey(userId);
         if(_cache.TryGetValue(key, out string handle) && handle != null)
             return handle;
         
@@ -46,6 +52,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
         
         return handle;
     }
+    
 
     public async Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
     {
@@ -54,7 +61,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
         List<string> result = new List<string>(userIds.Count);
         for (var i = 0; i < userIds.Count; i++)
         {
-            var key = $"userid>{userIds[i]}";
+            var key = UserIdKey(userIds[i]);
             if (!_cache.TryGetValue(key, out string userId))
             {
                 userId = null;
@@ -77,7 +84,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
                 result[index] = missingResult;
                 if(!string.IsNullOrWhiteSpace(missingResult))
                 {
-                    _cache.Set($"userid>{userIds[i]}", missingResult, new MemoryCacheEntryOptions()
+                    _cache.Set(UserIdKey(userIds[i]), missingResult, new MemoryCacheEntryOptions()
                     {
                         AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
                     });
