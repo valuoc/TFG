@@ -20,7 +20,12 @@ public sealed class RootCommander : Commander
             new UserLoginCommander(GlobalState),
             new UserLogoutCommander(GlobalState),
             new UserStartConversationCommander(GlobalState),
-            new UserCommentCommander(GlobalState)
+            new UserCommentCommander(GlobalState),
+            new UserLikeCommander(GlobalState),
+            new UserUnLikeCommander(GlobalState),
+            new UserGetConversationCommander(GlobalState),
+            new UserGetCommentsCommander(GlobalState),
+            new UserUpdateConversationCommander(GlobalState)
         ];
     
 }

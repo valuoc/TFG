@@ -10,9 +10,7 @@ public class UserCommentCommander : Commander
         if (command.Length >= 2)
         {
             var currentUser = GlobalState.GetCurrentUserOrFail();
-            var conversationLocator = command[0].Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var handle = conversationLocator[0][1..];
-            var conversationId = conversationLocator[1];
+            var (handle, conversationId) = ParseConversationLocator(command);
             await currentUser.Client.Content.CommentAsync(handle, conversationId, string.Join(' ', command[1..]), context.Cancellation);
             var conversation = await currentUser.Client.Content.GetConversationAsync(handle, conversationId, context.Cancellation);
             Print(2, conversation, context);

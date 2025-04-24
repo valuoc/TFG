@@ -76,7 +76,14 @@ public abstract class Commander
         Console.WriteLine($"|{pad}      $'{conversation.Root.Content}'");
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.WriteLine($"|{pad}      #{conversation.Root.LastModify:HH:mm:ss}  C:{conversation.Root.CommentCount}  L:{conversation.Root.LikeCount}  V:{conversation.Root.ViewCount}");
-        foreach (var comment in conversation.LastComments)
+        Print(padding, conversation.LastComments, context);
+    }
+    
+    protected void Print(int padding, IReadOnlyList<ConversationComment> comments, CommandContext context)
+    {
+        context.HasPrinted = true;
+        var pad = "".PadLeft(padding, ' ');
+        foreach (var comment in comments)
         {
             Console.ForegroundColor = ConsoleColor.Gray;
             Console.WriteLine($"|{pad}     -> @{comment.Handle}:{comment.CommentId}");
@@ -86,5 +93,13 @@ public abstract class Commander
             Console.WriteLine($"|{pad}          #{comment.LastModify:HH:mm:ss}  C:{comment.CommentCount}  L:{comment.LikeCount}  V:{comment.ViewCount}");
         }
         Console.ResetColor();
+    }
+    
+    protected (string handle, string conversationId) ParseConversationLocator(string[] command)
+    {
+        var conversationLocator = command[0].Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var handle = conversationLocator[0][1..];
+        var conversationId = conversationLocator[1];
+        return (handle, conversationId);
     }
 }
