@@ -7,10 +7,13 @@ public class UserUpdateConversationCommander : Commander
     
     public override async Task<CommandResult> ProcessAsync(string[] command, CommandContext context)
     {
+        if (command.Length < 2)
+            return CommandResult.Incomplete;
+        
         var currentUser = GlobalState.GetCurrentUserOrFail();
 
-        var (handle, conversationId) = ParseConversationLocator(command);
-        var content = command[2];
+        var (handle, conversationId) = ParseConversationLocator(command[0]);
+        var content = string.Join(' ', command[1..]);
         await currentUser.Client.Content.UpdateConversationAsync(handle, conversationId, content, context.Cancellation);
         var conversation = await currentUser.Client.Content.GetConversationAsync(currentUser.Handle, conversationId, context.Cancellation);
         Print(2, conversation, context);

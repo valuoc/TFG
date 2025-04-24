@@ -1,9 +1,9 @@
 namespace SocialApp.ClientApi.Cli.Users.Operations;
 
-public class UserGetConversationCommander : Commander
+public class UserDeleteConversationCommander : Commander
 {
-    public UserGetConversationCommander(CommanderState globalState) 
-        : base("get-conversation", globalState) { }
+    public UserDeleteConversationCommander(CommanderState globalState) 
+        : base("delete-conversation", globalState) { }
     
     public override async Task<CommandResult> ProcessAsync(string[] command, CommandContext context)
     {
@@ -12,8 +12,7 @@ public class UserGetConversationCommander : Commander
         var currentUser = GlobalState.GetCurrentUserOrFail();
 
         var (handle, conversationId) = ParseConversationLocator(command[0]);
-        var conversation = await currentUser.Client.Content.GetConversationAsync(handle, conversationId, context.Cancellation);
-        Print(2, conversation, context);
+        await currentUser.Client.Content.DeleteConversationAsync(handle, conversationId, context.Cancellation);
         return CommandResult.Success;
     }
 }

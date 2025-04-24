@@ -10,7 +10,7 @@ public class UserCommentCommander : Commander
         if (command.Length >= 2)
         {
             var currentUser = GlobalState.GetCurrentUserOrFail();
-            var (handle, conversationId) = ParseConversationLocator(command);
+            var (handle, conversationId) = ParseConversationLocator(command[0]);
             await currentUser.Client.Content.CommentAsync(handle, conversationId, string.Join(' ', command[1..]), context.Cancellation);
             var conversation = await currentUser.Client.Content.GetConversationAsync(handle, conversationId, context.Cancellation);
             Print(2, conversation, context);

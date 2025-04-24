@@ -25,7 +25,9 @@ public sealed class RootCommander : Commander
             new UserUnLikeCommander(GlobalState),
             new UserGetConversationCommander(GlobalState),
             new UserGetCommentsCommander(GlobalState),
-            new UserUpdateConversationCommander(GlobalState)
+            new UserUpdateConversationCommander(GlobalState),
+            new UserDeleteConversationCommander(GlobalState),
+            new UserGetConversationsCommander(GlobalState),
+            new UserFeedCommander(GlobalState)
         ];
-    
 }

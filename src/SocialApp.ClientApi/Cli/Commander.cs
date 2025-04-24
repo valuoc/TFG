@@ -68,23 +68,37 @@ public abstract class Commander
 
     protected void Print(int padding, Conversation conversation, CommandContext context)
     {
+        Print(padding, conversation.Root, context);
+        Print(padding, conversation.LastComments, context);
+    }
+
+    protected void Print(int padding, ConversationRoot conversation, CommandContext context)
+    {
         context.HasPrinted = true;
         var pad = "".PadLeft(padding, ' ');
         Console.ForegroundColor = ConsoleColor.Gray;
-        Console.WriteLine($"|{pad} *  @{conversation.Root.Handle}:{conversation.Root.ConversationId}");
+        Console.WriteLine($"|{pad} *  @{conversation.Handle}:{conversation.ConversationId}");
         Console.ForegroundColor = ConsoleColor.DarkCyan;
-        Console.WriteLine($"|{pad}      $'{conversation.Root.Content}'");
+        Console.WriteLine($"|{pad}      $'{conversation.Content}'");
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine($"|{pad}      #{conversation.Root.LastModify:HH:mm:ss}  C:{conversation.Root.CommentCount}  L:{conversation.Root.LikeCount}  V:{conversation.Root.ViewCount}");
-        Print(padding, conversation.LastComments, context);
+        Console.WriteLine($"|{pad}      #{conversation.LastModify:HH:mm:ss}  C:{conversation.CommentCount}  L:{conversation.LikeCount}  V:{conversation.ViewCount}");
+    }
+
+    protected void Print(int padding, IReadOnlyList<ConversationRoot> conversations, CommandContext context)
+    {
+        foreach (var conversation in conversations)
+        {
+            context.HasPrinted = true;
+            Print(padding, conversation, context);
+        }
     }
     
     protected void Print(int padding, IReadOnlyList<ConversationComment> comments, CommandContext context)
     {
-        context.HasPrinted = true;
         var pad = "".PadLeft(padding, ' ');
         foreach (var comment in comments)
         {
+            context.HasPrinted = true;
             Console.ForegroundColor = ConsoleColor.Gray;
             Console.WriteLine($"|{pad}     -> @{comment.Handle}:{comment.CommentId}");
             Console.ForegroundColor = ConsoleColor.DarkCyan;
@@ -95,9 +109,9 @@ public abstract class Commander
         Console.ResetColor();
     }
     
-    protected (string handle, string conversationId) ParseConversationLocator(string[] command)
+    protected (string handle, string conversationId) ParseConversationLocator(string command)
     {
-        var conversationLocator = command[0].Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var conversationLocator = command.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var handle = conversationLocator[0][1..];
         var conversationId = conversationLocator[1];
         return (handle, conversationId);

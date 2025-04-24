@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using SocialApp.WebApi.Features._Shared.Services;
 
