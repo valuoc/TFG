@@ -7,12 +7,12 @@ public class GetConfigCommander : Commander
     {
     }
     
-    public override async Task<CommandResult> ProcessAsync(string[] command, CancellationToken cancel)
+    public override async Task<CommandResult> ProcessAsync(string[] command, CommandContext context)
     {
         if (command.Length == 1)
         {
             var value = GlobalState.Get<string>("config", command[0]);
-            Print(2, value);
+            Print(2, value, context);
             return CommandResult.Success;
         }
 

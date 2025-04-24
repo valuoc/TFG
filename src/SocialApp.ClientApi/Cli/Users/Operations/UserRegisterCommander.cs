@@ -9,7 +9,7 @@ public class UserRegisterCommander : Commander
     {
     }
 
-    public override async Task<CommandResult> ProcessAsync(string[] command, CancellationToken cancel)
+    public override async Task<CommandResult> ProcessAsync(string[] command, CommandContext context)
     {
         var currentUser = GlobalState.GetCurrentUserOrFail();
         
@@ -19,8 +19,8 @@ public class UserRegisterCommander : Commander
             Password = currentUser.Password,
             Handle = currentUser.Handle,
             DisplayName = currentUser.UserName
-        }, cancel);
-        Print(2, "User registerd!");
+        }, context.Cancellation);
+        Print(2, "User registerd!", context);
         return CommandResult.Success;
     }
 }

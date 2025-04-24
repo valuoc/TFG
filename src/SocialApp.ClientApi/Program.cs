@@ -14,12 +14,21 @@ Console.CancelKeyPress += (_, _) => cancelProgram.Cancel();
 var root = new RootCommander();
 Commander? current = root;
 
+var initContext = new CommandContext(cancelProgram.Token);
 foreach (var item in configuration.GetSection("Regions").GetChildren())
 {
-    await root.ProcessAsync(["region","add", item.Key, item.GetValue<string>("Url")??throw new ArgumentException("Missing region url in config.")], cancelProgram.Token);
+    await root.ProcessAsync(["region","add", item.Key, item.GetValue<string>("Url")??throw new ArgumentException("Missing region url in config.")], initContext);
     if(item.GetValue<bool>("Default", false))
-        await root.ProcessAsync(["region", "set", item.Key], cancelProgram.Token);
+    {
+        await root.ProcessAsync(["region", "set", item.Key], initContext);
+    }
 }
+
+await root.ProcessAsync(["user", "user1"], initContext);
+await Task.Delay(2_000);
+await root.ProcessAsync(["register"], initContext);
+await root.ProcessAsync(["login"], initContext);
+await root.ProcessAsync(["start-conversation", "waka", "waka"], initContext);
 Console.WriteLine("Configuration loaded!");
 Console.WriteLine();
 
@@ -37,12 +46,16 @@ while (!cancelProgram.IsCancellationRequested)
         break;
     try
     {
-        var commandResult = await current.ProcessAsync(line, cancel: cancelProgram.Token);
+        var context = new CommandContext(cancelProgram.Token);
+        var commandResult = await current.ProcessAsync(line, context);
         if(commandResult == CommandResult.Success)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Ok!");
-            Console.ResetColor();
+            if (!context.HasPrinted)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Ok!");
+                Console.ResetColor();
+            }
         }
         else
         {

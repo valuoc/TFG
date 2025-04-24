@@ -5,7 +5,7 @@ public sealed class RegionDelCommander : Commander
     public RegionDelCommander(CommanderState globalState)
         : base("del", globalState) { }
 
-    public override async Task<CommandResult> ProcessAsync(string[] command, CancellationToken cancel)
+    public override async Task<CommandResult> ProcessAsync(string[] command, CommandContext context)
     {
         if (command.Length == 1)
         {

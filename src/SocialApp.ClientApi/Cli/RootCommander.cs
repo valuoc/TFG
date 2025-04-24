@@ -16,6 +16,11 @@ public sealed class RootCommander : Commander
             new RegionCommander(GlobalState), 
             new ConfigCommander(GlobalState), 
             new UserCommander(GlobalState),
-            new UserRegisterCommander(GlobalState)
+            new UserRegisterCommander(GlobalState),
+            new UserLoginCommander(GlobalState),
+            new UserLogoutCommander(GlobalState),
+            new UserStartConversationCommander(GlobalState),
+            new UserCommentCommander(GlobalState)
         ];
+    
 }

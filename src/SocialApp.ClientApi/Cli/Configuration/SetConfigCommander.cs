@@ -5,7 +5,7 @@ public class SetConfigCommander : Commander
     public SetConfigCommander(CommanderState globalState) 
         : base("set", globalState) { }
 
-    public override async Task<CommandResult> ProcessAsync(string[] command, CancellationToken cancel)
+    public override async Task<CommandResult> ProcessAsync(string[] command, CommandContext context)
     {
         if (command.Length == 2)
         {

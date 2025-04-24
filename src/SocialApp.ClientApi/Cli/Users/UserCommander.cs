@@ -1,4 +1,3 @@
-using System.Runtime.Serialization;
 using System.Text.Json;
 
 namespace SocialApp.ClientApi.Cli.Users;
@@ -8,7 +7,7 @@ public class UserCommander : Commander
     public UserCommander(CommanderState globalState) 
         : base("user", globalState) { }
     
-    public override async Task<CommandResult> ProcessAsync(string[] command, CancellationToken cancel)
+    public override async Task<CommandResult> ProcessAsync(string[] command, CommandContext context)
     {
         var regionName = GlobalState.GetCurrentRegion();
 
@@ -16,7 +15,7 @@ public class UserCommander : Commander
         {
             if (command[0] == "list")
             {
-                return ListUsers(regionName);
+                return ListUsers(regionName, context);
             }
             else if(command.Length == 1)
             {
@@ -25,28 +24,28 @@ public class UserCommander : Commander
                 var user = GlobalState.Get<User>("users", regionName, userName);
                 if (user == null)
                 {
-                    user = CreateUser(userName, regionName);
+                    user = CreateUser(userName, regionName, context);
                 }
 
                 GlobalState.SetCurrentUser(userName);
-                Print(2, $"User {user.UserName} is selected.");
+                Print(2, $"User {user.UserName} is selected.", context);
 
                 return CommandResult.Success;
             }
         }
         else if (command.Length == 0)
         {
-            return ShowCurrentUser();
+            return ShowCurrentUser(context);
         }
         else
         {
-            return await base.ProcessAsync(command, cancel);
+            return await base.ProcessAsync(command, context);
         }
 
         return CommandResult.Incomplete;
     }
     
-    private User CreateUser(string userName, string regionName)
+    private User CreateUser(string userName, string regionName, CommandContext context)
     {
         var id = Guid.NewGuid().ToString("N");
         var regions = GlobalState.GetMany<string>("regions");
@@ -63,34 +62,23 @@ public class UserCommander : Commander
                 selected = user;
         }
         
-        Print(2, $"User created {selected.UserName} (@{selected.Handle})");
+        Print(2, $"User created {selected.UserName} (@{selected.Handle})", context);
         return selected;
     }
-    
-    public Uri GetCurrentRegionUrl()
-    {
-        var regionName = GlobalState.Get<string>("currentRegion");
-        if (string.IsNullOrWhiteSpace(regionName))
-            throw new InvalidOperationException("There is no region selected. Run 'region set <region>'.");
-        var url = GlobalState.Get<string>("regions", regionName);
-        if (string.IsNullOrWhiteSpace(url))
-            throw new InvalidDataContractException($"There is no region configured as '{regionName}'. Run 'regions add {regionName}' '<url>'.");
-        return new Uri(url);
-    }
 
-    private CommandResult ShowCurrentUser()
+    private CommandResult ShowCurrentUser(CommandContext context)
     {
         var user = GlobalState.GetCurrentUserOrFail();
-        Print(2, $"User {user.UserName} is selected. {JsonSerializer.Serialize(user)}");
+        Print(2, $"User {user.UserName} is selected. {JsonSerializer.Serialize(user)}", context);
         return CommandResult.Success;
     }
 
-    private CommandResult ListUsers(string regionName)
+    private CommandResult ListUsers(string regionName, CommandContext context)
     {
         var users = GlobalState.GetMany<User>("users", regionName);
         foreach (var user in users)
         {
-            Print(3, $"- {user.Key}");
+            Print(3, $"- {user.Key}", context);
         }
 
         return CommandResult.Success;
