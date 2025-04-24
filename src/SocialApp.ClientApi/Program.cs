@@ -1,4 +1,5 @@
 
+using System.Text;
 using Microsoft.Extensions.Configuration;
 using SocialApp.ClientApi.Cli;
 
@@ -32,6 +33,9 @@ await root.ProcessAsync(["start-conversation", "waka", "waka"], initContext);
 Console.WriteLine("Configuration loaded!");
 Console.WriteLine();
 
+var buffer = new StringBuilder(100);
+var history = new List<string>(100);
+var historyIndex = 0;
 while (!cancelProgram.IsCancellationRequested)
 {
     var region = root.GlobalState.Get<string>("currentRegion") ?? string.Empty;
@@ -41,13 +45,80 @@ while (!cancelProgram.IsCancellationRequested)
     Console.Write($"{userName}{region}");
     Console.ResetColor();
     Console.Write("> ");
-    var line = Console.ReadLine()?.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
-    if(line[0] == "exit")
+    var keyInfo = new ConsoleKeyInfo();
+    
+    buffer.Clear();
+    while (keyInfo.Key != ConsoleKey.Enter)
+    {
+        keyInfo = Console.ReadKey(false);
+        if (keyInfo.Key == ConsoleKey.Backspace)
+        {
+            Console.Write("\b");
+            Console.Write(" ");
+            Console.Write("\b");
+        }
+        else if (keyInfo.Key == ConsoleKey.UpArrow)
+        {
+            if (historyIndex < history.Count)
+            {
+                historyIndex++;
+                var length = buffer.Length;
+                for (var i = 0; i < length; i++)
+                {
+                    Console.Write("\b");
+                    Console.Write(" ");
+                    Console.Write("\b");
+                }
+
+                buffer.Clear();
+                buffer.Append(history[^historyIndex]);
+                Console.Write(buffer.ToString());
+            }
+        }
+        else if (keyInfo.Key == ConsoleKey.DownArrow)
+        {
+            if (historyIndex > 0)
+            {
+                historyIndex--;
+                var length = buffer.Length;
+                for (var i = 0; i < length; i++)
+                {
+                    Console.Write("\b");
+                    Console.Write(" ");
+                    Console.Write("\b");
+                }
+
+                buffer.Clear();
+                if (historyIndex > 0)
+                {
+                    buffer.Append(history[^historyIndex]);
+                    Console.Write(buffer.ToString());
+                }
+            }
+        }
+        else if (keyInfo.Key != ConsoleKey.Enter)
+        {
+            buffer.Append(keyInfo.KeyChar);
+        }
+        else if (keyInfo.Key == ConsoleKey.Enter)
+        {
+            history.Add(buffer.ToString());
+        }
+    }
+
+    historyIndex = 0;
+    var line = buffer.ToString();
+    var command = line?.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
+    Console.ForegroundColor = ConsoleColor.Magenta;
+    Console.Write($"{userName}{region}");
+    Console.ResetColor();
+    Console.Write($"> {line}\n");
+    if(command[0] == "exit")
         break;
     try
     {
         var context = new CommandContext(cancelProgram.Token);
-        var commandResult = await current.ProcessAsync(line, context);
+        var commandResult = await current.ProcessAsync(command, context);
         if(commandResult == CommandResult.Success)
         {
             if (!context.HasPrinted)
