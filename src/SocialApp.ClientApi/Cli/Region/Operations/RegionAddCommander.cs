@@ -13,6 +13,7 @@ public sealed class RegionAddCommander : Commander
                 throw new ArgumentException("Invalid command");
             
             GlobalState.Set(command[1], "regions", command[0]);
+            Print(2, $"Region added '{command[0]}':'{command[1]}'.");
             return CommandResult.Success;
         }
         return CommandResult.Incomplete;

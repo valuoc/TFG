@@ -7,9 +7,9 @@ public sealed class RegionListCommander : Commander
 
     public override async Task<CommandResult> ProcessAsync(string[] command, CancellationToken cancel)
     {
-        var items = GlobalState.GetMany<string>("regions");
-        foreach (var item in items)
-            Console.WriteLine($" - {item.Key}: {item.Value}");
+        var regions = GlobalState.GetMany<string>("regions");
+        foreach (var item in regions)
+            Print(2, $" - {item.Key}: {item.Value}");
         
         return CommandResult.Success;
     }

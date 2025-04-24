@@ -13,9 +13,6 @@ public abstract class Commander
         yield break;
     }
 
-    public virtual string Prompt 
-        => Command;
-
     protected Commander(string command, CommanderState globalState)
     {
         Command = command;
@@ -41,5 +38,15 @@ public abstract class Commander
             }
         }
         return CommandResult.NotFound;
+    }
+
+    protected void Print(int padding, string line, ConsoleColor? color = null)
+    {
+        if (color.HasValue)
+            Console.ForegroundColor = color.Value;
+        else
+            Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("|" + "".PadLeft(padding, ' ') + line);
+        Console.ResetColor();
     }
 }

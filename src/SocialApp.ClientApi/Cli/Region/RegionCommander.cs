@@ -8,5 +8,10 @@ public sealed class RegionCommander : Commander
         : base("region", globalState) { }
 
     protected override IEnumerable<Commander> GetCommanders()
-        => [new RegionAddCommander(GlobalState), new RegionDelCommander(GlobalState), new RegionListCommander(GlobalState)];
+        => [
+            new RegionAddCommander(GlobalState), 
+            new RegionDelCommander(GlobalState), 
+            new RegionListCommander(GlobalState), 
+            new RegionSetCommander(GlobalState)
+        ];
 }

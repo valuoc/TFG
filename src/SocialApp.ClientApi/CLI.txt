@@ -2,12 +2,21 @@ socialapp >
 
 region add useast1 http://localhost:1111
 
-useast1 register user1
+set region useast1
 
-useast1 user1 login user1 
+user user1
 
-useast1 user1 conversation start "hola hola!"
+user list
 
-useast1 user1 conversation 123 comment "lalala"
+user user1
 
-useast1 user1 conversation 123
+register 
+
+start-conversation
+
+get-conversation
+
+comment 
+
+feed 
+
