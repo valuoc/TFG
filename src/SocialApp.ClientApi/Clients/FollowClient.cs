@@ -21,13 +21,13 @@ public sealed class FollowClient
         return response.Content;
     }
     
-    public async Task AddAsync(string otherUserId, CancellationToken cancel = default)
+    public async Task AddAsync(string handle, CancellationToken cancel = default)
     {
-        await _client.PostAsync($"/follow/{otherUserId}", cancel);
+        await _client.PostAsync($"/follow/{handle}", cancel);
     }
     
-    public async Task RemoveAsync(string otherUserId, CancellationToken cancel = default)
+    public async Task RemoveAsync(string handle, CancellationToken cancel = default)
     {
-        await _client.DeleteAsync($"/follow/{otherUserId}", cancel);
+        await _client.DeleteAsync($"/follow/{handle}", cancel);
     }
 }

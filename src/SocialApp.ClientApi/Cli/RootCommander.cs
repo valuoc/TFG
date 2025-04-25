@@ -28,6 +28,10 @@ public sealed class RootCommander : Commander
             new UserUpdateConversationCommander(GlobalState),
             new UserDeleteConversationCommander(GlobalState),
             new UserGetConversationsCommander(GlobalState),
-            new UserFeedCommander(GlobalState)
+            new UserFeedCommander(GlobalState),
+            new UserFollowCommander(GlobalState),
+            new UserUnFollowCommander(GlobalState),
+            new UserFollowersCommander(GlobalState),
+            new UserFollowingsCommander(GlobalState)
         ];
 }

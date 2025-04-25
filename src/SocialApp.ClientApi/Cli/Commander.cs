@@ -109,6 +109,22 @@ public abstract class Commander
         Console.ResetColor();
     }
     
+    protected void Print(int padding, IReadOnlyList<string> list, CommandContext context)
+    {
+        var pad = "".PadLeft(padding, ' ');
+        foreach (var line in list.Chunk(3))
+        {
+            context.HasPrinted = true;
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.Write($"|{pad}  ");
+            foreach (var column in line)
+            {
+                Console.Write($"@{column}\t\t");
+            }
+            Console.Write("\n");
+        }
+    }
+    
     protected (string handle, string conversationId) ParseConversationLocator(string command)
     {
         var conversationLocator = command.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

@@ -78,7 +78,7 @@ public class UserCommander : Commander
         var users = GlobalState.GetMany<User>("users", regionName);
         foreach (var user in users)
         {
-            Print(3, $"- {user.Key}", context);
+            Print(3, $"- {user.Key}: @{user.Value.Handle}", context);
         }
 
         return CommandResult.Success;

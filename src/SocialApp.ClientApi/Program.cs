@@ -53,9 +53,13 @@ while (!cancelProgram.IsCancellationRequested)
         keyInfo = Console.ReadKey(false);
         if (keyInfo.Key == ConsoleKey.Backspace)
         {
+            if(buffer.Length > 0)
+                Console.Write("\b");
             Console.Write("\b");
             Console.Write(" ");
             Console.Write("\b");
+            if(buffer.Length > 0)
+                buffer.Length--;
         }
         else if (keyInfo.Key == ConsoleKey.UpArrow)
         {
@@ -113,7 +117,7 @@ while (!cancelProgram.IsCancellationRequested)
     Console.Write($"{userName}{region}");
     Console.ResetColor();
     Console.Write($"> {line}\n");
-    if(command[0] == "exit")
+    if(command.Length == 1 && command[0] == "exit")
         break;
     try
     {
