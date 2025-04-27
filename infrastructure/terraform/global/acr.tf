@@ -1,8 +1,8 @@
 # https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_registry.html
 resource "azurerm_container_registry" "acr" {
   name                    = "${var.solution_name}${local.environment_name}acr"
-  resource_group_name     = azurerm_resource_group.main_rg.name
-  location                = azurerm_resource_group.main_rg.location
+  resource_group_name     = azurerm_resource_group.region_rgs[var.main_region].name
+  location                = azurerm_resource_group.region_rgs[var.main_region].location
   sku                     = var.acr.sku
   admin_enabled           = false
   zone_redundancy_enabled = var.acr.zone_redundancy_enabled

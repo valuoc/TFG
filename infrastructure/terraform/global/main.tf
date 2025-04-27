@@ -27,23 +27,16 @@ provider "azurerm" {
 locals {
   environment_name = "test"
   resource_prefix  = "${var.solution_name}-${local.environment_name}"
+  all_regions = setunion(var.secondary_regions, [var.main_region])
   tags = {
     solution    = "socialapp"
     environment = local.environment_name
   }
 }
 
-resource "azurerm_resource_group" "main_rg" {
-  location = var.main_region
-  name     = "${local.resource_prefix}-${var.main_region}-rg"
-  tags     = local.tags
-}
-
-/*
-resource "azurerm_resource_group" "secondary_rg" {
-  for_each = var.secondary_regions
+resource "azurerm_resource_group" "region_rgs" {
+  for_each = local.all_regions
   location = each.key
   name     = "${local.resource_prefix}-${each.key}-rg"
   tags     = local.tags
 }
-*/

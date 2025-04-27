@@ -19,5 +19,16 @@ variable "acr" {
     sku = "Premium",
     zone_redundancy_enabled = false
   }
-
+}
+variable "key_vault" {
+  type = object({
+    sku = string,
+    public_network_access_enabled = bool,
+    soft_delete_retention_days = number
+  })
+  default = {
+    sku = "standard",
+    public_network_access_enabled = true,
+    soft_delete_retention_days = 7
+  }
 }
