@@ -11,7 +11,7 @@ $ az provider list --output table | grep "Microsoft.ContainerInstance"
 Microsoft.ContainerInstance                              RegistrationRequired  Registered
 */
 
-/*resource "azurerm_container_group" "aci" {
+resource "azurerm_container_group" "aci" {
   for_each            = local.all_regions
   depends_on          = [azurerm_role_assignment.aci_acr]
   name                = "${local.resource_prefix}-${each.key}"
@@ -42,8 +42,29 @@ Microsoft.ContainerInstance                              RegistrationRequired  R
       port     = 80
       protocol = "TCP"
     }
+
+    environment_variables = {
+        REGION = each.key
+        ENVIRONMENT = local.environment_name
+        KEY_VAULT_URI = azurerm_key_vault.key_vault[each.key].vault_uri
+        IMAGE_TAG = var.container_tag
+        MAIN_REGION = var.main_region
+        SEC_REGIONS = join(", ", var.secondary_regions)
+    }
+
+    readiness_probe {
+      http_get {
+        path = "/health"
+      }
+    }
+
+    liveness_probe {
+      http_get {
+        path = "/health"
+      }
+    }
   }
-}*/
+}
 
 resource "azurerm_user_assigned_identity" "aci" {
   for_each            = local.all_regions

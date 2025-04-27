@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Json;
@@ -17,6 +18,13 @@ builder.Services.AddAuthorizationBuilder()
 builder.Configuration.AddJsonFile("appsettings.json", false, false);
 builder.Configuration.AddJsonFile("appsettings.Development.json", false, false);
 builder.Configuration.AddJsonFile("appsettings.Local.json", true, true);
+builder.Configuration.AddEnvironmentVariables();
+if (builder.Environment.IsProduction())
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(Environment.GetEnvironmentVariable("KEY_VAULT_URI")),
+        new DefaultAzureCredential());
+}
 builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNameCaseInsensitive = true;
