@@ -1,5 +1,5 @@
 locals {
-  secondary_regions_sorted_list = [for i,x in sort(var.secondary_regions) : { Index: i, Region: x }]
+  secondary_regions_sorted_list = [for i, x in sort(var.secondary_regions) : { Index : i + 1, Region : x }]
 }
 
 resource "azurerm_cosmosdb_account" "account" {
@@ -17,11 +17,18 @@ resource "azurerm_cosmosdb_account" "account" {
     consistency_level = "ConsistentPrefix"
   }
 
+  geo_location {
+    location          = var.main_region
+    failover_priority = 0
+    zone_redundant    = false
+  }
+
   dynamic "geo_location" {
     for_each = local.secondary_regions_sorted_list
     content {
       location          = geo_location.value.Region
       failover_priority = geo_location.value.Index
+      zone_redundant    = false
     }
   }
 }
@@ -53,7 +60,7 @@ resource "azurerm_key_vault_secret" "cosmosdb_account_id" {
   name         = "CosmosDb--Account--Id"
   value        = azurerm_cosmosdb_account.account.name
   key_vault_id = azurerm_key_vault.key_vault[each.key].id
-  tags         = local.tags 
+  tags         = local.tags
 }
 
 resource "azurerm_key_vault_secret" "cosmosdb_account_endpoint" {
@@ -61,7 +68,7 @@ resource "azurerm_key_vault_secret" "cosmosdb_account_endpoint" {
   name         = "CosmosDb--Account--Endpoint"
   value        = azurerm_cosmosdb_account.account.endpoint
   key_vault_id = azurerm_key_vault.key_vault[each.key].id
-  tags         = local.tags 
+  tags         = local.tags
 }
 
 resource "azurerm_key_vault_secret" "cosmosdb_account_authkey" {
@@ -69,7 +76,7 @@ resource "azurerm_key_vault_secret" "cosmosdb_account_authkey" {
   name         = "CosmosDb--Account--AuthKey"
   value        = azurerm_cosmosdb_account.account.primary_key
   key_vault_id = azurerm_key_vault.key_vault[each.key].id
-  tags         = local.tags 
+  tags         = local.tags
 }
 
 resource "azurerm_key_vault_secret" "cosmosdb_account_container" {
@@ -77,5 +84,5 @@ resource "azurerm_key_vault_secret" "cosmosdb_account_container" {
   name         = "CosmosDb--Account--Containers--Accounts--Id"
   value        = azurerm_cosmosdb_sql_container.account.name
   key_vault_id = azurerm_key_vault.key_vault[each.key].id
-  tags         = local.tags 
+  tags         = local.tags
 }
