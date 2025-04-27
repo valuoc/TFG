@@ -14,11 +14,3 @@ resource "azurerm_key_vault" "key_vault" {
   sku_name                      = var.key_vault.sku
   tags                          = local.tags
 }
-
-resource "azurerm_key_vault_secret" "acr_name" {
-  for_each     = local.all_regions
-  name         = "acrname"
-  value        = azurerm_container_registry.acr.name
-  key_vault_id = azurerm_key_vault.key_vault[each.key].id
-  tags         = local.tags 
-}
