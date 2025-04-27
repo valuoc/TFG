@@ -4,7 +4,7 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name     = azurerm_resource_group.region_rgs[var.main_region].name
   location                = azurerm_resource_group.region_rgs[var.main_region].location
   sku                     = var.acr.sku
-  admin_enabled           = false
+  admin_enabled           = true
   zone_redundancy_enabled = var.acr.zone_redundancy_enabled
   tags                    = local.tags
 

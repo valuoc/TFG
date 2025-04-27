@@ -32,3 +32,8 @@ variable "key_vault" {
     soft_delete_retention_days = 7
   }
 }
+
+variable "container_tag" {
+  type = string
+  default = "ed3bf92"
+}

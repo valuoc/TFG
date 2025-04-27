@@ -1,6 +1,5 @@
 # https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault
 # User needs explicit RBAC premissions to use Secrets. Not even Owner have them.
-data "azurerm_client_config" "current" {}
 
 resource "azurerm_key_vault" "key_vault" {
   for_each                      = local.all_regions

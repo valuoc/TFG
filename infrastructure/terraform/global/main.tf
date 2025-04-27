@@ -24,6 +24,9 @@ provider "azurerm" {
   # export ARM_SUBSCRIPTION_ID=""
 }
 
+data "azurerm_client_config" "current" {}
+data "azurerm_subscription" "current" {}
+
 locals {
   environment_name = "test"
   resource_prefix  = "${var.solution_name}-${local.environment_name}"
