@@ -11,6 +11,9 @@ using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Infrastructure;
 using SocialApp.WebApi.Infrastructure.Middlewares;
 
+var keyVaultUri = Environment.GetEnvironmentVariable("KEY_VAULT_URI");
+Console.WriteLine($"KeyVaultUri: '{keyVaultUri}'");
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.RegisterServices();
 builder.Services.AddAuthorizationBuilder()
@@ -22,7 +25,7 @@ builder.Configuration.AddEnvironmentVariables();
 if (builder.Environment.IsProduction())
 {
     builder.Configuration.AddAzureKeyVault(
-        new Uri(Environment.GetEnvironmentVariable("KEY_VAULT_URI")),
+        new Uri(keyVaultUri),
         new DefaultAzureCredential());
 }
 builder.Services.Configure<JsonOptions>(options =>
