@@ -11,9 +11,6 @@ using SocialApp.WebApi.Features.Content.Exceptions;
 using SocialApp.WebApi.Infrastructure;
 using SocialApp.WebApi.Infrastructure.Middlewares;
 
-var keyVaultUri = Environment.GetEnvironmentVariable("KEY_VAULT_URI");
-Console.WriteLine($"KeyVaultUri: '{keyVaultUri}'");
-
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.RegisterServices();
 builder.Services.AddAuthorizationBuilder()
@@ -22,11 +19,15 @@ builder.Configuration.AddJsonFile("appsettings.json", false, false);
 builder.Configuration.AddJsonFile("appsettings.Development.json", false, false);
 builder.Configuration.AddJsonFile("appsettings.Local.json", true, true);
 builder.Configuration.AddEnvironmentVariables();
+
 if (builder.Environment.IsProduction())
 {
     builder.Configuration.AddAzureKeyVault(
-        new Uri(keyVaultUri),
-        new DefaultAzureCredential());
+        new Uri(builder.Configuration["KEY_VAULT_URI"]),
+        new DefaultAzureCredential(new DefaultAzureCredentialOptions
+        {
+            ManagedIdentityClientId = builder.Configuration["MANAGED_CLIENT_ID"]
+        }));
 }
 builder.Services.Configure<JsonOptions>(options =>
 {
@@ -86,4 +87,4 @@ app.UseMiddleware<RequestLog>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapApiEndpoints();
-app.Run("http://localhost:7000");
+app.Run("http://*:7000");
