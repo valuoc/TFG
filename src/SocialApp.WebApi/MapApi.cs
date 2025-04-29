@@ -38,7 +38,7 @@ public static class MapApi
         MapContent(app);
         MapFeed(app);
         
-        app.MapGet("/health", () => "OK");
+        app.MapGet("/health", (IConfiguration c) => $"OK: @'{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}'  {c.GetValue("ENVIRONMENT",string.Empty)}#{c.GetValue("REGION",string.Empty)}#{c.GetValue("IMAGE_TAG",string.Empty)}");
     }
 
     private static void MapContent(WebApplication app)

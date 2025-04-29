@@ -43,3 +43,12 @@ resource "azurerm_resource_group" "region_rgs" {
   name     = "${local.resource_prefix}-${each.key}-rg"
   tags     = local.tags
 }
+
+resource "azurerm_log_analytics_workspace" "logs" {
+  for_each            = local.all_regions
+  name                = "${local.resource_prefix}-${each.key}"
+  location            = azurerm_resource_group.region_rgs[each.key].location
+  resource_group_name = azurerm_resource_group.region_rgs[each.key].name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+}

@@ -35,5 +35,5 @@ variable "key_vault" {
 
 variable "container_tag" {
   type = string
-  default = "6828676"
+  default = "7e79b5e"
 }

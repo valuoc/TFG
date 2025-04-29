@@ -20,6 +20,10 @@ resource "azurerm_cosmosdb_account" "session" {
     failover_priority = 0
     zone_redundant    = false
   }
+
+  capabilities {
+    name = "EnableServerless"
+  }
 }
 
 resource "azurerm_cosmosdb_sql_database" "session" {

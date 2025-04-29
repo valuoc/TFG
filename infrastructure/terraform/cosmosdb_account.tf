@@ -55,6 +55,14 @@ resource "azurerm_cosmosdb_sql_container" "account" {
   }
 }
 
+resource "azurerm_key_vault_secret" "cosmosdb_application_name" {
+  for_each     = local.all_regions
+  name         = "CosmosDb--ApplicationName"
+  value        = local.resource_prefix
+  key_vault_id = azurerm_key_vault.key_vault[each.key].id
+  tags         = local.tags
+}
+
 resource "azurerm_key_vault_secret" "cosmosdb_account_id" {
   for_each     = local.all_regions
   name         = "CosmosDb--Account--Id"
