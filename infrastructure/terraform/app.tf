@@ -61,7 +61,7 @@ resource "azurerm_container_app" "app" {
   template {
     container {
       name   = "socialapp"
-      image  = "${azurerm_container_registry.acr.name}.azurecr.io/socialapp:${var.container_tag}"
+      image  = "${azurerm_container_registry.acr.name}.azurecr.io/socialapp:${local.image_tag}"
       cpu    = 0.25
       memory = "0.5Gi"
 
@@ -82,7 +82,7 @@ resource "azurerm_container_app" "app" {
 
       env {
         name  = "IMAGE_TAG"
-        value = var.container_tag
+        value = local.image_tag
       }
 
       env {

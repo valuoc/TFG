@@ -11,7 +11,6 @@ $ az provider list --output table | grep "Microsoft.ContainerInstance"
 Microsoft.ContainerInstance                              RegistrationRequired  Registered
 */
 
-
 resource "azurerm_container_group" "aci" {
   for_each            = var.secondary_regions
   depends_on          = [azurerm_role_assignment.acr_permission]
@@ -35,7 +34,7 @@ resource "azurerm_container_group" "aci" {
 
   container {
     name   = "socialapp"
-    image  = "${azurerm_container_registry.acr.name}.azurecr.io/socialapp:${var.container_tag}"
+    image  = "${azurerm_container_registry.acr.name}.azurecr.io/socialapp:${local.image_tag}"
     cpu    = "0.25"
     memory = "0.5"
 
@@ -48,7 +47,7 @@ resource "azurerm_container_group" "aci" {
       "REGION"            = each.key
       "ENVIRONMENT"       = local.environment_name
       "KEY_VAULT_URI"     = azurerm_key_vault.key_vault[each.key].vault_uri
-      "IMAGE_TAG"         = var.container_tag
+      "IMAGE_TAG"         = local.image_tag
       "MANAGED_CLIENT_ID" = azurerm_user_assigned_identity.socialapp[each.key].client_id
       "MAIN_REGION"       = var.main_region
       "SEC_REGIONS"       = join(", ", var.secondary_regions)

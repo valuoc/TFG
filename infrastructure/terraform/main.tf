@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~>3.0"
     }
+    shell = {
+      source = "scottwinkler/shell"
+      version = "1.7.10"
+    }
   }
 
   backend "azurerm" {
@@ -23,6 +27,12 @@ provider "azurerm" {
   resource_provider_registrations = "none"
   # export ARM_SUBSCRIPTION_ID=""
 }
+
+provider "shell" {
+    interpreter = ["/bin/sh", "-c"]
+    enable_parallelism = false
+}
+
 
 data "azurerm_client_config" "current" {}
 data "azurerm_subscription" "current" {}
