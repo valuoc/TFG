@@ -1,7 +1,4 @@
-using System.Net;
-using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Session;
-using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
@@ -25,18 +22,13 @@ public class SessionService : ISessionService
     
     private readonly UserDatabase _userDd;
     private readonly SessionDatabase _sessionDb;
-    private readonly AccountDatabase _accountDb;
 
-    public SessionService(UserDatabase userDd, SessionDatabase sessionDb, AccountDatabase accountDb)
+    public SessionService(UserDatabase userDd, SessionDatabase sessionDb)
     {
         _userDd = userDd;
         _sessionDb = sessionDb;
-        _accountDb = accountDb;
     }
-    
-    private AccountContainer GetAccountContainer()
-        => new(_accountDb);
-    
+
     private SessionContainer GetSessionContainer()
         => new(_sessionDb);
     
@@ -48,28 +40,25 @@ public class SessionService : ISessionService
         try
         {
             var profiles = GetProfileContainer();
-            var userId = await profiles.FindPasswordLoginAsync(request.Email, request.Password, context);
-            if (userId == null)
+            var key = PasswordLoginDocument.Key(request.Email);
+            var login = await profiles.GetAsync<PasswordLoginDocument>(key, context);
+            if (login == null || login.Password != Passwords.HashPassword(request.Password))
                 return null;
 
-            var profile = await profiles.GetProfileAsync(userId, context);
+            var profile = await profiles.GetProfileAsync(login.UserId, context);
 
             if (profile == null)
                 return null;
             
-            var session = new SessionDocument(Guid.NewGuid().ToString("N"), userId, profile.DisplayName, profile.Handle)
+            var session = new SessionDocument(Guid.NewGuid().ToString("N"), login.UserId, profile.DisplayName, profile.Handle)
             {
                 Ttl = _sessionLengthSeconds
             };
             
-            await GetSessionContainer().CreateSessionAsync(session, context);
-            return new UserSession(userId, session.SessionId, profile.DisplayName, profile.Handle);
+            await GetSessionContainer().CreateAsync(session, context);
+            return new UserSession(login.UserId, session.SessionId, profile.DisplayName, profile.Handle);
         }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-        catch (CosmosException e)
+        catch (Exception e)
         {
             throw new SessionException(SessionError.UnexpectedError, e);
         }
@@ -80,13 +69,23 @@ public class SessionService : ISessionService
         try
         {
             var sessions = GetSessionContainer();
-            return await sessions.GetSessionAsync(sessionId, _sessionLengthSeconds, context);
+            
+            var sessionKey = SessionDocument.Key(sessionId);
+            var sessionDocument = await sessions.GetAsync<SessionDocument>(sessionKey, context);
+ 
+            if (sessionDocument == null)
+                return null;
+            
+            if(sessionDocument.Ttl < _sessionLengthSeconds / 4) // TODO: Patch ?
+            {
+                sessionDocument = sessionDocument with { Ttl = _sessionLengthSeconds };
+                await sessions.ReplaceDocumentAsync(sessionDocument, context);
+            }
+
+            return new UserSession(sessionDocument.UserId, sessionId, sessionDocument.DisplayName, sessionDocument.Handle);
+            
         }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-            throw new SessionException(SessionError.InvalidSession, e);
-        }
-        catch (CosmosException e)
+        catch (Exception e)
         {
             throw new SessionException(SessionError.UnexpectedError, e);
         }
@@ -97,13 +96,10 @@ public class SessionService : ISessionService
         try
         {
             var sessions = GetSessionContainer();
-            await sessions.EndSessionAsync(session.SessionId, context);
+            var sessionKey = SessionDocument.Key(session.SessionId);
+            await sessions.DeleteAsync<SessionDocument>(sessionKey, context);
         }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-
-        }
-        catch (CosmosException e)
+        catch (Exception e)
         {
             throw new SessionException(SessionError.UnexpectedError, e);
         }

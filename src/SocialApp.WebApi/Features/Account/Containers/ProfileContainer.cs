@@ -30,17 +30,4 @@ public sealed class ProfileContainer : CosmoContainer
 
         return profile;
     }
-    
-
-    public async Task<string?> FindPasswordLoginAsync(string email, string password, OperationContext context)
-    {
-        var loginKey = PasswordLoginDocument.Key(email);
-        var response = await Container.ReadItemAsync<PasswordLoginDocument>(loginKey.Id, new PartitionKey(loginKey.Pk), cancellationToken: context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        if (response.Resource == null || response.Resource.Password != Passwords.HashPassword(password))
-        {
-            return null;
-        }
-        return response.Resource.UserId;
-    }
 }

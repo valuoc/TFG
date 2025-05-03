@@ -64,7 +64,7 @@ public abstract class ServiceTestsBase
         _sessionDatabase = new SessionDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Session"));
 
         AccountService = new AccountService(_accountDatabase, _userDatabase, new Logger<AccountService>(loggerFactory));
-        SessionService = new SessionService(_userDatabase, _sessionDatabase, _accountDatabase);
+        SessionService = new SessionService(_userDatabase, _sessionDatabase);
         var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_userDatabase), new MemoryCache(new MemoryCacheOptions()));
         FollowersService = new FollowersService(_userDatabase, userHandleService);
         ContentService = new ContentService(_userDatabase, userHandleService);
