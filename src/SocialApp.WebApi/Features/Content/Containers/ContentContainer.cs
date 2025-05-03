@@ -296,24 +296,24 @@ public sealed class ContentContainer : CosmoContainer
     public async Task<ConversationUserLikeDocument?> GetUserConversationLikeAsync(string userId, string conversationUserId, string conversationId, OperationContext context)
     {
         var key = ConversationUserLikeDocument.Key(userId, conversationUserId, conversationId);
-        return await TryGetAsync<ConversationUserLikeDocument>(key, context);
+        return await GetAsync<ConversationUserLikeDocument>(key, context);
     }
     
     public async Task<ConversationLikeDocument?> GetConversationReactionAsync(string conversationUserId, string conversationId, string userId, OperationContext context)
     {
         var key = ConversationLikeDocument.Key(conversationUserId, conversationId, userId);
-        return await TryGetAsync<ConversationLikeDocument>(key, context);
+        return await GetAsync<ConversationLikeDocument>(key, context);
     }
 
     public async Task<CommentLikeDocument?> GetCommentReactionAsync(string conversationUserId, string conversationId, string commentId, string userId, OperationContext context)
     {
         var key = CommentLikeDocument.Key(conversationUserId, conversationId, commentId, userId);
-        return await TryGetAsync<CommentLikeDocument>(key, context);
+        return await GetAsync<CommentLikeDocument>(key, context);
     }
 
     public async Task<ConversationCountsDocument?> GetConversationCountsAsync(string conversationUserId, string conversationId, OperationContext context)
     {
         var key = ConversationCountsDocument.Key(conversationUserId, conversationId);
-        return await TryGetAsync<ConversationCountsDocument>(key, context);
+        return await GetAsync<ConversationCountsDocument>(key, context);
     }
 }

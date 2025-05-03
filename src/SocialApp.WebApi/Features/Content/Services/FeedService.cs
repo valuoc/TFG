@@ -47,7 +47,7 @@ public sealed class FeedService : IFeedService
     private async Task<ConversationRoot> FeedConversationAsync(FeedConversationDocument conversation, FeedConversationCountsDocument counts, OperationContext context)
         => new()
         {
-            Handle = await _userHandleService.GetHandleFromUserIdAsync(conversation.FeedUserId, context),
+            Handle = await _userHandleService.GetHandleAsync(conversation.FeedUserId, context),
             ConversationId = conversation.ConversationId,
             Content = conversation.Content,
             LastModify = conversation.LastModify,

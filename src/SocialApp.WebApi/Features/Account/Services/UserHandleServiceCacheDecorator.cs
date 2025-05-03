@@ -36,13 +36,13 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
         return userId;
     }
 
-    public async Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context)
+    public async Task<string> GetHandleAsync(string userId, OperationContext context)
     {
         var key = UserIdKey(userId);
         if(_cache.TryGetValue(key, out string handle) && handle != null)
             return handle;
         
-        handle = await _inner.GetHandleFromUserIdAsync(userId, context);
+        handle = await _inner.GetHandleAsync(userId, context);
         
         _cache.Set(key, handle, new MemoryCacheEntryOptions()
         {
@@ -53,7 +53,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
     }
     
 
-    public async Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
+    public async Task<IReadOnlyList<string>> GetHandlesAsync(IReadOnlyList<string> userIds, OperationContext context)
     {
         List<string> missing = null;
         List<int> missinIndexes = null;
@@ -75,7 +75,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
 
         if (missing != null)
         {
-            var missingUsers = await _inner.GetHandleFromUserIdsAsync(missing, context);
+            var missingUsers = await _inner.GetHandlesAsync(missing, context);
             for (var i = 0; i < missing.Count; i++)
             {
                 var index = missinIndexes[i];

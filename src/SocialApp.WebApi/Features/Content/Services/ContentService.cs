@@ -322,7 +322,7 @@ public sealed class ContentService : IContentService
     private async Task<ConversationComment> BuildCommentAsync(CommentDocument comment, CommentCountsDocument counts, OperationContext context)
         => new()
         {
-            Handle = await _userHandleService.GetHandleFromUserIdAsync(comment.UserId, context),
+            Handle = await _userHandleService.GetHandleAsync(comment.UserId, context),
             CommentId = comment.CommentId,
             Content = comment.Content,
             LastModify = comment.LastModify,
@@ -336,7 +336,7 @@ public sealed class ContentService : IContentService
         {
             Root = new ConversationRoot()
             {
-                Handle = await _userHandleService.GetHandleFromUserIdAsync(conversation.UserId, context),
+                Handle = await _userHandleService.GetHandleAsync(conversation.UserId, context),
                 ConversationId = conversation.ConversationId,
                 Content = conversation.Content,
                 LastModify = conversation.LastModify,

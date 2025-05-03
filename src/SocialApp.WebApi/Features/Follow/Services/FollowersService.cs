@@ -43,7 +43,7 @@ public sealed class FollowersService : IFollowersService
                 foreach (var following in followingList.Following)
                 {
                     if(following.Value == FollowingStatus.Ready)
-                        list.Add(await _userHandleService.GetHandleFromUserIdAsync(following.Key, context));
+                        list.Add(await _userHandleService.GetHandleAsync(following.Key, context));
                 }
                 return list;
             }
@@ -64,7 +64,7 @@ public sealed class FollowersService : IFollowersService
         
             var followerList = await container.GetFollowersAsync(session.UserId, context);
             var list = followerList?.Followers?.ToList() ?? [];
-            return await _userHandleService.GetHandleFromUserIdsAsync(list, context);
+            return await _userHandleService.GetHandlesAsync(list, context);
         }
         catch (CosmosException e)
         {

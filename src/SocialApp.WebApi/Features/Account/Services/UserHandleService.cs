@@ -1,3 +1,5 @@
+using SocialApp.WebApi.Data._Shared;
+using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
@@ -8,8 +10,8 @@ namespace SocialApp.WebApi.Features.Account.Services;
 public interface IUserHandleService
 {
     Task<string> GetUserIdAsync(string handle, OperationContext context);
-    Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context);
-    Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context);
+    Task<IReadOnlyList<string?>> GetHandlesAsync(IReadOnlyList<string> userIds, OperationContext context);
+    Task<string?> GetHandleAsync(string userId, OperationContext context);
 }
 
 public class UserHandleService : IUserHandleService
@@ -27,24 +29,36 @@ public class UserHandleService : IUserHandleService
     public async Task<string> GetUserIdAsync(string handle, OperationContext context)
     {
         var profiles = GetProfileContainer();
-        var userId = await profiles.GetUserIdFromHandleAsync(handle, context);
-        if (string.IsNullOrWhiteSpace(userId))
+        var key = HandleLockDocument.Key(handle);
+        var response = await profiles.GetAsync<HandleLockDocument>(new DocumentKey(key.Pk, key.Id), context);
+        if (string.IsNullOrWhiteSpace(response?.UserId))
             throw new AccountException(AccountError.HandleNotFound);
-        return userId;
+        return response.UserId;
     }
 
-    public async Task<IReadOnlyList<string>> GetHandleFromUserIdsAsync(IReadOnlyList<string> userIds, OperationContext context)
+    public async Task<IReadOnlyList<string?>> GetHandlesAsync(IReadOnlyList<string> userIds, OperationContext context)
     {
-        if (userIds == null || userIds.Count == 0)
-            return userIds;
+        if (userIds == null)
+            return [];
+        
+        var keys = userIds.Select(ProfileDocument.Key).ToArray();
+
+        if (keys.Length == 0)
+            return [];
         
         var profiles = GetProfileContainer();
-        return await profiles.GetHandleFromUserIdsAsync(userIds, context);
+        var dic = await profiles.GetManyAsync<ProfileDocument>(keys, context);
+        var result = new string?[userIds.Count];
+        for (var i = 0; i < result.Length; i++)
+            result[i] = dic.TryGetValue(keys[i], out var value) ? value?.Handle : null;
+        return result;
     }
 
-    public async Task<string> GetHandleFromUserIdAsync(string userId, OperationContext context)
+    public async Task<string?> GetHandleAsync(string userId, OperationContext context)
     {
         var profiles = GetProfileContainer();
-        return await profiles.GetHandleFromUserIdAsync(userId, context);
+        var key = ProfileDocument.Key(userId);
+        var profile = await profiles.GetAsync<ProfileDocument>(key, context);
+        return profile?.Handle;
     }
 }

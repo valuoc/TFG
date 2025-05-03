@@ -1,6 +1,6 @@
-using System.Net;
 using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Account;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
@@ -58,7 +58,7 @@ public class AccountService : IAccountService
         
         try
         {
-            await accounts.DeleteAsync<PendingAccountDocument>(pending.Pk, pending.Id, context);
+            await accounts.DeleteAsync<PendingAccountDocument>(new DocumentKey(pending.Pk, pending.Id), context);
         }
         catch (Exception ex)
         {
@@ -125,14 +125,14 @@ public class AccountService : IAccountService
                     {
                         if(await DeletePendingDataAsync(profiles, pending, context))
                         {
-                            await accounts.DeleteAsync<PendingAccountDocument>(pending.Pk, pending.Id, context);
+                            await accounts.DeleteAsync<PendingAccountDocument>(new DocumentKey(pending.Pk, pending.Id), context);
                             pendingCount++;
                         }
                     }
                 }
                 else // The profile document exists, therefore the account was created
                 { 
-                    await accounts.DeleteAsync<PendingAccountDocument>(pending.Pk, pending.Id, context);
+                    await accounts.DeleteAsync<PendingAccountDocument>(new DocumentKey(pending.Pk, pending.Id), context);
                 }
             }
             catch (Exception e)
@@ -151,7 +151,7 @@ public class AccountService : IAccountService
         try
         {
             var profileKey = ProfileDocument.Key(pending.UserId);
-            await profiles.DeleteAsync<ProfileDocument>(profileKey.Pk, profileKey.Id, context);
+            await profiles.DeleteAsync<ProfileDocument>(new DocumentKey(profileKey.Pk, profileKey.Id), context);
         }
         catch (Exception)
         {
@@ -161,7 +161,7 @@ public class AccountService : IAccountService
         try
         {
             var passwordLoginKey = PasswordLoginDocument.Key(pending.UserId);
-            await profiles.DeleteAsync<ProfileDocument>(passwordLoginKey.Pk, passwordLoginKey.Id, context);
+            await profiles.DeleteAsync<ProfileDocument>(new DocumentKey(passwordLoginKey.Pk, passwordLoginKey.Id), context);
         }
         catch (Exception)
         {
@@ -172,7 +172,7 @@ public class AccountService : IAccountService
         try
         {
             var handleDocument = HandleLockDocument.Key(pending.UserId);
-            await profiles.DeleteAsync<HandleLockDocument>(handleDocument.Pk, handleDocument.Id, context);
+            await profiles.DeleteAsync<HandleLockDocument>(new DocumentKey(handleDocument.Pk, handleDocument.Id), context);
         }
         catch (Exception)
         {
@@ -187,7 +187,7 @@ public class AccountService : IAccountService
         try
         {
             var emailLock = EmailLockDocument.Key(pending.Email);
-            await accounts.DeleteAsync<EmailLockDocument>(emailLock.Pk, emailLock.Id, context);
+            await accounts.DeleteAsync<EmailLockDocument>(new DocumentKey(emailLock.Pk, emailLock.Id), context);
         }
         catch (Exception)
         {
@@ -197,7 +197,7 @@ public class AccountService : IAccountService
         try
         {
             var handleLock = HandleLockDocument.Key(pending.Handle);
-            await accounts.DeleteAsync<HandleLockDocument>(handleLock.Pk, handleLock.Id, context);
+            await accounts.DeleteAsync<HandleLockDocument>(new DocumentKey(handleLock.Pk, handleLock.Id), context);
         }
         catch (Exception)
         {

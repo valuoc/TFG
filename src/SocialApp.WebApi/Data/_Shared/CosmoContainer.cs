@@ -48,8 +48,16 @@ public abstract class CosmoContainer
     public async Task CreateAsync<T>(T document, OperationContext context)
         where T : Document
     {
-        var response = await Container.CreateItemAsync(document, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
+        try
+        {
+            var response = await Container.CreateItemAsync(document, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
+        }
     }
     
     public async Task<bool> TryCreateIfNotExistsAsync<T>(T document, OperationContext context)
@@ -62,25 +70,36 @@ public abstract class CosmoContainer
         }
         catch (CosmosException e) when ( e.StatusCode == HttpStatusCode.Conflict)
         {
+            context.AddRequestCharge(e.RequestCharge);
             return false;
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
         }
     }
     
-    public async Task DeleteAsync<T>(string pk, string id, OperationContext context)
-    where T : Document
+    public async Task DeleteAsync<T>(DocumentKey key, OperationContext context)
+        where T : Document
     {
         try
         {
-            var response = await Container.DeleteItemAsync<T>(id, new PartitionKey(pk), _noResponseContent, context.Cancellation);
+            var response = await Container.DeleteItemAsync<T>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
         {
-            
+            context.AddRequestCharge(e.RequestCharge);
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
         }
     }
     
-    protected async Task<T?> TryGetAsync<T>(DocumentKey key, OperationContext context)
+    public async Task<T?> GetAsync<T>(DocumentKey key, OperationContext context)
         where T:Document
     {
         try
@@ -93,6 +112,23 @@ public abstract class CosmoContainer
         {
             context.AddRequestCharge(e.RequestCharge);
             return null;
+        }
+    }
+    
+    public async Task<IReadOnlyDictionary<DocumentKey, T>> GetManyAsync<T>(IEnumerable<DocumentKey> keys, OperationContext context)
+        where T:Document
+    {
+        try
+        {
+            var response = await Container.ReadManyItemsAsync<T>(keys.Select(k => (k.Id, new PartitionKey(k.Pk))).ToList(), cancellationToken: context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+
+            return response.Resource.ToDictionary(x => new DocumentKey(x.Pk, x.Id), x => x);
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
         }
     }
     

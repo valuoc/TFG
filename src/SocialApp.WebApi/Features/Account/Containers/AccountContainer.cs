@@ -7,9 +7,6 @@ namespace SocialApp.WebApi.Features.Account.Containers;
 
 public sealed class AccountContainer : CosmoContainer
 {
-    private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
-    private static readonly TransactionalBatchItemRequestOptions _transactionNoResponse = new() { EnableContentResponseOnWrite = false };
-    
     public AccountContainer(AccountDatabase database)
     : base(database, "accounts")
     { }
