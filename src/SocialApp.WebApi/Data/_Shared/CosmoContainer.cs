@@ -132,17 +132,47 @@ public abstract class CosmoContainer
         }
     }
     
-    public async Task ReplaceDocumentAsync<T>(T document, OperationContext context)
+    public async Task UpdateAsync<T>(T document, OperationContext context)
         where T : Document
     {
-        var response = await Container.ReplaceItemAsync
-        (
-            document,
-            document.Id, new PartitionKey(document.Pk),
-            new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = false },
-            context.Cancellation
-        );
-        context.AddRequestCharge(response.RequestCharge);
+        try
+        {
+            var response = await Container.ReplaceItemAsync
+            (
+                document,
+                document.Id, new PartitionKey(document.Pk),
+                new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = false },
+                context.Cancellation
+            );
+            context.AddRequestCharge(response.RequestCharge);
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
+        }
+    }
+    
+    public async Task<T> CreateOrUpdateAsync<T>(T document, OperationContext context)
+        where T : Document
+    {
+        try
+        {
+            var response = await Container.UpsertItemAsync
+            (
+                document,
+                new PartitionKey(document.Pk),
+                new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = true },
+                context.Cancellation
+            );
+            context.AddRequestCharge(response.RequestCharge);
+            return response.Resource;
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw;
+        }
     }
     
     protected async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)

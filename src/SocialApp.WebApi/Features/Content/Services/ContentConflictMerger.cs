@@ -34,7 +34,7 @@ public class ContentConflictMerger : IConflictMerger
             case ConversationDocument remoteConversation:
                 if(TryMergeConversation(remoteConversation, (ConversationDocument)localConflict, out var merged))
                 {
-                    await _container.ReplaceDocumentAsync(merged!, context);
+                    await _container.UpdateAsync(merged!, context);
                     return true;
                 }
 
@@ -44,7 +44,7 @@ public class ContentConflictMerger : IConflictMerger
                 var (success, mergedCounts) = await TryMergeConversationCounts(remoteCounts, (ConversationCountsDocument)localConflict, context);
                 if(success)
                 {
-                    await _container.ReplaceDocumentAsync(mergedCounts, context);
+                    await _container.UpdateAsync(mergedCounts, context);
                     return true;
                 }
 

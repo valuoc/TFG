@@ -36,7 +36,8 @@ public sealed class FollowersService : IFollowersService
         {
             var container = GetContainer();
         
-            var followingList = await container.GetFollowingAsync(session.UserId, context);
+            var followingList = await GetFollowingListAsync(container, session.UserId, context);
+
             if (followingList?.Following?.Count > 0)
             {
                 var list = new List<string>(followingList.Following.Count);
@@ -55,14 +56,20 @@ public sealed class FollowersService : IFollowersService
             throw new FollowerException(FollowerError.UnexpectedError, e);
         }
     }
-    
+
+    private static async Task<FollowingListDocument?> GetFollowingListAsync(FollowContainer container, string userId, OperationContext context)
+    {
+        var followingKey = FollowingListDocument.Key(userId);
+        return await container.GetAsync<FollowingListDocument>(followingKey, context);
+    }
+
     public async Task<IReadOnlyList<string>> GetFollowersAsync(UserSession session, OperationContext context)
     {
         try
         {
             var container = GetContainer();
-        
-            var followerList = await container.GetFollowersAsync(session.UserId, context);
+            var followerList = await GetFollowerListAsync(container, session.UserId, context);
+
             var list = followerList?.Followers?.ToList() ?? [];
             return await _userHandleService.GetHandlesAsync(list, context);
         }
@@ -71,7 +78,14 @@ public sealed class FollowersService : IFollowersService
             throw new FollowerException(FollowerError.UnexpectedError, e);
         }
     }
-    
+
+    private static async Task<FollowerListDocument?> GetFollowerListAsync(FollowContainer container, string userId, OperationContext context)
+    {
+        var followerKey = FollowerListDocument.Key(userId);
+        var followerList = await container.GetAsync<FollowerListDocument>(followerKey, context);
+        return followerList;
+    }
+
     public async Task FollowAsync(UserSession session, string handle, OperationContext context)
     {
         try
@@ -80,7 +94,7 @@ public sealed class FollowersService : IFollowersService
 
             var followerId = session.UserId;
             var followedId = await _userHandleService.GetUserIdAsync(handle, context);
-            var followingList = await container.GetFollowingAsync(followerId, context);
+            var followingList = await GetFollowingListAsync(container, followerId, context);
             followingList ??= new FollowingListDocument(followerId);
             followingList.Following ??= new();
             await ReconcilePendingAsync(followingList, container, context);
@@ -92,24 +106,20 @@ public sealed class FollowersService : IFollowersService
             followingList.Following[followedId] = FollowingStatus.PendingAdd;
         
             context.Signal("add-following-as-pending");
-            followingList = await container.CreateOrReplaceFollowingsAsync(followingList, context);
+            followingList = await container.CreateOrUpdateAsync(followingList, context);
         
-            var followerList = await container.GetFollowersAsync(followedId, context);
+            var followerList = await GetFollowerListAsync(container, followedId, context);
             followerList ??= new FollowerListDocument(followedId);
             followerList.Followers ??= new HashSet<string>();
 
             if (followerList.Followers.Add(followerId))
             {
                 context.Signal("add-follower");
-                await container.SaveFollowersAsync(followerList, context);
+                await container.CreateOrUpdateAsync(followerList, context);
             }
             followingList.Following[followedId] = FollowingStatus.Ready;
             context.Signal("add-following");
-            await container.SaveFollowingsAsync(followingList, context);
-        }
-        catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.Conflict)
-        {
-            throw new FollowerException(FollowerError.ConcurrencyFailure, e);
+            await container.CreateOrUpdateAsync(followingList, context);
         }
         catch (CosmosException e)
         {
@@ -125,7 +135,7 @@ public sealed class FollowersService : IFollowersService
         
             var followerId = session.UserId;
             var followedId = await _userHandleService.GetUserIdAsync(handle, context);
-            var followingList = await container.GetFollowingAsync(followerId, context);
+            var followingList = await GetFollowingListAsync(container, followerId, context);
             followingList ??= new FollowingListDocument(followerId);
             followingList.Following ??= new();
         
@@ -137,21 +147,21 @@ public sealed class FollowersService : IFollowersService
             followingList.Following[followedId] = FollowingStatus.PendingRemove;
         
             context.Signal("remove-following-as-pending");
-            followingList = await container.CreateOrReplaceFollowingsAsync(followingList, context);
+            followingList = await container.CreateOrUpdateAsync(followingList, context);
         
-            var followerList = await container.GetFollowersAsync(followedId, context);
+            var followerList = await GetFollowerListAsync(container, followedId, context);
             followerList ??= new FollowerListDocument(followerId);
             followerList.Followers ??= new HashSet<string>();
 
             if (followerList.Followers.Remove(followerId))
             {
                 context.Signal("remove-follower");
-                await container.SaveFollowersAsync(followerList, context);
+                await container.CreateOrUpdateAsync(followerList, context);
             }
 
             followingList.Following.Remove(followedId);
             context.Signal("remove-following");
-            await container.SaveFollowingsAsync(followingList, context);
+            await container.CreateOrUpdateAsync(followingList, context);
         }
         catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.Conflict)
         {
@@ -170,7 +180,7 @@ public sealed class FollowersService : IFollowersService
             if (following.Following[userId] != FollowingStatus.Ready)
             {
                 // If it is pending adding or removing, check the other end and correct the status.
-                var followerList = await container.GetFollowersAsync(userId, context);
+                var followerList = await GetFollowerListAsync(container, userId, context);
                 if (followerList?.Followers?.Contains(following.UserId) ?? false)
                     following.Following[userId] = FollowingStatus.Ready;
                 else

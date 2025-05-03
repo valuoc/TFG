@@ -166,7 +166,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         else if (comment.Version < conversation.Version)
         {
             // Comment is outdated
-            await contents.ReplaceDocumentAsync(comment with
+            await contents.UpdateAsync(comment with
             {
                 Content = conversation.Content, 
                 Version = conversation.Version
@@ -186,7 +186,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         if(ccounts == null)
             return;
         
-        await contents.ReplaceDocumentAsync(ccounts, context);
+        await contents.UpdateAsync(ccounts, context);
     }
 
     private async Task EnsureChildConversationIsCreatedOnCommentAsync(ContentContainer contents, CommentDocument comment, OperationContext context)
@@ -205,10 +205,18 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
             // This can happen if the Change Feed is catching up with the main conversation
         }
     }
+    
+    private static async Task<FollowerListDocument?> GetFollowerListAsync(FollowContainer container, string userId, OperationContext context)
+    {
+        var followerKey = FollowerListDocument.Key(userId);
+        var followerList = await container.GetAsync<FollowerListDocument>(followerKey, context);
+        return followerList;
+    }
+
 
     private async Task PropagateConversationCountsToFollowersFeedAsync(FeedContainer contents, FollowContainer follows, ConversationCountsDocument counts, OperationContext context)
     {
-        var followers2 = await follows.GetFollowersAsync(counts.UserId, context);
+        var followers2 = await GetFollowerListAsync(follows, counts.UserId, context);
         foreach (var followerId in GetFollowersAsync(followers2))
         {
             var feedItem = FeedConversationCountsDocument.From(followerId, counts) with
@@ -222,7 +230,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
 
     private async Task PropagateConversationToFollowersFeedsAsync(FeedContainer container, FollowContainer follows, ConversationDocument conversation, OperationContext context)
     {
-        var followers1 = await follows.GetFollowersAsync(conversation.UserId, context);
+        var followers1 = await GetFollowerListAsync(follows, conversation.UserId, context);
         foreach (var followerId in GetFollowersAsync(followers1))
         {
             var feedItem = FeedConversationDocument.From(followerId, conversation) with

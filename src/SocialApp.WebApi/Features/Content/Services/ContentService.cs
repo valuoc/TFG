@@ -97,7 +97,7 @@ public sealed class ContentService : IContentService
             conversation = conversation with { Content = content, Version = conversation.Version + 1 };
             
             context.Signal("update-conversation");
-            await contents.ReplaceDocumentAsync(conversation, context);
+            await contents.UpdateAsync(conversation, context);
 
             if (!string.IsNullOrWhiteSpace(conversation.ParentConversationUserId))
             {
@@ -105,7 +105,7 @@ public sealed class ContentService : IContentService
                 {
                     context.Signal("update-comment");
                     var comment = new CommentDocument(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.UserId, conversation.ConversationId, conversation.Content, conversation.LastModify, conversation.Version);
-                    await contents.ReplaceDocumentAsync(comment, context);
+                    await contents.UpdateAsync(comment, context);
                 }
                 catch (CosmosException e)
                 {
