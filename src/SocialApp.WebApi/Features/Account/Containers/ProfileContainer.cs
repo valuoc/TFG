@@ -17,15 +17,6 @@ public sealed class ProfileContainer : CosmoContainer
         :base(database, "profiles")
     { }
     
-    public async Task CreateUserProfileAsync(string userId, ProfileDocument profile, OperationContext context)
-    {
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(profile.Pk));
-        batch.CreateItem(profile, requestOptions: _transactionNoResponse);
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        ThrowErrorIfTransactionFailed(AccountError.UnexpectedError, response);
-    }
-    
     public async Task<ProfileDocument?> GetProfileAsync(string userId, OperationContext context)
     {
         var profileKey = ProfileDocument.Key(userId);
@@ -79,12 +70,6 @@ public sealed class ProfileContainer : CosmoContainer
         return response?.FirstOrDefault() ?? "???";
     }
     
-    public async Task RegisterHandleAsync(HandleDocument handle, OperationContext context)
-    {
-        var response = await Container.CreateItemAsync(handle,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-    }
-    
     public async Task<string?> GetUserIdFromHandleAsync(string handle, OperationContext context)
     {
         try
@@ -113,13 +98,6 @@ public sealed class ProfileContainer : CosmoContainer
             }
         }
     }
-    
-    public async Task CreatePasswordLoginAsync(string userId, string email, string password, OperationContext context)
-    {
-        var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
-        var response = await Container.CreateItemAsync(passwordLogin,  requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-    }
 
     public async Task<string?> FindPasswordLoginAsync(string email, string password, OperationContext context)
     {
@@ -131,57 +109,5 @@ public sealed class ProfileContainer : CosmoContainer
             return null;
         }
         return response.Resource.UserId;
-    }
-    
-    public async Task<bool> DeletePendingDataAsync(PendingAccountDocument pending, OperationContext context)
-    {
-        var success = true;
-        
-        try
-        {
-            var profileKey = ProfileDocument.Key(pending.UserId);
-            var response = await Container.DeleteItemAsync<ProfileDocument>(profileKey.Id, new PartitionKey(profileKey.Pk), _noResponseContent, context.Cancellation);
-            context.AddRequestCharge(response.RequestCharge);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-
-        }
-        catch (Exception e)
-        {
-            success = false;
-        }
-        
-        try
-        {
-            var passwordLoginKey = PasswordLoginDocument.Key(pending.UserId);
-            var response = await Container.DeleteItemAsync<PasswordLoginDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
-            context.AddRequestCharge(response.RequestCharge);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-
-        }
-        catch (Exception e)
-        {
-            success = false;
-        }
-        
-        
-        try
-        {
-            var passwordLoginKey = HandleLockDocument.Key(pending.UserId);
-            var response = await Container.DeleteItemAsync<HandleLockDocument>(passwordLoginKey.Id, new PartitionKey(passwordLoginKey.Pk), _noResponseContent, context.Cancellation);
-            context.AddRequestCharge(response.RequestCharge);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-
-        }
-        catch (Exception e)
-        {
-            success = false;
-        }
-        return success;
     }
 }

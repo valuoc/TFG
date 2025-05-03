@@ -11,6 +11,8 @@ public abstract class CosmoContainer
 {
     protected readonly Container Container;
     private readonly CosmoDatabase _database;
+    
+    private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
 
     protected CosmoContainer(CosmoDatabase database, string name)
     {
@@ -41,6 +43,41 @@ public abstract class CosmoContainer
         }
 
         return null;
+    }
+    
+    public async Task CreateAsync<T>(T document, OperationContext context)
+        where T : Document
+    {
+        var response = await Container.CreateItemAsync(document, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
+        context.AddRequestCharge(response.RequestCharge);
+    }
+    
+    public async Task<bool> TryCreateIfNotExistsAsync<T>(T document, OperationContext context)
+        where T:Document
+    {
+        try
+        {
+            await CreateAsync(document, context);
+            return true;
+        }
+        catch (CosmosException e) when ( e.StatusCode == HttpStatusCode.Conflict)
+        {
+            return false;
+        }
+    }
+    
+    public async Task DeleteAsync<T>(string pk, string id, OperationContext context)
+    where T : Document
+    {
+        try
+        {
+            var response = await Container.DeleteItemAsync<T>(id, new PartitionKey(pk), _noResponseContent, context.Cancellation);
+            context.AddRequestCharge(response.RequestCharge);
+        }
+        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            
+        }
     }
     
     protected async Task<T?> TryGetAsync<T>(DocumentKey key, OperationContext context)

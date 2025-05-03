@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Account;
 using SocialApp.WebApi.Data.Account;
@@ -38,20 +39,28 @@ public class AccountService : IAccountService
         var accounts = GetAccountContainer();
         
         var userId = request.DisplayName.ToLowerInvariant() +"_"+ Guid.NewGuid().ToString("N");
-        
-        context.Signal("pending-account");
-        var pending = await accounts.RegisterPendingAccountAsync(userId, request.Email, request.Handle, context);
+        var pending = new PendingAccountDocument(Ulid.NewUlid().ToString(), request.Email, userId, request.Handle, DateTime.UtcNow);
+        try
+        {
+            context.Signal("pending-account");
+            await accounts.CreateAsync(pending, context);
 
-        await RegisterAccountInternalAsync(accounts, request.DisplayName, request.Password, pending, context);
+            await RegisterAccountInternalAsync(accounts, request.DisplayName, request.Password, pending, context);
 
-        context.SuppressCancellation();
-        context.Signal("complete-pending-account");
+            context.SuppressCancellation();
+            context.Signal("complete-pending-account");
+        }
+        catch (AccountException) { throw; }
+        catch (Exception ex)
+        {
+            throw new AccountException(AccountError.UnexpectedError, ex);
+        }
         
         try
         {
-            await accounts.DeletePendingAccountAsync(pending, context);
+            await accounts.DeleteAsync<PendingAccountDocument>(pending.Pk, pending.Id, context);
         }
-        catch (CosmosException ex)
+        catch (Exception ex)
         {
             _logger.LogWarning(ex, "Unable to delete pending account.");
         }
@@ -65,8 +74,17 @@ public class AccountService : IAccountService
         var email = pendingUserAccount.Email;
         var handle = pendingUserAccount.Handle;
 
-        await accounts.AttemptEmailLockAsync(userId, email, context);
-        await accounts.AttemptHandleLockAsync(userId, handle, context);
+        var emailLock = new EmailLockDocument(email, userId);
+        context.Signal("email-lock");
+        
+        if(!await accounts.TryCreateIfNotExistsAsync(emailLock, context))
+            throw new AccountException(AccountError.EmailAlreadyRegistered);
+        
+        
+        var handleLock = new HandleLockDocument(handle, userId);
+        context.Signal("handle-lock");
+        if(!await accounts.TryCreateIfNotExistsAsync(handleLock, context))
+            throw new AccountException(AccountError.HandleAlreadyRegistered);
 
         try
         {
@@ -74,14 +92,15 @@ public class AccountService : IAccountService
             
             context.Signal("create-handle");
             var handleDocument = new HandleDocument(handle, userId);
-            await profiles.RegisterHandleAsync(handleDocument, context);
+            await profiles.CreateAsync(handleDocument, context);
             
             context.Signal("create-login");
-            await profiles.CreatePasswordLoginAsync(userId, email, password, context);
+            var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
+            await profiles.CreateAsync(passwordLogin, context);
             
             context.Signal("create-profile");
             var profile = new ProfileDocument(userId, displayName, email, handle);
-            await profiles.CreateUserProfileAsync(userId, profile, context);
+            await profiles.CreateAsync(profile, context);
         }
         catch (CosmosException e)
         {
@@ -102,18 +121,18 @@ public class AccountService : IAccountService
                 var profile = await profiles.GetProfileAsync(pending.UserId, context);
                 if (profile == null)
                 {
-                    if (await accounts.TryDeleteAccountLocksAsync(pending, context))
+                    if (await TryDeleteAccountLocksAsync(accounts, pending, context))
                     {
-                        if(await profiles.DeletePendingDataAsync(pending, context))
+                        if(await DeletePendingDataAsync(profiles, pending, context))
                         {
-                            await accounts.DeletePendingAccountAsync(pending, context);
+                            await accounts.DeleteAsync<PendingAccountDocument>(pending.Pk, pending.Id, context);
                             pendingCount++;
                         }
                     }
                 }
                 else // The profile document exists, therefore the account was created
                 { 
-                    await accounts.DeletePendingAccountAsync(pending, context);
+                    await accounts.DeleteAsync<PendingAccountDocument>(pending.Pk, pending.Id, context);
                 }
             }
             catch (Exception e)
@@ -125,4 +144,66 @@ public class AccountService : IAccountService
         return pendingCount;
     }
 
+    private static async Task<bool> DeletePendingDataAsync(ProfileContainer profiles, PendingAccountDocument pending, OperationContext context)
+    {
+        var success = true;
+        
+        try
+        {
+            var profileKey = ProfileDocument.Key(pending.UserId);
+            await profiles.DeleteAsync<ProfileDocument>(profileKey.Pk, profileKey.Id, context);
+        }
+        catch (Exception)
+        {
+            success = false;
+        }
+        
+        try
+        {
+            var passwordLoginKey = PasswordLoginDocument.Key(pending.UserId);
+            await profiles.DeleteAsync<ProfileDocument>(passwordLoginKey.Pk, passwordLoginKey.Id, context);
+        }
+        catch (Exception)
+        {
+            success = false;
+        }
+        
+        
+        try
+        {
+            var handleDocument = HandleLockDocument.Key(pending.UserId);
+            await profiles.DeleteAsync<HandleLockDocument>(handleDocument.Pk, handleDocument.Id, context);
+        }
+        catch (Exception)
+        {
+            success = false;
+        }
+        return success;
+    }
+
+    private static async Task<bool> TryDeleteAccountLocksAsync(AccountContainer accounts, PendingAccountDocument pending, OperationContext context)
+    {
+        var success = true;
+        try
+        {
+            var emailLock = EmailLockDocument.Key(pending.Email);
+            await accounts.DeleteAsync<EmailLockDocument>(emailLock.Pk, emailLock.Id, context);
+        }
+        catch (Exception)
+        {
+            success = false;
+        }
+
+        try
+        {
+            var handleLock = HandleLockDocument.Key(pending.Handle);
+            await accounts.DeleteAsync<HandleLockDocument>(handleLock.Pk, handleLock.Id, context);
+        }
+        catch (Exception)
+        {
+            success = false;
+        }
+
+        return success;
+    }
 }
