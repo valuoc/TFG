@@ -1,6 +1,5 @@
 using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Content;
-using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
@@ -264,7 +263,12 @@ public sealed class ContentService : IContentService
             if(documents.Conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
 
-            await contents.IncreaseViewsAsync(conversationUserId, conversationId, context);
+            
+            var keyFrom = ConversationCountsDocument.Key(conversationUserId, conversationId);
+            var uow = contents.UnitOfWork(keyFrom.Pk);
+            uow.Increment<ConversationCountsDocument>(keyFrom, c => c.ViewCount);
+            await uow.SaveChangesAsync(context);
+            
             return await BuildConversationModelAsync(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts, context);
         }
         catch (CosmosException e)

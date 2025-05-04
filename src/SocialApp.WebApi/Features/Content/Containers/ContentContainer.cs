@@ -1,9 +1,7 @@
-using System.Net;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
-using SocialApp.WebApi.Features.Content.Exceptions;
 
 namespace SocialApp.WebApi.Features.Content.Containers;
 
@@ -11,8 +9,6 @@ public record struct AllConversationDocuments(ConversationDocument? Conversation
 
 public sealed class ContentContainer : CosmoContainer
 {
-    private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
-    
     public ContentContainer(UserDatabase database)
         :base(database, "contents") { }
     
@@ -127,21 +123,4 @@ public sealed class ContentContainer : CosmoContainer
         
         return (comments, commentCounts);
     }
-    
-    public async Task IncreaseViewsAsync(string userId, string conversationId, OperationContext context)
-    {
-        // TODO: Defer
-        // Increase views
-        var keyFrom = ConversationCountsDocument.Key(userId, conversationId);
-        var response = await Container.PatchItemAsync<ConversationDocument>
-        (
-            keyFrom.Id,
-            new PartitionKey(keyFrom.Pk),
-            [PatchOperation.Increment("/viewCount", 1)],
-            _patchItemNoResponse, 
-            context.Cancellation
-        );
-        context.AddRequestCharge(response.RequestCharge);
-    }
-    
 }
