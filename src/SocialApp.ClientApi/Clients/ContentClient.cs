@@ -25,7 +25,7 @@ public sealed class ContentClient
         => await _client.PutAsync($"/conversation/{handle}/{conversationId}", new ContentRequest{ Content = content}, cancel);
     
     public async Task ReactToConversationAsync(string handle, string conversationId, bool like, CancellationToken cancel = default)
-        => await _client.PutAsync($"/conversation/{handle}/{conversationId}/like", new ReactRequest(){ Like = like}, cancel);
+        => await _client.PutAsync($"/conversation/{handle}/{conversationId}/like", new ReactRequest { Like = like}, cancel);
     
     public async Task DeleteConversationAsync(string handle, string conversationId, CancellationToken cancel = default)
         => await _client.DeleteAsync($"/conversation/{handle}/{conversationId}", cancel);

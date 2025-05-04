@@ -18,7 +18,7 @@ public sealed class AccountContainer : CosmoContainer
             .WithParameter("@pk", expiryLimit.Pk)
             .WithParameter("@id", expiryLimit.Id);
         
-        using var iterator = Container.GetItemQueryIterator<PendingAccountDocument>(query, null, new QueryRequestOptions()
+        using var iterator = Container.GetItemQueryIterator<PendingAccountDocument>(query, null, new QueryRequestOptions
         {
             PopulateIndexMetrics = true
         });

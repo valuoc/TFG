@@ -12,7 +12,7 @@ public sealed class UserDatabase : CosmoDatabase
     protected override IEnumerable<IncludedPath> GetIndexedPaths()
     {
         // We need to filter by conversation
-        yield return new IncludedPath()
+        yield return new IncludedPath
         {
             Path = "/sk/?"
         };
@@ -22,12 +22,12 @@ public sealed class UserDatabase : CosmoDatabase
     {
         yield return
         [
-            new CompositePath()
+            new CompositePath
             {
                 Path = "/isRootConversation",
                 Order = CompositePathSortOrder.Ascending
             },
-            new CompositePath()
+            new CompositePath
             {
                 Path = "/sk",
                 Order = CompositePathSortOrder.Ascending

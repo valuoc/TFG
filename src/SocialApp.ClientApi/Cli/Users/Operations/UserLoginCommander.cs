@@ -11,7 +11,7 @@ public class UserLoginCommander : Commander
     {
         var currentUser = GlobalState.GetCurrentUserOrFail();
         
-        await currentUser.Client.Session.LoginAsync(new LoginRequest()
+        await currentUser.Client.Session.LoginAsync(new LoginRequest
         {
             Email = currentUser.Email,
             Password = currentUser.Password

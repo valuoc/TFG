@@ -53,7 +53,7 @@ public sealed class ContentService : IContentService
 
     private static async Task CreateConversationAsync(ContentContainer contents, ConversationDocument conversation, OperationContext context)
     {
-        var uow = contents.UnitOfWork(conversation.Pk);
+        var uow = contents.CreateUnitOfWork(conversation.Pk);
         uow.Create(conversation);
         uow.Create(conversation.CreateCounts());
         await uow.SaveChangesAsync(context);
@@ -72,7 +72,7 @@ public sealed class ContentService : IContentService
             var commentConversationKey = ConversationCountsDocument.Key(comment.ConversationUserId, comment.ConversationId);
             
             context.Signal("create-comment");
-            var uow = contents.UnitOfWork(comment.Pk);
+            var uow = contents.CreateUnitOfWork(comment.Pk);
             uow.Create(comment);
             uow.Create(comment.CreateCounts());
             uow.Increment<ConversationCountsDocument>(commentConversationKey, c => c.CommentCount);
@@ -174,7 +174,7 @@ public sealed class ContentService : IContentService
                 };
                 var countKey = ConversationCountsDocument.Key(conversationReaction.ConversationUserId, conversationReaction.ConversationId);
                 
-                var uow = contents.UnitOfWork(conversationReaction.Pk);
+                var uow = contents.CreateUnitOfWork(conversationReaction.Pk);
                 uow.CreateOrUpdate(conversationReaction);
                 uow.Increment<ConversationCountsDocument>(countKey, c => c.LikeCount, conversationReaction.Like ? 1 : -1 );
                 await uow.SaveChangesAsync(context);
@@ -188,7 +188,7 @@ public sealed class ContentService : IContentService
                     };
                     countKey = CommentCountsDocument.Key(commentReaction.ConversationUserId, commentReaction.ConversationId, commentReaction.CommentId);
                     
-                    uow = contents.UnitOfWork(commentReaction.Pk);
+                    uow = contents.CreateUnitOfWork(commentReaction.Pk);
                     uow.CreateOrUpdate(commentReaction);
                     uow.Increment<CommentCountsDocument>(countKey, cc => cc.LikeCount, commentReaction.Like ? 1 : -1 );
                     await uow.SaveChangesAsync(context);
@@ -217,7 +217,7 @@ public sealed class ContentService : IContentService
         
             context.Signal("delete-conversation");
 
-            var uow = contents.UnitOfWork(conversation.Pk);
+            var uow = contents.CreateUnitOfWork(conversation.Pk);
             uow.Set<ConversationDocument>(key, c => c.Deleted, true);
             uow.Set<ConversationDocument>(key, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
             uow.Set<ConversationCountsDocument>(key, c => c.Deleted, true );
@@ -231,7 +231,7 @@ public sealed class ContentService : IContentService
                     context.Signal("delete-comment");
                     var commentKey = CommentDocument.Key(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId);
 
-                    uow = contents.UnitOfWork(commentKey.Pk);
+                    uow = contents.CreateUnitOfWork(commentKey.Pk);
                     uow.Set<CommentDocument>(commentKey, c => c.Deleted, true );
                     uow.Set<CommentDocument>(commentKey, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
                     uow.Set<CommentCountsDocument>(commentKey, c => c.Deleted, true );
@@ -265,7 +265,7 @@ public sealed class ContentService : IContentService
 
             
             var keyFrom = ConversationCountsDocument.Key(conversationUserId, conversationId);
-            var uow = contents.UnitOfWork(keyFrom.Pk);
+            var uow = contents.CreateUnitOfWork(keyFrom.Pk);
             uow.Increment<ConversationCountsDocument>(keyFrom, c => c.ViewCount);
             await uow.SaveChangesAsync(context);
             
@@ -383,7 +383,7 @@ public sealed class ContentService : IContentService
     private async Task<Conversation> BuildConversationAsync(ConversationDocument conversation, ConversationCountsDocument counts, OperationContext context)
         => new()
         {
-            Root = new ConversationRoot()
+            Root = new ConversationRoot
             {
                 Handle = await _userHandleService.GetHandleAsync(conversation.UserId, context),
                 ConversationId = conversation.ConversationId,

@@ -43,7 +43,9 @@ public class AccountService : IAccountService
         try
         {
             context.Signal("pending-account");
-            await accounts.CreateAsync(pending, context);
+            var uow = accounts.CreateUnitOfWork(pending.Pk);
+            uow.Create(pending);
+            await uow.SaveChangesAsync(context);
 
             await RegisterAccountInternalAsync(accounts, request.DisplayName, request.Password, pending, context);
 
@@ -58,7 +60,9 @@ public class AccountService : IAccountService
         
         try
         {
-            await accounts.DeleteAsync<PendingAccountDocument>(new DocumentKey(pending.Pk, pending.Id), context);
+            var uow = accounts.CreateUnitOfWork(pending.Pk);
+            uow.Delete(pending);
+            await uow.SaveChangesAsync(context);
         }
         catch (Exception ex)
         {
@@ -92,15 +96,21 @@ public class AccountService : IAccountService
             
             context.Signal("create-handle");
             var handleDocument = new HandleDocument(handle, userId);
-            await profiles.CreateAsync(handleDocument, context);
+            var uow = profiles.CreateUnitOfWork(handleDocument.Pk);
+            uow.Create(handleDocument);
+            await uow.SaveChangesAsync(context);
             
             context.Signal("create-login");
             var passwordLogin = new PasswordLoginDocument(userId, email, Passwords.HashPassword(password));
-            await profiles.CreateAsync(passwordLogin, context);
+            uow = profiles.CreateUnitOfWork(passwordLogin.Pk);
+            uow.Create(passwordLogin);
+            await uow.SaveChangesAsync(context);
             
             context.Signal("create-profile");
             var profile = new ProfileDocument(userId, displayName, email, handle);
-            await profiles.CreateAsync(profile, context);
+            uow = profiles.CreateUnitOfWork(profile.Pk);
+            uow.Create(profile);
+            await uow.SaveChangesAsync(context);
         }
         catch (CosmosException e)
         {
@@ -125,14 +135,18 @@ public class AccountService : IAccountService
                     {
                         if(await DeletePendingDataAsync(profiles, pending, context))
                         {
-                            await accounts.DeleteAsync<PendingAccountDocument>(new DocumentKey(pending.Pk, pending.Id), context);
+                            var uow = accounts.CreateUnitOfWork(pending.Pk);
+                            uow.Delete(pending);
+                            await uow.SaveChangesAsync(context);
                             pendingCount++;
                         }
                     }
                 }
                 else // The profile document exists, therefore the account was created
                 { 
-                    await accounts.DeleteAsync<PendingAccountDocument>(new DocumentKey(pending.Pk, pending.Id), context);
+                    var uow = accounts.CreateUnitOfWork(pending.Pk);
+                    uow.Delete(pending);
+                    await uow.SaveChangesAsync(context);
                 }
             }
             catch (Exception e)
@@ -147,11 +161,17 @@ public class AccountService : IAccountService
     private static async Task<bool> DeletePendingDataAsync(ProfileContainer profiles, PendingAccountDocument pending, OperationContext context)
     {
         var success = true;
-        
+
         try
         {
             var profileKey = ProfileDocument.Key(pending.UserId);
-            await profiles.DeleteAsync<ProfileDocument>(new DocumentKey(profileKey.Pk, profileKey.Id), context);
+            var uow = profiles.CreateUnitOfWork(profileKey.Pk);
+            uow.Delete<ProfileDocument>(profileKey);
+            await uow.SaveChangesAsync(context);
+        }
+        catch (UnitOfWorkException ex) when (ex.Error == OperationError.NotFound)
+        {
+            
         }
         catch (Exception)
         {
@@ -161,18 +181,29 @@ public class AccountService : IAccountService
         try
         {
             var passwordLoginKey = PasswordLoginDocument.Key(pending.UserId);
-            await profiles.DeleteAsync<ProfileDocument>(new DocumentKey(passwordLoginKey.Pk, passwordLoginKey.Id), context);
+            var uow = profiles.CreateUnitOfWork(passwordLoginKey.Pk);
+            uow.Delete<PasswordLoginDocument>(passwordLoginKey);
+            await uow.SaveChangesAsync(context);
+        }
+        catch (UnitOfWorkException ex) when (ex.Error == OperationError.NotFound)
+        {
+            
         }
         catch (Exception)
         {
             success = false;
         }
         
-        
         try
         {
-            var handleDocument = HandleLockDocument.Key(pending.UserId);
-            await profiles.DeleteAsync<HandleLockDocument>(new DocumentKey(handleDocument.Pk, handleDocument.Id), context);
+            var handleDocumentKey = HandleLockDocument.Key(pending.UserId);
+            var uow = profiles.CreateUnitOfWork(handleDocumentKey.Pk);
+            uow.Delete<HandleLockDocument>(handleDocumentKey);
+            await uow.SaveChangesAsync(context);
+        }
+        catch (UnitOfWorkException ex) when (ex.Error == OperationError.NotFound)
+        {
+            
         }
         catch (Exception)
         {
@@ -187,7 +218,13 @@ public class AccountService : IAccountService
         try
         {
             var emailLock = EmailLockDocument.Key(pending.Email);
-            await accounts.DeleteAsync<EmailLockDocument>(new DocumentKey(emailLock.Pk, emailLock.Id), context);
+            var uow = accounts.CreateUnitOfWork(emailLock.Pk);
+            uow.Delete<EmailLockDocument>(emailLock);
+            await uow.SaveChangesAsync(context);
+        }
+        catch (UnitOfWorkException ex) when (ex.Error == OperationError.NotFound)
+        {
+            
         }
         catch (Exception)
         {
@@ -197,7 +234,13 @@ public class AccountService : IAccountService
         try
         {
             var handleLock = HandleLockDocument.Key(pending.Handle);
-            await accounts.DeleteAsync<HandleLockDocument>(new DocumentKey(handleLock.Pk, handleLock.Id), context);
+            var uow = accounts.CreateUnitOfWork(handleLock.Pk);
+            uow.Delete<HandleLockDocument>(handleLock);
+            await uow.SaveChangesAsync(context);
+        }
+        catch (UnitOfWorkException ex) when (ex.Error == OperationError.NotFound)
+        {
+            
         }
         catch (Exception)
         {

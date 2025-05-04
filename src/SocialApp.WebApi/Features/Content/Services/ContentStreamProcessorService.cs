@@ -123,7 +123,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
 
             var countKey = ConversationCountsDocument.Key(conversationLike.ConversationUserId, conversationLike.ConversationId);
                 
-            var uow = contents.UnitOfWork(conversationLike.Pk);
+            var uow = contents.CreateUnitOfWork(conversationLike.Pk);
             uow.CreateOrUpdate(conversationLike);
             uow.Increment<ConversationCountsDocument>(countKey, c => c.LikeCount, conversationLike.Like ? 1 : -1 );
             await uow.SaveChangesAsync(context);
@@ -143,7 +143,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
             }; 
             var countKey = CommentCountsDocument.Key(commentLike.ConversationUserId, commentLike.ConversationId, commentLike.CommentId);
                     
-            var uow = contents.UnitOfWork(commentLike.Pk);
+            var uow = contents.CreateUnitOfWork(commentLike.Pk);
             uow.CreateOrUpdate(commentLike);
             uow.Increment<CommentCountsDocument>(countKey, c => c.LikeCount, commentLike.Like ? 1 : -1 );
             await uow.SaveChangesAsync(context);
@@ -175,7 +175,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
             var commentConversationKey = ConversationCountsDocument.Key(comment.ConversationUserId, comment.ConversationId);
             
             context.Signal("create-comment");
-            var uow = contents.UnitOfWork(comment.Pk);
+            var uow = contents.CreateUnitOfWork(comment.Pk);
             uow.Create(comment);
             uow.Create(comment.CreateCounts());
             uow.Increment<ConversationCountsDocument>(commentConversationKey, c => c.CommentCount);
@@ -186,7 +186,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
             // Delete comment and counts
             var commentKey = CommentDocument.Key(comment.ConversationUserId, comment.ConversationId, comment.CommentId);
                     
-            var uow = contents.UnitOfWork(commentKey.Pk);
+            var uow = contents.CreateUnitOfWork(commentKey.Pk);
             uow.Set<CommentDocument>(key, c => c.Deleted, true );
             uow.Set<CommentDocument>(key, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
             uow.Set<CommentCountsDocument>(key, c => c.Deleted, true );
@@ -231,7 +231,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         conversation = new ConversationDocument(comment.UserId, comment.CommentId, comment.Content, comment.LastModify, comment.Version, comment.ConversationUserId, comment.ConversationId);
         try
         {
-            var uow = contents.UnitOfWork(conversation.Pk);
+            var uow = contents.CreateUnitOfWork(conversation.Pk);
             uow.Create(conversation);
             uow.Create(conversation.CreateCounts());
             await uow.SaveChangesAsync(context);
@@ -260,7 +260,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                 Ttl = FeedItemTtl,
                 Deleted = counts.Deleted,
             };
-            var uow = contents.UnitOfWork(feedItem.Pk);
+            var uow = contents.CreateUnitOfWork(feedItem.Pk);
             uow.CreateOrUpdate(feedItem);
             await uow.SaveChangesAsync(context);
         }
@@ -277,7 +277,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                 Deleted = conversation.Deleted
             };
             
-            var uow = container.UnitOfWork(feedItem.Pk);
+            var uow = container.CreateUnitOfWork(feedItem.Pk);
             uow.CreateOrUpdate(feedItem);
             await uow.SaveChangesAsync(context);
         }

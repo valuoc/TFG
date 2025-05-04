@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Data._Shared;
@@ -17,7 +18,10 @@ public interface IUnitOfWork
         where T:Document;
     void Update<T>(T document)
         where T:Document;
-    
+    void Delete<T>(T document)
+        where T:Document;
+    void Delete<T>(DocumentKey key)
+        where T:Document;
     Task SaveChangesAsync(OperationContext context);
 }
 
@@ -69,7 +73,23 @@ public class CosmosUnitOfWork : IUnitOfWork
     public void Update<T>(T document) where T : Document
     {
         _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.Update));
-        _batch.ReplaceItem(document.Id, document, _noBatchResponse);
+        _batch.ReplaceItem(document.Id, document, new TransactionalBatchItemRequestOptions
+        {
+            IfMatchEtag = document.ETag,
+            EnableContentResponseOnWrite = false
+        });
+    }
+
+    public void Delete<T>(T document) where T : Document
+    {
+        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.Delete));
+        _batch.DeleteItem(document.Id, _noBatchResponse);
+    }
+
+    public void Delete<T>(DocumentKey key) where T : Document
+    {
+        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(key.Pk, key.Id), OperationKind.Delete));
+        _batch.DeleteItem(key.Id, _noBatchResponse);
     }
 
     public async Task SaveChangesAsync(OperationContext context)
@@ -103,6 +123,7 @@ public class CosmosUnitOfWork : IUnitOfWork
                     var error = response.StatusCode switch
                     {
                         HttpStatusCode.Conflict => OperationError.Conflict,
+                        HttpStatusCode.NotFound => OperationError.NotFound,
                         _ => OperationError.Unknown,
                     };
                     throw new UnitOfWorkException(op, error, response.ErrorMessage);
@@ -116,9 +137,10 @@ public enum OperationKind { Create,
     Increment,
     CreateOrUpdate,
     Set,
-    Update
+    Update,
+    Delete
 }
-public enum OperationError { Unknown, Conflict }
+public enum OperationError { Unknown, Conflict, NotFound }
 public readonly record struct UnitOfWorkOperation(Type DocumentType, DocumentKey Key, OperationKind Kind);
 public sealed class UnitOfWorkException : Exception
 {

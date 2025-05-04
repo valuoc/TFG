@@ -28,7 +28,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
         
         userId = await _inner.GetUserIdAsync(handle, context);
         
-        _cache.Set(key, userId, new MemoryCacheEntryOptions()
+        _cache.Set(key, userId, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
         });
@@ -44,7 +44,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
         
         handle = await _inner.GetHandleAsync(userId, context);
         
-        _cache.Set(key, handle, new MemoryCacheEntryOptions()
+        _cache.Set(key, handle, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
         });
@@ -83,7 +83,7 @@ public sealed class UserHandleServiceCacheDecorator : IUserHandleService
                 result[index] = missingResult;
                 if(!string.IsNullOrWhiteSpace(missingResult))
                 {
-                    _cache.Set(UserIdKey(userIds[i]), missingResult, new MemoryCacheEntryOptions()
+                    _cache.Set(UserIdKey(userIds[i]), missingResult, new MemoryCacheEntryOptions
                     {
                         AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
                     });

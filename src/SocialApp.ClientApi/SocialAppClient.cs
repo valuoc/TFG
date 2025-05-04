@@ -20,7 +20,7 @@ public sealed class SocialAppClient
     private readonly Uri _baseAddress;
     private readonly HttpClient _httpClient;
 
-    private readonly JsonSerializerOptions _jOptions = new JsonSerializerOptions()
+    private readonly JsonSerializerOptions _jOptions = new JsonSerializerOptions
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true
@@ -35,7 +35,7 @@ public sealed class SocialAppClient
     public SocialAppClient(Uri baseAddress)
     {
         _baseAddress = baseAddress;
-        _httpClient = new HttpClient()
+        _httpClient = new HttpClient
         {
             BaseAddress = baseAddress
         };
@@ -51,7 +51,7 @@ public sealed class SocialAppClient
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
         response.EnsureSuccessStatusCode();
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
-        return new Response<TResponse>()
+        return new Response<TResponse>
         {
             Headers = response.Headers,
             Content = content
@@ -63,7 +63,7 @@ public sealed class SocialAppClient
         using var response = await _httpClient.GetAsync(path, cancel);
         response.EnsureSuccessStatusCode();
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
-        return new Response<TResponse>()
+        return new Response<TResponse>
         {
             Headers = response.Headers,
             Content = content
@@ -74,7 +74,7 @@ public sealed class SocialAppClient
     {
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
         response.EnsureSuccessStatusCode();
-        return new Response()
+        return new Response
         {
             Headers = response.Headers,
         };
@@ -84,7 +84,7 @@ public sealed class SocialAppClient
     {
         using var response = await _httpClient.DeleteAsync(path, cancel);
         response.EnsureSuccessStatusCode();
-        return new Response()
+        return new Response
         {
             Headers = response.Headers,
         };
@@ -94,7 +94,7 @@ public sealed class SocialAppClient
     {
         using var response = await _httpClient.PostAsync(path, null, cancel);
         response.EnsureSuccessStatusCode();
-        return new Response()
+        return new Response
         {
             Headers = response.Headers,
         };
@@ -104,7 +104,7 @@ public sealed class SocialAppClient
     {
         using var response = await _httpClient.PutAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
         response.EnsureSuccessStatusCode();
-        return new Response()
+        return new Response
         {
             Headers = response.Headers,
         };
@@ -114,7 +114,7 @@ public sealed class SocialAppClient
     {
         using var response = await _httpClient.PutAsync(path, null, cancel);
         response.EnsureSuccessStatusCode();
-        return new Response()
+        return new Response
         {
             Headers = response.Headers,
         };

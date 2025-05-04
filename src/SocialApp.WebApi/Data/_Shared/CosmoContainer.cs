@@ -45,57 +45,19 @@ public abstract class CosmoContainer
         return null;
     }
     
-    public async Task CreateAsync<T>(T document, OperationContext context)
-        where T : Document
-    {
-        try
-        {
-            var response = await Container.CreateItemAsync(document, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-            context.AddRequestCharge(response.RequestCharge);
-        }
-        catch (CosmosException e)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-            throw;
-        }
-    }
-    
     public async Task<bool> TryCreateIfNotExistsAsync<T>(T document, OperationContext context)
         where T:Document
     {
         try
         {
-            await CreateAsync(document, context);
+            var uow = CreateUnitOfWork(document.Pk);
+            uow.Create(document);
+            await uow.SaveChangesAsync(context);
             return true;
         }
-        catch (CosmosException e) when ( e.StatusCode == HttpStatusCode.Conflict)
+        catch (UnitOfWorkException e) when ( e.Error == OperationError.Conflict)
         {
-            context.AddRequestCharge(e.RequestCharge);
             return false;
-        }
-        catch (CosmosException e)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-            throw;
-        }
-    }
-    
-    public async Task DeleteAsync<T>(DocumentKey key, OperationContext context)
-        where T : Document
-    {
-        try
-        {
-            var response = await Container.DeleteItemAsync<T>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
-            context.AddRequestCharge(response.RequestCharge);
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-        }
-        catch (CosmosException e)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-            throw;
         }
     }
     
@@ -115,7 +77,7 @@ public abstract class CosmoContainer
         }
     }
     
-    public async Task<IReadOnlyDictionary<DocumentKey, T>> GetManyAsync<T>(IEnumerable<DocumentKey> keys, OperationContext context)
+    public async Task<IReadOnlyDictionary<DocumentKey,T>> GetManyAsync<T>(IEnumerable<DocumentKey> keys, OperationContext context)
         where T:Document
     {
         try
@@ -175,7 +137,7 @@ public abstract class CosmoContainer
         }
     }
 
-    public IUnitOfWork UnitOfWork(string pk)
+    public IUnitOfWork CreateUnitOfWork(string pk)
     {
         return new CosmosUnitOfWork(Container.CreateTransactionalBatch(new PartitionKey(pk)));
     }
@@ -220,7 +182,7 @@ public abstract class CosmoContainer
         if(continuation != null)
             start = ChangeFeedStartFrom.ContinuationToken(continuation);
         
-        var iterator = Container.GetChangeFeedIterator<JsonElement>(start, ChangeFeedMode.LatestVersion, new ChangeFeedRequestOptions()
+        var iterator = Container.GetChangeFeedIterator<JsonElement>(start, ChangeFeedMode.LatestVersion, new ChangeFeedRequestOptions
         {
             PageSizeHint = Environment.ProcessorCount * 2
         });

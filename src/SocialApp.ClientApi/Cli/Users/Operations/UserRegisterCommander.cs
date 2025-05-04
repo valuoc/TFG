@@ -13,7 +13,7 @@ public class UserRegisterCommander : Commander
     {
         var currentUser = GlobalState.GetCurrentUserOrFail();
         
-        await currentUser.Client.Account.RegisterAsync(new RegisterRequest()
+        await currentUser.Client.Account.RegisterAsync(new RegisterRequest
         {
             Email = currentUser.Email,
             Password = currentUser.Password,

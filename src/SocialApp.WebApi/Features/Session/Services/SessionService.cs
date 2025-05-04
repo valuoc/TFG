@@ -1,4 +1,5 @@
 using SocialApp.Models.Session;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
@@ -54,8 +55,11 @@ public class SessionService : ISessionService
             {
                 Ttl = _sessionLengthSeconds
             };
-            
-            await GetSessionContainer().CreateAsync(session, context);
+
+            var sessions = GetSessionContainer();
+            var uow = sessions.CreateUnitOfWork(session.Pk);
+            uow.Create(session);
+            await uow.SaveChangesAsync(context);
             return new UserSession(login.UserId, session.SessionId, profile.DisplayName, profile.Handle);
         }
         catch (Exception e)
@@ -97,8 +101,11 @@ public class SessionService : ISessionService
         {
             var sessions = GetSessionContainer();
             var sessionKey = SessionDocument.Key(session.SessionId);
-            await sessions.DeleteAsync<SessionDocument>(sessionKey, context);
+            var uow = sessions.CreateUnitOfWork(sessionKey.Pk);
+            uow.Delete<SessionDocument>(sessionKey);
+            await uow.SaveChangesAsync(context);
         }
+        catch (UnitOfWorkException ex) when (ex.Error == OperationError.NotFound){}
         catch (Exception e)
         {
             throw new SessionException(SessionError.UnexpectedError, e);
