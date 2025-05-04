@@ -83,7 +83,9 @@ public class SessionService : ISessionService
             if(sessionDocument.Ttl < _sessionLengthSeconds / 4) // TODO: Patch ?
             {
                 sessionDocument = sessionDocument with { Ttl = _sessionLengthSeconds };
-                await sessions.UpdateAsync(sessionDocument, context);
+                var uow = sessions.CreateUnitOfWork(sessionDocument.Pk);
+                uow.Update(sessionDocument);
+                await uow.SaveChangesAsync(context);
             }
 
             return new UserSession(sessionDocument.UserId, sessionId, sessionDocument.DisplayName, sessionDocument.Handle);

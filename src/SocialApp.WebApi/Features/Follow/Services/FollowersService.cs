@@ -106,7 +106,9 @@ public sealed class FollowersService : IFollowersService
             followingList.Following[followedId] = FollowingStatus.PendingAdd;
         
             context.Signal("add-following-as-pending");
-            followingList = await container.CreateOrUpdateAsync(followingList, context);
+            var uow = container.CreateUnitOfWork(followingList.Pk);
+            uow.CreateOrUpdate(followingList);
+            await uow.SaveChangesAsync(context);
         
             var followerList = await GetFollowerListAsync(container, followedId, context);
             followerList ??= new FollowerListDocument(followedId);
@@ -115,11 +117,15 @@ public sealed class FollowersService : IFollowersService
             if (followerList.Followers.Add(followerId))
             {
                 context.Signal("add-follower");
-                await container.CreateOrUpdateAsync(followerList, context);
+                uow = container.CreateUnitOfWork(followerList.Pk);
+                uow.CreateOrUpdate(followerList);
+                await uow.SaveChangesAsync(context);
             }
             followingList.Following[followedId] = FollowingStatus.Ready;
             context.Signal("add-following");
-            await container.CreateOrUpdateAsync(followingList, context);
+            uow = container.CreateUnitOfWork(followingList.Pk);
+            uow.CreateOrUpdate(followingList);
+            await uow.SaveChangesAsync(context);
         }
         catch (CosmosException e)
         {
@@ -147,7 +153,9 @@ public sealed class FollowersService : IFollowersService
             followingList.Following[followedId] = FollowingStatus.PendingRemove;
         
             context.Signal("remove-following-as-pending");
-            followingList = await container.CreateOrUpdateAsync(followingList, context);
+            var uow = container.CreateUnitOfWork(followingList.Pk);
+            uow.CreateOrUpdate(followingList);
+            await uow.SaveChangesAsync(context);
         
             var followerList = await GetFollowerListAsync(container, followedId, context);
             followerList ??= new FollowerListDocument(followerId);
@@ -156,12 +164,16 @@ public sealed class FollowersService : IFollowersService
             if (followerList.Followers.Remove(followerId))
             {
                 context.Signal("remove-follower");
-                await container.CreateOrUpdateAsync(followerList, context);
+                uow = container.CreateUnitOfWork(followerList.Pk);
+                uow.CreateOrUpdate(followerList);
+                await uow.SaveChangesAsync(context);
             }
 
             followingList.Following.Remove(followedId);
             context.Signal("remove-following");
-            await container.CreateOrUpdateAsync(followingList, context);
+            uow = container.CreateUnitOfWork(followingList.Pk);
+            uow.CreateOrUpdate(followingList);
+            await uow.SaveChangesAsync(context);
         }
         catch (CosmosException e) when (e.StatusCode == System.Net.HttpStatusCode.Conflict)
         {

@@ -113,7 +113,10 @@ public sealed class ContentService : IContentService
             conversation = conversation with { Content = content, Version = conversation.Version + 1 };
             
             context.Signal("update-conversation");
-            await contents.UpdateAsync(conversation, context);
+
+            var uow = contents.CreateUnitOfWork(conversation.Pk);
+            uow.Update(conversation);
+            await uow.SaveChangesAsync(context);
 
             if (!string.IsNullOrWhiteSpace(conversation.ParentConversationUserId))
             {
@@ -121,7 +124,9 @@ public sealed class ContentService : IContentService
                 {
                     context.Signal("update-comment");
                     var comment = new CommentDocument(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.UserId, conversation.ConversationId, conversation.Content, conversation.LastModify, conversation.Version);
-                    await contents.UpdateAsync(comment, context);
+                    uow = contents.CreateUnitOfWork(comment.Pk);
+                    uow.Update(comment!);
+                    await uow.SaveChangesAsync(context);
                 }
                 catch (CosmosException e)
                 {
@@ -163,8 +168,11 @@ public sealed class ContentService : IContentService
             {
                 Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
             };
-            await contents.CreateOrUpdateAsync(userReaction, context);
 
+            var uow = contents.CreateUnitOfWork(userReaction.Pk);
+            uow.CreateOrUpdate(userReaction);
+            await uow.SaveChangesAsync(context);
+            
             try
             {
                 context.Signal("react-conversation");
@@ -174,7 +182,7 @@ public sealed class ContentService : IContentService
                 };
                 var countKey = ConversationCountsDocument.Key(conversationReaction.ConversationUserId, conversationReaction.ConversationId);
                 
-                var uow = contents.CreateUnitOfWork(conversationReaction.Pk);
+                uow = contents.CreateUnitOfWork(conversationReaction.Pk);
                 uow.CreateOrUpdate(conversationReaction);
                 uow.Increment<ConversationCountsDocument>(countKey, c => c.LikeCount, conversationReaction.Like ? 1 : -1 );
                 await uow.SaveChangesAsync(context);

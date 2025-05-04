@@ -12,8 +12,6 @@ public abstract class CosmoContainer
     protected readonly Container Container;
     private readonly CosmoDatabase _database;
     
-    private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
-
     protected CosmoContainer(CosmoDatabase database, string name)
     {
         Container = database.GetContainer(name);
@@ -86,49 +84,6 @@ public abstract class CosmoContainer
             context.AddRequestCharge(response.RequestCharge);
 
             return response.Resource.ToDictionary(x => new DocumentKey(x.Pk, x.Id), x => x);
-        }
-        catch (CosmosException e)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-            throw;
-        }
-    }
-    
-    public async Task UpdateAsync<T>(T document, OperationContext context)
-        where T : Document
-    {
-        try
-        {
-            var response = await Container.ReplaceItemAsync
-            (
-                document,
-                document.Id, new PartitionKey(document.Pk),
-                new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = false },
-                context.Cancellation
-            );
-            context.AddRequestCharge(response.RequestCharge);
-        }
-        catch (CosmosException e)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-            throw;
-        }
-    }
-    
-    public async Task<T> CreateOrUpdateAsync<T>(T document, OperationContext context)
-        where T : Document
-    {
-        try
-        {
-            var response = await Container.UpsertItemAsync
-            (
-                document,
-                new PartitionKey(document.Pk),
-                new ItemRequestOptions { IfMatchEtag = document.ETag, EnableContentResponseOnWrite = true },
-                context.Cancellation
-            );
-            context.AddRequestCharge(response.RequestCharge);
-            return response.Resource;
         }
         catch (CosmosException e)
         {

@@ -34,7 +34,9 @@ public class ContentConflictMerger : IConflictMerger
             case ConversationDocument remoteConversation:
                 if(TryMergeConversation(remoteConversation, (ConversationDocument)localConflict, out var merged))
                 {
-                    await _container.UpdateAsync(merged!, context);
+                    var uow = _container.CreateUnitOfWork(merged.Pk);
+                    uow.Update(merged!);
+                    await uow.SaveChangesAsync(context);
                     return true;
                 }
 
@@ -44,7 +46,9 @@ public class ContentConflictMerger : IConflictMerger
                 var (success, mergedCounts) = await TryMergeConversationCounts(remoteCounts, (ConversationCountsDocument)localConflict, context);
                 if(success)
                 {
-                    await _container.UpdateAsync(mergedCounts, context);
+                    var uow = _container.CreateUnitOfWork(mergedCounts.Pk);
+                    uow.Update(mergedCounts!);
+                    await uow.SaveChangesAsync(context);
                     return true;
                 }
 

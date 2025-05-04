@@ -198,11 +198,13 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         else if (comment.Version < conversation.Version)
         {
             // Comment is outdated
-            await contents.UpdateAsync(comment with
+            var uow = contents.CreateUnitOfWork(comment.Pk);
+            uow.Update(comment with
             {
                 Content = conversation.Content, 
                 Version = conversation.Version
-            }, context);
+            });
+            await uow.SaveChangesAsync(context);
         }
     }
     
@@ -218,7 +220,9 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         if(ccounts == null)
             return;
         
-        await contents.UpdateAsync(ccounts, context);
+        var uow = contents.CreateUnitOfWork(ccounts.Pk);
+        uow.Update(ccounts);
+        await uow.SaveChangesAsync(context);
     }
 
     private async Task EnsureChildConversationIsCreatedOnCommentAsync(ContentContainer contents, CommentDocument comment, OperationContext context)
