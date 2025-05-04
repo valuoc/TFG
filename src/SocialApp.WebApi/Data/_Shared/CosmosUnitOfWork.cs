@@ -1,5 +1,7 @@
+using System.Linq.Expressions;
 using System.Net;
 using Microsoft.Azure.Cosmos;
+using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Data._Shared;
@@ -8,7 +10,9 @@ public interface IUnitOfWork
 {
     void Create<T>(T document)
         where T:Document;
-    void Increment<T>(DocumentKey key, string path, int increment = 1)
+    void Increment<T>(DocumentKey key, Expression<Func<T,int>> path, int increment = 1)
+        where T:Document;
+    void CreateOrUpdate<T>(T document)
         where T:Document;
     
     Task SaveChangesAsync(OperationContext context);
@@ -33,11 +37,19 @@ public class CosmosUnitOfWork : IUnitOfWork
         _batch.CreateItem(document, _noBatchResponse);
     }
     
-    public void Increment<T>(DocumentKey key, string path, int increment = 1)
+    public void Increment<T>(DocumentKey key,  Expression<Func<T,int>> path, int increment = 1)
         where T:Document
     {
         _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Increment));
-        _batch.PatchItem(key.Id, [PatchOperation.Increment( path, increment)], _noBatchResponse);
+        var memberName = ((MemberExpression)path.Body).Member.Name;
+        memberName = char.ToLowerInvariant(memberName[0]) + memberName[1..];
+        _batch.PatchItem(key.Id, [PatchOperation.Increment($"/{memberName}", increment)], _noBatchResponse);
+    }
+
+    public void CreateOrUpdate<T>(T document) where T : Document
+    {
+        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.CreateOrUpdate));
+        _batch.UpsertItem(document, _noBatchResponse);
     }
 
     public async Task SaveChangesAsync(OperationContext context)
@@ -78,7 +90,8 @@ public class CosmosUnitOfWork : IUnitOfWork
 }
 
 public enum OperationKind { Create,
-    Increment
+    Increment,
+    CreateOrUpdate
 }
 public enum OperationError { Unknown, Conflict }
 public readonly record struct UnitOfWorkOperation(Type DocumentType, DocumentKey Key, OperationKind Kind);

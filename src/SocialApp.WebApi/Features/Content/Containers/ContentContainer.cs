@@ -219,34 +219,6 @@ public sealed class ContentContainer : CosmoContainer
         }
     }
     
-    public async Task ReactConversationAsync(ConversationLikeDocument reaction, OperationContext context)
-    {
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(reaction.Pk));
-        batch.UpsertItem(reaction);
-        
-        var counts = ConversationCountsDocument.Key(reaction.ConversationUserId, reaction.ConversationId);
-        var inc = new[] {PatchOperation.Increment("/likeCount", reaction.Like ? 1 : -1 )};
-        batch.PatchItem(counts.Id, inc, _noBatchResponse);
-
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
-    }
-    
-    public async Task ReactCommentAsync(CommentLikeDocument reaction, OperationContext context)
-    {
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(reaction.Pk));
-        batch.UpsertItem(reaction);
-        
-        var counts = CommentCountsDocument.Key(reaction.ConversationUserId, reaction.ConversationId, reaction.CommentId);
-        var inc = new[] { PatchOperation.Increment("/likeCount", reaction.Like ? 1 : -1) };
-        batch.PatchItem(counts.Id, inc, _noBatchResponse);
-
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
-    }
-    
     public async Task<ConversationUserLikeDocument?> GetUserConversationLikeAsync(string userId, string conversationUserId, string conversationId, OperationContext context)
     {
         var key = ConversationUserLikeDocument.Key(userId, conversationUserId, conversationId);

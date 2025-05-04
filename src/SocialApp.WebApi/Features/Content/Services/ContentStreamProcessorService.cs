@@ -118,7 +118,13 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
             {
                 Ttl = doc.Like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
             };
-            await contents.ReactConversationAsync(conversationLike, context);
+
+            var countKey = ConversationCountsDocument.Key(conversationLike.ConversationUserId, conversationLike.ConversationId);
+                
+            var uow = contents.UnitOfWork(conversationLike.Pk);
+            uow.CreateOrUpdate(conversationLike);
+            uow.Increment<ConversationCountsDocument>(countKey, c => c.LikeCount, conversationLike.Like ? 1 : -1 );
+            await uow.SaveChangesAsync(context);
         }
         
         if(string.IsNullOrWhiteSpace(doc.ParentConversationUserId))
@@ -131,7 +137,12 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
             {
                 Ttl = doc.Like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
             }; 
-            await contents.ReactCommentAsync(commentLike, context);
+            var countKey = CommentCountsDocument.Key(commentLike.ConversationUserId, commentLike.ConversationId, commentLike.CommentId);
+                    
+            var uow = contents.UnitOfWork(commentLike.Pk);
+            uow.CreateOrUpdate(commentLike);
+            uow.Increment<CommentCountsDocument>(countKey, c => c.LikeCount, commentLike.Like ? 1 : -1 );
+            await uow.SaveChangesAsync(context);
         }
     } 
 
@@ -162,7 +173,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
             var uow = contents.UnitOfWork(comment.Pk);
             uow.Create(comment);
             uow.Create(comment.CreateCounts());
-            uow.Increment<ConversationCountsDocument>(commentConversationKey, "/commentCount");
+            uow.Increment<ConversationCountsDocument>(commentConversationKey, c => c.CommentCount);
             await uow.SaveChangesAsync(context);
         }
         else if (conversation.Deleted && !comment.Deleted)

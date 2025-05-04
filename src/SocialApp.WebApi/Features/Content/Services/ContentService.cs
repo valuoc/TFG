@@ -75,7 +75,7 @@ public sealed class ContentService : IContentService
             var uow = contents.UnitOfWork(comment.Pk);
             uow.Create(comment);
             uow.Create(comment.CreateCounts());
-            uow.Increment<ConversationCountsDocument>(commentConversationKey, "/commentCount");
+            uow.Increment<ConversationCountsDocument>(commentConversationKey, c => c.CommentCount);
             await uow.SaveChangesAsync(context);
             
             try
@@ -169,7 +169,12 @@ public sealed class ContentService : IContentService
                 {
                     Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
                 };
-                await contents.ReactConversationAsync(conversationReaction, context);
+                var countKey = ConversationCountsDocument.Key(conversationReaction.ConversationUserId, conversationReaction.ConversationId);
+                
+                var uow = contents.UnitOfWork(conversationReaction.Pk);
+                uow.CreateOrUpdate(conversationReaction);
+                uow.Increment<ConversationCountsDocument>(countKey, c => c.LikeCount, conversationReaction.Like ? 1 : -1 );
+                await uow.SaveChangesAsync(context);
 
                 if (!string.IsNullOrWhiteSpace(conversation.ParentConversationUserId))
                 {
@@ -178,7 +183,12 @@ public sealed class ContentService : IContentService
                     {
                         Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
                     };
-                    await contents.ReactCommentAsync(commentReaction, context);
+                    countKey = CommentCountsDocument.Key(commentReaction.ConversationUserId, commentReaction.ConversationId, commentReaction.CommentId);
+                    
+                    uow = contents.UnitOfWork(commentReaction.Pk);
+                    uow.CreateOrUpdate(commentReaction);
+                    uow.Increment<CommentCountsDocument>(countKey, cc => cc.LikeCount, commentReaction.Like ? 1 : -1 );
+                    await uow.SaveChangesAsync(context);
                 }
             }
             catch (CosmosException e)
