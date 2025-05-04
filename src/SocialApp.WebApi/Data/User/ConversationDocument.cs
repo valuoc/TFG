@@ -34,4 +34,12 @@ public record ConversationDocument(string UserId, string ConversationId, string 
         var id = $"conversation:{conversationId}:z"; // z as limit
         return new DocumentKey(pk, id);
     }
+    
+    public ConversationCountsDocument CreateCounts()
+    {
+        return new ConversationCountsDocument(this.UserId, this.ConversationId, 0, 0, 0, this.ParentConversationUserId, this.ParentConversationId)
+        {
+            IsRootConversation = this.IsRootConversation
+        };
+    }
 }

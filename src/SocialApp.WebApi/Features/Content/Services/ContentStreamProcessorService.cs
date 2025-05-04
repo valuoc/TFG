@@ -1,4 +1,3 @@
-using System.Net;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
@@ -156,7 +155,15 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                 return;
             
             // Comment was not created
-            await contents.CreateCommentAsync(new CommentDocument(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.UserId, conversation.ConversationId, conversation.Content, conversation.LastModify, conversation.Version), context);
+            comment = new CommentDocument(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.UserId, conversation.ConversationId, conversation.Content, conversation.LastModify, conversation.Version);
+            var commentConversationKey = ConversationCountsDocument.Key(comment.ConversationUserId, comment.ConversationId);
+            
+            context.Signal("create-comment");
+            var uow = contents.UnitOfWork(comment.Pk);
+            uow.Create(comment);
+            uow.Create(comment.CreateCounts());
+            uow.Increment<ConversationCountsDocument>(commentConversationKey, "/commentCount");
+            await uow.SaveChangesAsync(context);
         }
         else if (conversation.Deleted && !comment.Deleted)
         {
@@ -198,14 +205,17 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         conversation = new ConversationDocument(comment.UserId, comment.CommentId, comment.Content, comment.LastModify, comment.Version, comment.ConversationUserId, comment.ConversationId);
         try
         {
-            await contents.CreateConversationAsync(conversation, context);
+            var uow = contents.UnitOfWork(conversation.Pk);
+            uow.Create(conversation);
+            uow.Create(conversation.CreateCounts());
+            await uow.SaveChangesAsync(context);
         }
-        catch (Exception e) when (e.GetBaseException() is CosmosException { StatusCode: HttpStatusCode.Conflict })
+        catch (UnitOfWorkException e) when (e.Error == OperationError.Conflict)
         {
             // This can happen if the Change Feed is catching up with the main conversation
         }
     }
-    
+
     private static async Task<FollowerListDocument?> GetFollowerListAsync(FollowContainer container, string userId, OperationContext context)
     {
         var followerKey = FollowerListDocument.Key(userId);

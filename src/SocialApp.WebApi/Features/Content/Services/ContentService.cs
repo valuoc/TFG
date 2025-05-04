@@ -41,15 +41,24 @@ public sealed class ContentService : IContentService
             var conversationId = Ulid.NewUlid(context.UtcNow).ToString();
             var contents = GetContentsContainer();
             var conversation = new ConversationDocument(user.UserId, conversationId, content, context.UtcNow.UtcDateTime, 0, null, null) { IsRootConversation = true };
-            await contents.CreateConversationAsync(conversation, context);
+
+            await CreateConversationAsync(contents, conversation, context);
             return conversationId;
         }
-        catch (CosmosException e)
+        catch (Exception e)
         {
             throw new ContentException(ContentError.UnexpectedError, e);
         }
     }
-    
+
+    private static async Task CreateConversationAsync(ContentContainer contents, ConversationDocument conversation, OperationContext context)
+    {
+        var uow = contents.UnitOfWork(conversation.Pk);
+        uow.Create(conversation);
+        uow.Create(conversation.CreateCounts());
+        await uow.SaveChangesAsync(context);
+    }
+
     public async Task<string> CommentAsync(UserSession user, string handle, string conversationId, string content, OperationContext context)
     {
         try
@@ -58,18 +67,24 @@ public sealed class ContentService : IContentService
             var contents = GetContentsContainer();
 
             var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
+            
             var comment = new CommentDocument(conversationUserId, conversationId, user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0);
-            var conversation = new ConversationDocument(user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0, conversationUserId, conversationId);
+            var commentConversationKey = ConversationCountsDocument.Key(comment.ConversationUserId, comment.ConversationId);
             
             context.Signal("create-comment");
-            await contents.CreateCommentAsync(comment, context);
-
+            var uow = contents.UnitOfWork(comment.Pk);
+            uow.Create(comment);
+            uow.Create(comment.CreateCounts());
+            uow.Increment<ConversationCountsDocument>(commentConversationKey, "/commentCount");
+            await uow.SaveChangesAsync(context);
+            
             try
             {
+                var conversation = new ConversationDocument(user.UserId, commentId, content, context.UtcNow.UtcDateTime, 0, conversationUserId, conversationId);
                 context.Signal("create-comment-conversation");
-                await contents.CreateConversationAsync(conversation, context);
+                await CreateConversationAsync(contents, conversation, context);
             }
-            catch (CosmosException)
+            catch (Exception e)
             {
                 // Change feed will correct this
                 // log?
@@ -145,7 +160,7 @@ public sealed class ContentService : IContentService
             {
                 Ttl = like ? -1 : (int)TimeSpan.FromDays(2).TotalSeconds
             };
-            await contents.UserReactConversationAsync(userReaction, context);
+            await contents.CreateOrUpdateAsync(userReaction, context);
 
             try
             {

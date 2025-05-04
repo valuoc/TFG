@@ -174,6 +174,11 @@ public abstract class CosmoContainer
             throw;
         }
     }
+
+    public IUnitOfWork UnitOfWork(string pk)
+    {
+        return new CosmosUnitOfWork(Container.CreateTransactionalBatch(new PartitionKey(pk)));
+    }
     
     protected async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
     {

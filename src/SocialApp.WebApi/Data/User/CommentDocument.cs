@@ -11,4 +11,9 @@ public record CommentDocument(string ConversationUserId, string ConversationId, 
         var id = $"conversation:{conversationId}:comment:{commentId}";
         return new DocumentKey(pk, id);
     }
+    
+    public CommentCountsDocument CreateCounts()
+    {
+        return new CommentCountsDocument(this.ConversationUserId, this.ConversationId, this.UserId, this.CommentId, 0, 0, 0);
+    }
 }

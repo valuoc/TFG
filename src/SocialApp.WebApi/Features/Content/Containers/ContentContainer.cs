@@ -13,31 +13,12 @@ public sealed class ContentContainer : CosmoContainer
 {
     private static readonly TransactionalBatchPatchItemRequestOptions _noBatchResponse = new() {EnableContentResponseOnWrite = false};
     private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
-    private static readonly TransactionalBatchItemRequestOptions _noResponse = new() { EnableContentResponseOnWrite = false };
     private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
     
     private static readonly double _secondsInADay = TimeSpan.FromDays(1).TotalSeconds;
     
     public ContentContainer(UserDatabase database)
         :base(database, "contents") { }
-    
-    public async Task<AllConversationDocuments> CreateConversationAsync(ConversationDocument conversation, OperationContext context)
-    {
-        var conversationCounts = new ConversationCountsDocument(conversation.UserId, conversation.ConversationId, 0, 0, 0, conversation.ParentConversationUserId, conversation.ParentConversationId)
-        {
-            IsRootConversation = conversation.IsRootConversation
-        };
-        
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(conversation.Pk));
-        batch.CreateItem(conversation, _noResponse);
-        batch.CreateItem(conversationCounts, _noResponse);
-        
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        
-        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
-        return new AllConversationDocuments(conversation, conversationCounts, null, null);
-    }
     
     public async Task<(IReadOnlyList<ConversationDocument>, IReadOnlyList<ConversationCountsDocument>)> GetUserConversationsDocumentsAsync(string userId, string? beforeConversationId, int limit, OperationContext context)
     {
@@ -72,19 +53,6 @@ public sealed class ContentContainer : CosmoContainer
         }
 
         return (conversations, conversationCounts);
-    }
-    
-    public async Task CreateCommentAsync(CommentDocument comment, OperationContext context)
-    {
-        var commentCounts = new CommentCountsDocument(comment.ConversationUserId, comment.ConversationId, comment.UserId, comment.CommentId, 0, 0, 0);
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(comment.Pk));
-        batch.CreateItem(comment, _noResponse);
-        batch.CreateItem(commentCounts, _noResponse);
-        batch.PatchItem(ConversationCountsDocument.Key(comment.ConversationUserId, comment.ConversationId).Id, [PatchOperation.Increment( "/commentCount", 1)], _noBatchResponse);
-        
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
     public async Task<CommentDocument?> GetCommentAsync(string conversationUserId, string conversationId, string commentId, OperationContext context)
@@ -249,20 +217,6 @@ public sealed class ContentContainer : CosmoContainer
                     throw new ContentException(error, new CosmosException($"{error}. Batch failed at position [{i}]: {sub.StatusCode}. {response.ErrorMessage}", sub.StatusCode, 0, i.ToString(), 0));
             }
         }
-    }
-
-    public async Task UserReactConversationAsync(ConversationUserLikeDocument reaction, OperationContext context)
-    {
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(reaction.Pk));
-        batch.UpsertItem(reaction, new TransactionalBatchItemRequestOptions()
-        {
-            IfMatchEtag = reaction.ETag,
-            EnableContentResponseOnWrite = false
-        });
-        
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
     }
     
     public async Task ReactConversationAsync(ConversationLikeDocument reaction, OperationContext context)
