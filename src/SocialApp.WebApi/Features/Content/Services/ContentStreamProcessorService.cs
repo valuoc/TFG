@@ -260,7 +260,9 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                 Ttl = FeedItemTtl,
                 Deleted = counts.Deleted,
             };
-            await contents.SaveFeedItemAsync(feedItem, context);
+            var uow = contents.UnitOfWork(feedItem.Pk);
+            uow.CreateOrUpdate(feedItem);
+            await uow.SaveChangesAsync(context);
         }
     }
 
@@ -274,7 +276,10 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                 Ttl = FeedItemTtl,
                 Deleted = conversation.Deleted
             };
-            await container.SaveFeedItemAsync(feedItem, context);
+            
+            var uow = container.UnitOfWork(feedItem.Pk);
+            uow.CreateOrUpdate(feedItem);
+            await uow.SaveChangesAsync(context);
         }
     }
 

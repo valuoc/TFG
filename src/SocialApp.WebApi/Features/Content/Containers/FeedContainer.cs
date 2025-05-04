@@ -7,11 +7,6 @@ namespace SocialApp.WebApi.Features.Content.Containers;
 
 public sealed class FeedContainer : CosmoContainer
 {
-    private static readonly TransactionalBatchPatchItemRequestOptions _noPatchResponse = new() {EnableContentResponseOnWrite = false};
-    private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
-    private static readonly TransactionalBatchItemRequestOptions _noResponse = new() { EnableContentResponseOnWrite = false };
-    private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
-    
     public FeedContainer(UserDatabase database)
         : base(database, "feeds")
     { }
@@ -51,17 +46,5 @@ public sealed class FeedContainer : CosmoContainer
         }
         
         return (conversations, conversationCounts);
-    }
-
-    public async Task SaveFeedItemAsync(FeedConversationDocument feedItem, OperationContext context)
-    {
-        var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-    }
-
-    public async Task SaveFeedItemAsync(FeedConversationCountsDocument feedItem, OperationContext context)
-    {
-        var response = await Container.UpsertItemAsync(feedItem, requestOptions: _noResponseContent, cancellationToken: context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
     }
 }

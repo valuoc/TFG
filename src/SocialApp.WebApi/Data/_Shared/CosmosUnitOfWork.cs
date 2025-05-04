@@ -15,6 +15,8 @@ public interface IUnitOfWork
         where T:Document;
     void CreateOrUpdate<T>(T document)
         where T:Document;
+    void Update<T>(T document)
+        where T:Document;
     
     Task SaveChangesAsync(OperationContext context);
 }
@@ -63,6 +65,12 @@ public class CosmosUnitOfWork : IUnitOfWork
         _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.CreateOrUpdate));
         _batch.UpsertItem(document, _noBatchResponse);
     }
+    
+    public void Update<T>(T document) where T : Document
+    {
+        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.Update));
+        _batch.ReplaceItem(document.Id, document, _noBatchResponse);
+    }
 
     public async Task SaveChangesAsync(OperationContext context)
     {
@@ -107,7 +115,8 @@ public class CosmosUnitOfWork : IUnitOfWork
 public enum OperationKind { Create,
     Increment,
     CreateOrUpdate,
-    Set
+    Set,
+    Update
 }
 public enum OperationError { Unknown, Conflict }
 public readonly record struct UnitOfWorkOperation(Type DocumentType, DocumentKey Key, OperationKind Kind);
