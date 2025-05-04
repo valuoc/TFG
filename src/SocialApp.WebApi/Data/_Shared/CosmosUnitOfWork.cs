@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using System.Net;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Data._Shared;
@@ -11,6 +10,8 @@ public interface IUnitOfWork
     void Create<T>(T document)
         where T:Document;
     void Increment<T>(DocumentKey key, Expression<Func<T,int>> path, int increment = 1)
+        where T:Document;
+    void Set<T>(DocumentKey key, Expression<Func<T,object>> path, object value)
         where T:Document;
     void CreateOrUpdate<T>(T document)
         where T:Document;
@@ -37,13 +38,24 @@ public class CosmosUnitOfWork : IUnitOfWork
         _batch.CreateItem(document, _noBatchResponse);
     }
     
-    public void Increment<T>(DocumentKey key,  Expression<Func<T,int>> path, int increment = 1)
+    public void Increment<T>(DocumentKey key, Expression<Func<T,int>> path, int increment = 1)
         where T:Document
     {
         _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Increment));
         var memberName = ((MemberExpression)path.Body).Member.Name;
         memberName = char.ToLowerInvariant(memberName[0]) + memberName[1..];
         _batch.PatchItem(key.Id, [PatchOperation.Increment($"/{memberName}", increment)], _noBatchResponse);
+    }
+
+    public void Set<T>(DocumentKey key, Expression<Func<T, object>> path, object value) 
+        where T : Document
+    {
+        _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Set));
+        var memberExpr = path.Body as MemberExpression;
+        if (memberExpr == null && path.Body is UnaryExpression { Operand: MemberExpression innerMember })
+            memberExpr = innerMember;
+        var memberName = char.ToLowerInvariant(memberExpr.Member.Name[0]) + memberExpr.Member.Name[1..];
+        _batch.PatchItem(key.Id, [PatchOperation.Set($"/{memberName}", value)], _noBatchResponse);
     }
 
     public void CreateOrUpdate<T>(T document) where T : Document
@@ -56,6 +68,9 @@ public class CosmosUnitOfWork : IUnitOfWork
     {
         try
         {
+            if(_operations.Count == 0)
+                return;
+            
             var response = await _batch.ExecuteAsync(context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
             ThrowErrorIfTransactionFailed(response);
@@ -91,7 +106,8 @@ public class CosmosUnitOfWork : IUnitOfWork
 
 public enum OperationKind { Create,
     Increment,
-    CreateOrUpdate
+    CreateOrUpdate,
+    Set
 }
 public enum OperationError { Unknown, Conflict }
 public readonly record struct UnitOfWorkOperation(Type DocumentType, DocumentKey Key, OperationKind Kind);

@@ -55,23 +55,6 @@ public sealed class ContentContainer : CosmoContainer
         return (conversations, conversationCounts);
     }
     
-    public async Task<CommentDocument?> GetCommentAsync(string conversationUserId, string conversationId, string commentId, OperationContext context)
-    {
-        try
-        {
-            var key = CommentDocument.Key(conversationUserId, conversationId, commentId);
-            var response = await Container.ReadItemAsync<CommentDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
-            context.AddRequestCharge(response.RequestCharge);
-            if(response.Resource is { Deleted: false })
-                return response.Resource;
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-        }
-        return null;
-    }
-    
     public async Task<AllConversationDocuments> GetAllConversationDocumentsAsync(string userId, string conversationId, int lastCommentCount, OperationContext context)
     {
         var keyFrom = ConversationDocument.KeyConversationsItemsStart(userId, conversationId);
@@ -149,47 +132,6 @@ public sealed class ContentContainer : CosmoContainer
         return (comments, commentCounts);
     }
     
-    public async Task<ConversationDocument?> GetConversationDocumentAsync(string userId, string conversationId, OperationContext context)
-    {
-        try
-        {
-            var key = ConversationDocument.Key(userId, conversationId);
-            var response = await Container.ReadItemAsync<ConversationDocument>(key.Id, new PartitionKey(key.Pk), _noResponseContent, context.Cancellation);
-            context.AddRequestCharge(response.RequestCharge);
-            if (response.Resource is { Deleted: false })
-                return response.Resource;
-        }
-        catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
-        {
-            context.AddRequestCharge(e.RequestCharge);
-        }
-        return null;
-    }
-    
-    public async Task RemoveConversationAsync(ConversationDocument document, OperationContext context)
-    {
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(document.Pk));
-        var deletePatch = new[] {PatchOperation.Set("/deleted", true), PatchOperation.Set("/ttl", _secondsInADay)};
-        batch.PatchItem(document.Id, deletePatch, _noBatchResponse);
-        batch.PatchItem(ConversationCountsDocument.Key(document.UserId, document.ConversationId).Id, deletePatch, _noBatchResponse);
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
-    }
-    
-    public async Task RemoveCommentAsync(string parentConversationUserId, string parentConversationId, string commentId, OperationContext context)
-    {
-        var commentKey = CommentDocument.Key(parentConversationUserId, parentConversationId, commentId);
-        var batch = Container.CreateTransactionalBatch(new PartitionKey(commentKey.Pk));
-        var deletePatch = new[] {PatchOperation.Set("/deleted", true), PatchOperation.Set("/ttl", _secondsInADay)};
-        batch.PatchItem(commentKey.Id, deletePatch, _noBatchResponse);
-        batch.PatchItem(CommentCountsDocument.Key(parentConversationUserId, parentConversationId, commentId).Id, deletePatch, _noBatchResponse);
-        batch.PatchItem(ConversationCountsDocument.Key(parentConversationUserId, parentConversationId).Id, [PatchOperation.Increment( "/commentCount", -1)], _noBatchResponse);
-        var response = await batch.ExecuteAsync(context.Cancellation);
-        context.AddRequestCharge(response.RequestCharge);
-        ThrowErrorIfTransactionFailed(ContentError.TransactionFailed, response);
-    }
-    
     public async Task IncreaseViewsAsync(string userId, string conversationId, OperationContext context)
     {
         // TODO: Defer
@@ -204,19 +146,6 @@ public sealed class ContentContainer : CosmoContainer
             context.Cancellation
         );
         context.AddRequestCharge(response.RequestCharge);
-    }
-    
-    private static void ThrowErrorIfTransactionFailed(ContentError error, TransactionalBatchResponse response)
-    {
-        if (!response.IsSuccessStatusCode)
-        {
-            for (var i = 0; i < response.Count; i++)
-            {
-                var sub = response[i];
-                if (sub.StatusCode != HttpStatusCode.FailedDependency)
-                    throw new ContentException(error, new CosmosException($"{error}. Batch failed at position [{i}]: {sub.StatusCode}. {response.ErrorMessage}", sub.StatusCode, 0, i.ToString(), 0));
-            }
-        }
     }
     
     public async Task<ConversationUserLikeDocument?> GetUserConversationLikeAsync(string userId, string conversationUserId, string conversationId, OperationContext context)

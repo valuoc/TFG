@@ -1,5 +1,6 @@
 using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Content;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
@@ -104,7 +105,8 @@ public sealed class ContentService : IContentService
         {
             var contents = GetContentsContainer();
 
-            var conversation = await contents.GetConversationDocumentAsync(user.UserId, conversationId, context);
+            var key = ConversationDocument.Key(user.UserId, conversationId);
+            var conversation = await contents.GetAsync<ConversationDocument>(key, context);
             
             if(conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
@@ -142,7 +144,8 @@ public sealed class ContentService : IContentService
             var contents = GetContentsContainer();
 
             var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
-            var conversation = await contents.GetConversationDocumentAsync(conversationUserId, conversationId, context);
+            var key = ConversationDocument.Key(conversationUserId, conversationId);
+            var conversation = await contents.GetAsync<ConversationDocument>(key, context);
             
             if(conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
@@ -209,26 +212,42 @@ public sealed class ContentService : IContentService
         {
             var contents = GetContentsContainer();
         
-            var conversation = await contents.GetConversationDocumentAsync(user.UserId, conversationId, context);
+            var key = ConversationDocument.Key(user.UserId, conversationId);
+            var conversation = await contents.GetAsync<ConversationDocument>(key, context);
         
             context.Signal("delete-conversation");
-            await contents.RemoveConversationAsync(conversation, context);
+
+            var uow = contents.UnitOfWork(conversation.Pk);
+            uow.Set<ConversationDocument>(key, c => c.Deleted, true);
+            uow.Set<ConversationDocument>(key, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
+            uow.Set<ConversationCountsDocument>(key, c => c.Deleted, true );
+            uow.Set<ConversationCountsDocument>(key, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
+            await uow.SaveChangesAsync(context);
 
             if (!string.IsNullOrWhiteSpace(conversation.ParentConversationUserId))
             {
                 try
                 {
                     context.Signal("delete-comment");
-                    await contents.RemoveCommentAsync(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId, context);
+                    var commentKey = CommentDocument.Key(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId);
+
+                    uow = contents.UnitOfWork(commentKey.Pk);
+                    uow.Set<CommentDocument>(commentKey, c => c.Deleted, true );
+                    uow.Set<CommentDocument>(commentKey, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
+                    uow.Set<CommentCountsDocument>(commentKey, c => c.Deleted, true );
+                    uow.Set<CommentCountsDocument>(commentKey, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
+                    var parentKey = ConversationCountsDocument.Key(conversation.ParentConversationUserId, conversation.ParentConversationId);
+                    uow.Increment<ConversationCountsDocument>(parentKey, c => c.CommentCount, -1);
+                    await uow.SaveChangesAsync(context);
                 }
-                catch (CosmosException)
+                catch (Exception)
                 {
                     // Change feed will correct this.
                     // log?
                 }
             }
         }
-        catch (CosmosException e)
+        catch (Exception e)
         {
             throw new ContentException(ContentError.UnexpectedError, e);
         }

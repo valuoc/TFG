@@ -159,7 +159,8 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         if(conversation.IsRootConversation)
             return; // It has no parent comment
         
-        var comment = await contents.GetCommentAsync(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId, context);
+        var key = CommentDocument.Key(conversation.ParentConversationUserId, conversation.ParentConversationId, conversation.ConversationId);
+        var comment = await contents.GetAsync<CommentDocument>(key, context);
         if(comment == null)
         {
             if(conversation.Deleted)
@@ -179,7 +180,16 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         else if (conversation.Deleted && !comment.Deleted)
         {
             // Delete comment and counts
-            await contents.RemoveCommentAsync(comment.ConversationUserId, comment.ConversationId, comment.CommentId, context);
+            var commentKey = CommentDocument.Key(comment.ConversationUserId, comment.ConversationId, comment.CommentId);
+                    
+            var uow = contents.UnitOfWork(commentKey.Pk);
+            uow.Set<CommentDocument>(key, c => c.Deleted, true );
+            uow.Set<CommentDocument>(key, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
+            uow.Set<CommentCountsDocument>(key, c => c.Deleted, true );
+            uow.Set<CommentCountsDocument>(key, c => c.Ttl, TimeSpan.FromDays(1).TotalSeconds );
+            var parentKey = ConversationCountsDocument.Key(conversation.ParentConversationUserId, conversation.ParentConversationId);
+            uow.Increment<ConversationCountsDocument>(parentKey, c => c.CommentCount, -1);
+            await uow.SaveChangesAsync(context);
         }
         else if (comment.Version < conversation.Version)
         {
@@ -209,7 +219,8 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
 
     private async Task EnsureChildConversationIsCreatedOnCommentAsync(ContentContainer contents, CommentDocument comment, OperationContext context)
     {
-        var conversation = await contents.GetConversationDocumentAsync(comment.UserId, comment.CommentId, context);
+        var key = ConversationDocument.Key(comment.UserId, comment.CommentId);
+        var conversation = await contents.GetAsync<ConversationDocument>(key, context);
         if(conversation != null)
             return;
 

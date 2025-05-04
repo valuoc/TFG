@@ -110,6 +110,6 @@ public abstract class ServiceTestsBase
         return session ?? throw new InvalidOperationException("Cannot find user");
     }
     
-    protected static CosmosException CreateCosmoException(HttpStatusCode code = HttpStatusCode.InternalServerError)
+    protected static CosmosException CreateCosmoException(HttpStatusCode code = HttpStatusCode.Unused)
         => new(code.ToString(), code, (int)code, Guid.NewGuid().ToString(), 2);
 }
