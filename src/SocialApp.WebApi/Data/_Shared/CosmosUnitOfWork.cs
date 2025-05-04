@@ -67,7 +67,11 @@ public class CosmosUnitOfWork : IUnitOfWork
     public void CreateOrUpdate<T>(T document) where T : Document
     {
         _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.CreateOrUpdate));
-        _batch.UpsertItem(document, _noBatchResponse);
+        _batch.UpsertItem(document, new TransactionalBatchItemRequestOptions()
+        {
+            IfMatchEtag = null, // document.ETag,
+            EnableContentResponseOnWrite = false
+        });
     }
     
     public void Update<T>(T document) where T : Document
@@ -88,7 +92,7 @@ public class CosmosUnitOfWork : IUnitOfWork
 
     public void Delete<T>(DocumentKey key) where T : Document
     {
-        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(key.Pk, key.Id), OperationKind.Delete));
+        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(key.Pk, key.Id), OperationKind.DeleteByKey));
         _batch.DeleteItem(key.Id, _noBatchResponse);
     }
 
@@ -124,6 +128,7 @@ public class CosmosUnitOfWork : IUnitOfWork
                     {
                         HttpStatusCode.Conflict => OperationError.Conflict,
                         HttpStatusCode.NotFound => OperationError.NotFound,
+                        HttpStatusCode.PreconditionFailed => OperationError.PreconditionFailed,
                         _ => OperationError.Unknown,
                     };
                     throw new UnitOfWorkException(op, error, response.ErrorMessage);
@@ -138,9 +143,12 @@ public enum OperationKind { Create,
     CreateOrUpdate,
     Set,
     Update,
-    Delete
+    Delete,
+    DeleteByKey
 }
-public enum OperationError { Unknown, Conflict, NotFound }
+public enum OperationError { Unknown, Conflict, NotFound,
+    PreconditionFailed
+}
 public readonly record struct UnitOfWorkOperation(Type DocumentType, DocumentKey Key, OperationKind Kind);
 public sealed class UnitOfWorkException : Exception
 {
