@@ -56,9 +56,12 @@ public class ContentConflictMerger : IConflictMerger
 
     private async Task<(bool, ConversationCountsDocument)> TryMergeConversationCounts(ConversationCountsDocument remoteConflict, ConversationCountsDocument localConflict, OperationContext context)
     {
-        var current = await _container.GetConversationCountsAsync(localConflict.UserId, localConflict.ConversationId, context);
+        var conversationCountKey = ConversationCountsDocument.Key(localConflict.UserId, localConflict.ConversationId);
+        var current = await _container.GetAsync<ConversationCountsDocument>(conversationCountKey, context);
+        
         if(current == null)
             return (false, remoteConflict);
+        
         var merged = current with
         {
             CommentCount = (remoteConflict.CommentCount - current.CommentCount) + (localConflict.CommentCount - current.CommentCount),

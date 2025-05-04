@@ -11,11 +11,7 @@ public record struct AllConversationDocuments(ConversationDocument? Conversation
 
 public sealed class ContentContainer : CosmoContainer
 {
-    private static readonly TransactionalBatchPatchItemRequestOptions _noBatchResponse = new() {EnableContentResponseOnWrite = false};
-    private static readonly ItemRequestOptions _noResponseContent = new(){ EnableContentResponseOnWrite = false};
     private static readonly PatchItemRequestOptions _patchItemNoResponse = new() { EnableContentResponseOnWrite = false};
-    
-    private static readonly double _secondsInADay = TimeSpan.FromDays(1).TotalSeconds;
     
     public ContentContainer(UserDatabase database)
         :base(database, "contents") { }
@@ -148,27 +144,4 @@ public sealed class ContentContainer : CosmoContainer
         context.AddRequestCharge(response.RequestCharge);
     }
     
-    public async Task<ConversationUserLikeDocument?> GetUserConversationLikeAsync(string userId, string conversationUserId, string conversationId, OperationContext context)
-    {
-        var key = ConversationUserLikeDocument.Key(userId, conversationUserId, conversationId);
-        return await GetAsync<ConversationUserLikeDocument>(key, context);
-    }
-    
-    public async Task<ConversationLikeDocument?> GetConversationReactionAsync(string conversationUserId, string conversationId, string userId, OperationContext context)
-    {
-        var key = ConversationLikeDocument.Key(conversationUserId, conversationId, userId);
-        return await GetAsync<ConversationLikeDocument>(key, context);
-    }
-
-    public async Task<CommentLikeDocument?> GetCommentReactionAsync(string conversationUserId, string conversationId, string commentId, string userId, OperationContext context)
-    {
-        var key = CommentLikeDocument.Key(conversationUserId, conversationId, commentId, userId);
-        return await GetAsync<CommentLikeDocument>(key, context);
-    }
-
-    public async Task<ConversationCountsDocument?> GetConversationCountsAsync(string conversationUserId, string conversationId, OperationContext context)
-    {
-        var key = ConversationCountsDocument.Key(conversationUserId, conversationId);
-        return await GetAsync<ConversationCountsDocument>(key, context);
-    }
 }

@@ -150,8 +150,9 @@ public sealed class ContentService : IContentService
             if(conversation == null)
                 throw new ContentException(ContentError.ContentNotFound);
             
-            var userReaction = await contents.GetUserConversationLikeAsync(user.UserId, conversationUserId, conversationId, context);
-            
+            var reactionKey = ConversationUserLikeDocument.Key(user.UserId, conversationUserId, conversationId);
+            var userReaction = await contents.GetAsync<ConversationUserLikeDocument>(reactionKey, context);
+
             if(userReaction != null && userReaction.Like == like)
                 return;
             

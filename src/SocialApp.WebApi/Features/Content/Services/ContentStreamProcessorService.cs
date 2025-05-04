@@ -111,7 +111,9 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
 
     private async Task EnsureLikeHasPropagatedAsync(ContentContainer contents, ConversationUserLikeDocument doc, OperationContext context)
     {
-        var conversationLike = await contents.GetConversationReactionAsync(doc.ConversationUserId, doc.ConversationId, doc.UserId, context);
+        var key = ConversationLikeDocument.Key(doc.ConversationUserId, doc.ConversationId, doc.UserId);
+        var conversationLike = await contents.GetAsync<ConversationLikeDocument>(key, context);
+        
         if (conversationLike == null || conversationLike.Like != doc.Like)
         {
             conversationLike = new ConversationLikeDocument(doc.ConversationUserId, doc.ConversationId, doc.UserId, doc.Like)
@@ -130,7 +132,9 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
         if(string.IsNullOrWhiteSpace(doc.ParentConversationUserId))
             return;
 
-        var commentLike = await contents.GetCommentReactionAsync(doc.ParentConversationUserId, doc.ParentConversationId, doc.ConversationId, doc.UserId, context);
+        var commentLikeKey = CommentLikeDocument.Key(doc.ParentConversationUserId, doc.ParentConversationId, doc.ConversationId, doc.UserId);
+        var commentLike = await contents.GetAsync<CommentLikeDocument>(commentLikeKey, context);
+
         if (commentLike == null || commentLike.Like != doc.Like)
         {
             commentLike = new CommentLikeDocument(doc.ParentConversationUserId, doc.ParentConversationId, doc.ConversationId, doc.UserId, doc.Like)
