@@ -19,5 +19,13 @@ public interface IUnitOfWork
         where T:Document;
     void Delete<T>(DocumentKey key)
         where T:Document;
+    
+    Task<T> CreateAsync<T>(T document)
+        where T:Document;
+    Task<T> CreateOrUpdateAsync<T>(T document)
+        where T:Document;
+    Task<T> UpdateAsync<T>(T document)
+        where T:Document;
+    
     Task SaveChangesAsync(OperationContext context);
 }

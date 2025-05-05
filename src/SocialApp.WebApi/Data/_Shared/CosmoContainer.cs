@@ -10,37 +10,10 @@ namespace SocialApp.WebApi.Data._Shared;
 public abstract class CosmoContainer
 {
     protected readonly Container Container;
-    private readonly CosmoDatabase _database;
     
     protected CosmoContainer(CosmoDatabase database, string name)
     {
         Container = database.GetContainer(name);
-        _database = database;
-    }
-
-    static readonly IDictionary<string, Type> _types = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-    static CosmoContainer()
-    {
-        _types = AppDomain
-            .CurrentDomain
-            .GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .Where(t => t.IsAssignableTo(typeof(Document)))
-            .ToDictionary(x => x.Name, x => x);
-    }
-
-    private Document? DeserializeDocument(JsonElement item)
-    {
-        var typeKey = item.GetProperty("type").GetString();
-        if(string.IsNullOrWhiteSpace(typeKey))
-            return null;
-        
-        if (_types.TryGetValue(typeKey, out var type))
-        {
-            return _database.Deserialize(type, item) as Document;
-        }
-
-        return null;
     }
     
     public async Task<bool> TryCreateIfNotExistsAsync<T>(T document, OperationContext context)
@@ -96,6 +69,13 @@ public abstract class CosmoContainer
     {
         return new CosmosUnitOfWork(Container.CreateTransactionalBatch(new PartitionKey(pk)));
     }
+
+    public async IAsyncEnumerable<Document> ExecuteQueryAsync<T>(T query, OperationContext context)
+    {
+        ICosmoDbQuery<T> x = null;
+        var cquery = x.GetQuery(query);
+        yield break;   
+    }
     
     protected async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
     {
@@ -117,7 +97,7 @@ public abstract class CosmoContainer
             
             foreach (var item in items)
             {
-                var document = DeserializeDocument(item);
+                var document = DocumentSerialization.DeserializeDocument(item);
                 if (document == null)
                     throw new InvalidOperationException("Unable to deserialize document: " + item.ToString());
                 yield return document;
@@ -157,7 +137,7 @@ public abstract class CosmoContainer
                 for (var i = 0; i < items.Count; i++)
                 {
                     var item = items.ElementAt(i);
-                    var document = DeserializeDocument(item);
+                    var document = DocumentSerialization.DeserializeDocument(item);
                     if (document == null)
                         throw new InvalidOperationException("Unable to deserialize document: " + item);
                     documents[i] = document;
@@ -177,10 +157,10 @@ public abstract class CosmoContainer
             foreach (var conflict in conflicts)
             {
                 var conflictingJson = Container.Conflicts.ReadConflictContent<JsonElement>(conflict);
-                var remoteConflict = DeserializeDocument(conflictingJson);
+                var remoteConflict = DocumentSerialization.DeserializeDocument(conflictingJson);
                 
                 var currentItem = await Container.Conflicts.ReadCurrentAsync<JsonElement>(conflict, new PartitionKey(remoteConflict.Pk), cancel);
-                var localConflict = DeserializeDocument(currentItem);
+                var localConflict = DocumentSerialization.DeserializeDocument(currentItem);
                 
                 if(await merger.MergeAsync(remoteConflict, localConflict, context))
                 {

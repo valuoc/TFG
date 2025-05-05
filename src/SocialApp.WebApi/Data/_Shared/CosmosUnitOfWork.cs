@@ -7,7 +7,8 @@ namespace SocialApp.WebApi.Data._Shared;
 
 public class CosmosUnitOfWork : IUnitOfWork
 {
-    private static readonly TransactionalBatchPatchItemRequestOptions _noBatchResponse = new() {EnableContentResponseOnWrite = false};
+    private static readonly TransactionalBatchPatchItemRequestOptions _responseOptions = new() {EnableContentResponseOnWrite = true};
+    private static readonly TransactionalBatchPatchItemRequestOptions _noResponseOptions = new() {EnableContentResponseOnWrite = true};
     
     private readonly TransactionalBatch _batch;
     private readonly List<UnitOfWorkOperation> _operations;
@@ -17,11 +18,22 @@ public class CosmosUnitOfWork : IUnitOfWork
         _operations = new List<UnitOfWorkOperation>();
     }
 
+    public Task<T> CreateAsync<T>(T document)
+        where T:Document
+    {
+        var tcs = new TaskCompletionSource<Document>();
+        var key = new DocumentKey(document.Pk, document.Id);
+        _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Create, tcs));
+        _batch.CreateItem(document, _responseOptions);
+        return tcs.Task.ContinueWith(t => (T)t.Result);
+    }
+    
     public void Create<T>(T document)
         where T:Document
     {
-        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.Create));
-        _batch.CreateItem(document, _noBatchResponse);
+        var key = new DocumentKey(document.Pk, document.Id);
+        _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Create));
+        _batch.CreateItem(document, _noResponseOptions);
     }
     
     public void Increment<T>(DocumentKey key, Expression<Func<T,int>> path, int increment = 1)
@@ -30,7 +42,7 @@ public class CosmosUnitOfWork : IUnitOfWork
         _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Increment));
         var memberName = ((MemberExpression)path.Body).Member.Name;
         memberName = char.ToLowerInvariant(memberName[0]) + memberName[1..];
-        _batch.PatchItem(key.Id, [PatchOperation.Increment($"/{memberName}", increment)], _noBatchResponse);
+        _batch.PatchItem(key.Id, [PatchOperation.Increment($"/{memberName}", increment)], _noResponseOptions);
     }
 
     public void Set<T>(DocumentKey key, Expression<Func<T, object>> path, object value) 
@@ -41,22 +53,50 @@ public class CosmosUnitOfWork : IUnitOfWork
         if (memberExpr == null && path.Body is UnaryExpression { Operand: MemberExpression innerMember })
             memberExpr = innerMember;
         var memberName = char.ToLowerInvariant(memberExpr.Member.Name[0]) + memberExpr.Member.Name[1..];
-        _batch.PatchItem(key.Id, [PatchOperation.Set($"/{memberName}", value)], _noBatchResponse);
+        _batch.PatchItem(key.Id, [PatchOperation.Set($"/{memberName}", value)], _noResponseOptions);
     }
 
-    public void CreateOrUpdate<T>(T document) where T : Document
+    public Task<T> CreateOrUpdateAsync<T>(T document) where T : Document
     {
-        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.CreateOrUpdate));
+        var tcs = new TaskCompletionSource<Document>();
+        var key = new DocumentKey(document.Pk, document.Id);
+        _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.CreateOrUpdate, tcs));
         _batch.UpsertItem(document, new TransactionalBatchItemRequestOptions()
         {
-            IfMatchEtag = null, // document.ETag,
+            IfMatchEtag = document.ETag,
+            EnableContentResponseOnWrite = true
+        });
+        return tcs.Task.ContinueWith(t => (T)t.Result);
+    }
+    
+    public void CreateOrUpdate<T>(T document) where T : Document
+    {
+        var key = new DocumentKey(document.Pk, document.Id);
+        _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.CreateOrUpdate));
+        _batch.UpsertItem(document, new TransactionalBatchItemRequestOptions()
+        {
+            IfMatchEtag = document.ETag,
             EnableContentResponseOnWrite = false
         });
     }
     
+    public Task<T> UpdateAsync<T>(T document) where T : Document
+    {
+        var tcs = new TaskCompletionSource<Document>();
+        var key = new DocumentKey(document.Pk, document.Id);
+        _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Update, tcs));
+        _batch.ReplaceItem(document.Id, document, new TransactionalBatchItemRequestOptions
+        {
+            IfMatchEtag = document.ETag,
+            EnableContentResponseOnWrite = true
+        });
+        return tcs.Task.ContinueWith(t => (T)t.Result);
+    }
+    
     public void Update<T>(T document) where T : Document
     {
-        _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.Update));
+        var key = new DocumentKey(document.Pk, document.Id);
+        _operations.Add(new UnitOfWorkOperation(typeof(T), key, OperationKind.Update));
         _batch.ReplaceItem(document.Id, document, new TransactionalBatchItemRequestOptions
         {
             IfMatchEtag = document.ETag,
@@ -67,13 +107,13 @@ public class CosmosUnitOfWork : IUnitOfWork
     public void Delete<T>(T document) where T : Document
     {
         _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(document.Pk, document.Id), OperationKind.Delete));
-        _batch.DeleteItem(document.Id, _noBatchResponse);
+        _batch.DeleteItem(document.Id, _noResponseOptions);
     }
 
     public void Delete<T>(DocumentKey key) where T : Document
     {
         _operations.Add(new UnitOfWorkOperation(typeof(T), new DocumentKey(key.Pk, key.Id), OperationKind.DeleteByKey));
-        _batch.DeleteItem(key.Id, _noBatchResponse);
+        _batch.DeleteItem(key.Id, _noResponseOptions);
     }
 
     public async Task SaveChangesAsync(OperationContext context)
@@ -85,7 +125,8 @@ public class CosmosUnitOfWork : IUnitOfWork
             
             var response = await _batch.ExecuteAsync(context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
-            ThrowErrorIfTransactionFailed(response);
+            ProcessTransactionResponse(response);
+            _operations.Clear();
         }
         catch (CosmosException ex)
         {
@@ -94,25 +135,44 @@ public class CosmosUnitOfWork : IUnitOfWork
         }
     }
 
-    private void ThrowErrorIfTransactionFailed(TransactionalBatchResponse response)
+    private void ProcessTransactionResponse(TransactionalBatchResponse response)
     {
         if (!response.IsSuccessStatusCode)
         {
+            ThrowUnitOfWorkException(response);
+        }
+        else
+        {
             for (var i = 0; i < response.Count; i++)
             {
-                var sub = response[i];
-                if (sub.StatusCode != HttpStatusCode.FailedDependency)
+                var result = response[i];
+                var op = _operations[i];
+
+                if (op.Completion != null)
                 {
-                    var op = _operations[i];
-                    var error = response.StatusCode switch
-                    {
-                        HttpStatusCode.Conflict => OperationError.Conflict,
-                        HttpStatusCode.NotFound => OperationError.NotFound,
-                        HttpStatusCode.PreconditionFailed => OperationError.PreconditionFailed,
-                        _ => OperationError.Unknown,
-                    };
-                    throw new UnitOfWorkException(op, error, response.ErrorMessage);
+                    var document = DocumentSerialization.DeserializeDocument(result.ResourceStream);
+                    op.Completion.SetResult(document);
                 }
+            }
+        }
+    }
+
+    private void ThrowUnitOfWorkException(TransactionalBatchResponse response)
+    {
+        for (var i = 0; i < response.Count; i++)
+        {
+            var result = response[i];
+            if (result.StatusCode != HttpStatusCode.FailedDependency)
+            {
+                var op = _operations[i];
+                var error = response.StatusCode switch
+                {
+                    HttpStatusCode.Conflict => OperationError.Conflict,
+                    HttpStatusCode.NotFound => OperationError.NotFound,
+                    HttpStatusCode.PreconditionFailed => OperationError.PreconditionFailed,
+                    _ => OperationError.Unknown,
+                };
+                throw new UnitOfWorkException(op, error, response.ErrorMessage);
             }
         }
     }
@@ -129,7 +189,7 @@ public enum OperationKind { Create,
 public enum OperationError { Unknown, Conflict, NotFound,
     PreconditionFailed
 }
-public readonly record struct UnitOfWorkOperation(Type DocumentType, DocumentKey Key, OperationKind Kind);
+public readonly record struct UnitOfWorkOperation(Type DocumentType, DocumentKey Key, OperationKind Kind, TaskCompletionSource<Document>? Completion = null);
 public sealed class UnitOfWorkException : Exception
 {
     public UnitOfWorkOperation Operation { get; }

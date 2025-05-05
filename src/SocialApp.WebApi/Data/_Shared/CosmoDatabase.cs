@@ -79,18 +79,6 @@ public abstract class CosmoDatabase
         return CosmosClient.GetContainer(DatabaseId, id);
     }
     
-    public object? Deserialize(Type type, JsonElement json)
-        => json.Deserialize(type, CosmosClient.ClientOptions.UseSystemTextJsonSerializerWithOptions);
-    
-    private static JsonSerializerOptions CreateJsonSerializerOptions()
-        => new()
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
-            WriteIndented = true,
-            PropertyNameCaseInsensitive = true, 
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        };
-    
     public static CosmosClient CreateCosmosClient(IConfiguration configuration, string applicationName)
         => new(
             configuration.GetValue<string>("Endpoint") ?? throw new SocialAppConfigurationException("Missing CosmosDb Endpoint"), 
@@ -99,7 +87,7 @@ public abstract class CosmoDatabase
             {
                 ConnectionMode = ConnectionMode.Direct,
                 ApplicationName = applicationName,
-                UseSystemTextJsonSerializerWithOptions = CreateJsonSerializerOptions(),
+                UseSystemTextJsonSerializerWithOptions = DocumentSerialization.Options,
                 ConsistencyLevel = null, // use account's level
                 ApplicationRegion = null, // use first writable. The primary.
                 //ApplicationPreferredRegions = 

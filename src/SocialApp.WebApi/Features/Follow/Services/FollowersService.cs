@@ -107,8 +107,9 @@ public sealed class FollowersService : IFollowersService
         
             context.Signal("add-following-as-pending");
             var uow = container.CreateUnitOfWork(followingList.Pk);
-            uow.CreateOrUpdate(followingList);
+            var tfollowing = uow.CreateOrUpdateAsync(followingList);
             await uow.SaveChangesAsync(context);
+            followingList = await tfollowing;
         
             var followerList = await GetFollowerListAsync(container, followedId, context);
             followerList ??= new FollowerListDocument(followedId);
@@ -154,8 +155,9 @@ public sealed class FollowersService : IFollowersService
         
             context.Signal("remove-following-as-pending");
             var uow = container.CreateUnitOfWork(followingList.Pk);
-            uow.CreateOrUpdate(followingList);
+            var tfollowing = uow.CreateOrUpdateAsync(followingList);
             await uow.SaveChangesAsync(context);
+            followingList = await tfollowing;
         
             var followerList = await GetFollowerListAsync(container, followedId, context);
             followerList ??= new FollowerListDocument(followerId);
