@@ -4,6 +4,7 @@ using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Account.Queries;
 using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Content.Services;
 using SocialApp.WebApi.Features.Follow.Services;
@@ -43,6 +44,9 @@ public static class RegisterDependencies
 
         services.AddHostedService<PendingAccountCleanJob>();
         services.AddHostedService<ContentProcessorJob>();
+
+        services.AddSingleton<IQueries, Queries>();
+        services.AddSingleton<IQuery<ExpiredPendingAccountsQuery, PendingAccountDocument>, ExpiredPendingAccountsCosmosDbQuery>();
     }
 
     private static SessionDatabase GetSessionDatabase(IServiceProvider services)

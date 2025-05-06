@@ -1,9 +1,9 @@
 using System.Linq.Expressions;
 using System.Net;
 using Microsoft.Azure.Cosmos;
-using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Data._Shared;
 
-namespace SocialApp.WebApi.Data._Shared;
+namespace SocialApp.WebApi.Features._Shared.Services;
 
 public class CosmosUnitOfWork : IUnitOfWork
 {

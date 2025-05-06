@@ -6,6 +6,7 @@ using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
 using SocialApp.WebApi.Features.Account.Exceptions;
+using SocialApp.WebApi.Features.Account.Queries;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
@@ -17,15 +18,17 @@ public interface IAccountService
 
 public class AccountService : IAccountService
 {
+    private readonly IQueries _queries;
     private readonly AccountDatabase _accountDb;
     private readonly UserDatabase _userDb;
     private readonly ILogger<AccountService> _logger;
 
-    public AccountService(AccountDatabase accountDb, UserDatabase userDb, ILogger<AccountService> logger)
+    public AccountService(AccountDatabase accountDb, UserDatabase userDb, ILogger<AccountService> logger, IQueries queries)
     {
         _accountDb = accountDb;
         _userDb = userDb;
         _logger = logger;
+        _queries = queries;
     }
     
     private ProfileContainer GetProfileContainer()
@@ -124,7 +127,8 @@ public class AccountService : IAccountService
         var profiles = GetProfileContainer();
         var pendingCount = 0;
 
-        await foreach (var pending in accounts.GetExpiredPendingAccountsAsync(timeLimit, context))
+        var query = new ExpiredPendingAccountsQuery(){ Limit = timeLimit };
+        await foreach (var pending in _queries.ExecuteQueryAsync<ExpiredPendingAccountsQuery, PendingAccountDocument>(accounts, query, context))
         {
             try
             {

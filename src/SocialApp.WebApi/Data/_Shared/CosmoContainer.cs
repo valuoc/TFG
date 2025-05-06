@@ -69,15 +69,8 @@ public abstract class CosmoContainer
     {
         return new CosmosUnitOfWork(Container.CreateTransactionalBatch(new PartitionKey(pk)));
     }
-
-    public async IAsyncEnumerable<Document> ExecuteQueryAsync<T>(T query, OperationContext context)
-    {
-        ICosmoDbQuery<T> x = null;
-        var cquery = x.GetQuery(query);
-        yield break;   
-    }
     
-    protected async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
+    public async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
     {
         using var itemIterator = Container.GetItemQueryIterator<JsonElement>(query, null, new QueryRequestOptions
         {

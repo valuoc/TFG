@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SocialApp.WebApi.Data._Shared;
@@ -9,6 +10,7 @@ using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features.Account.Queries;
 using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Content.Services;
 using SocialApp.WebApi.Features.Follow.Services;
@@ -63,7 +65,12 @@ public abstract class ServiceTestsBase
         _userDatabase = new UserDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:User"));
         _sessionDatabase = new SessionDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Session"));
 
-        AccountService = new AccountService(_accountDatabase, _userDatabase, new Logger<AccountService>(loggerFactory));
+        var services = new ServiceCollection();
+        services.AddSingleton<IQuery<ExpiredPendingAccountsQuery, PendingAccountDocument>, ExpiredPendingAccountsCosmosDbQuery>();
+
+        var queries = new Queries(services.BuildServiceProvider());
+        
+        AccountService = new AccountService(_accountDatabase, _userDatabase, new Logger<AccountService>(loggerFactory), queries);
         SessionService = new SessionService(_userDatabase, _sessionDatabase);
         var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_userDatabase), new MemoryCache(new MemoryCacheOptions()));
         FollowersService = new FollowersService(_userDatabase, userHandleService);
