@@ -1,6 +1,5 @@
 using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Account;
-using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
@@ -128,7 +127,7 @@ public class AccountService : IAccountService
         var pendingCount = 0;
 
         var query = new ExpiredPendingAccountsQuery(){ Limit = timeLimit };
-        await foreach (var pending in _queries.ExecuteQueryAsync<ExpiredPendingAccountsQuery, PendingAccountDocument>(accounts, query, context))
+        await foreach (var pending in _queries.ExecuteQueryManyAsync<ExpiredPendingAccountsQuery, PendingAccountDocument>(accounts, query, context))
         {
             try
             {

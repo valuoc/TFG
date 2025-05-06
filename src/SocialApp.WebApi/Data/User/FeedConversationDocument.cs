@@ -32,7 +32,7 @@ public record FeedConversationDocument(string FeedUserId, string ConversationUse
         return new DocumentKey(pk, id);
     }
     
-    public static DocumentKey KeyUserFeedFrom(string userId, string conversationId)
+    public static DocumentKey KeyUserFeedFrom(string userId, string? conversationId)
     {
         var pk = "user:"+userId;
         var id = $"feed:{conversationId}:";

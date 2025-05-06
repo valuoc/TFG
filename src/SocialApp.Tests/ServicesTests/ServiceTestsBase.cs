@@ -10,8 +10,9 @@ using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
-using SocialApp.WebApi.Features.Account.Queries;
+using SocialApp.WebApi.Features.Account;
 using SocialApp.WebApi.Features.Account.Services;
+using SocialApp.WebApi.Features.Content;
 using SocialApp.WebApi.Features.Content.Services;
 using SocialApp.WebApi.Features.Follow.Services;
 using SocialApp.WebApi.Features.Session.Models;
@@ -66,7 +67,8 @@ public abstract class ServiceTestsBase
         _sessionDatabase = new SessionDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Session"));
 
         var services = new ServiceCollection();
-        services.AddSingleton<IQuery<ExpiredPendingAccountsQuery, PendingAccountDocument>, ExpiredPendingAccountsCosmosDbQuery>();
+        services.RegisterAccountServices();
+        services.RegisterContentServices();
 
         var queries = new Queries(services.BuildServiceProvider());
         
@@ -75,7 +77,7 @@ public abstract class ServiceTestsBase
         var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_userDatabase), new MemoryCache(new MemoryCacheOptions()));
         FollowersService = new FollowersService(_userDatabase, userHandleService);
         ContentService = new ContentService(_userDatabase, userHandleService);
-        FeedService = new FeedService(_userDatabase, userHandleService);
+        FeedService = new FeedService(_userDatabase, userHandleService, queries);
        
         ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(loggerFactory));
         

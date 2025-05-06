@@ -10,7 +10,7 @@ public class ExpiredPendingAccountsQuery
     public TimeSpan Limit { get; set; }
 }
 
-public sealed class ExpiredPendingAccountsCosmosDbQuery : IQuery<ExpiredPendingAccountsQuery, PendingAccountDocument>
+public sealed class ExpiredPendingAccountsCosmosDbQueryMany : IQueryMany<ExpiredPendingAccountsQuery, PendingAccountDocument>
 {
     public async IAsyncEnumerable<PendingAccountDocument> ExecuteQueryAsync(CosmoContainer container, ExpiredPendingAccountsQuery query, OperationContext context)
     {

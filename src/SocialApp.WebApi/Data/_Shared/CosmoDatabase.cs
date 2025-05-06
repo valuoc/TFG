@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features._Shared.Services;
 

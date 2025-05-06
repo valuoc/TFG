@@ -1,5 +1,4 @@
 using SocialApp.Models.Session;
-using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
