@@ -6,7 +6,7 @@ using SocialApp.WebApi.Features._Shared.Tuples;
 
 namespace SocialApp.WebApi.Features.Content.Queries;
 
-public sealed class UserFeedQuery
+public sealed class UserFeedQuery : IQuery<FeedConversationTuple>
 {
     public string UserId { get; set; }
     public string? BeforeConversationId { get; set; }

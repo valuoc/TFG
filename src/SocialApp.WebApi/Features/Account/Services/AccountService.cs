@@ -127,7 +127,7 @@ public class AccountService : IAccountService
         var pendingCount = 0;
 
         var query = new ExpiredPendingAccountsQuery(){ Limit = timeLimit };
-        await foreach (var pending in _queries.ExecuteQueryManyAsync<ExpiredPendingAccountsQuery, PendingAccountDocument>(accounts, query, context))
+        await foreach (var pending in _queries.ExecuteQueryManyAsync(accounts, query, context))
         {
             try
             {

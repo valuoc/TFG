@@ -5,7 +5,7 @@ using SocialApp.WebApi.Features._Shared.Services;
 
 namespace SocialApp.WebApi.Features.Account.Queries;
 
-public class ExpiredPendingAccountsQuery
+public class ExpiredPendingAccountsQuery : IQuery<PendingAccountDocument>
 {
     public TimeSpan Limit { get; set; }
 }
