@@ -9,7 +9,7 @@ public interface IQueryManyHandler<in TQuery, out TResult>
 }
 
 public interface IQuerySingleHandler<in TQuery, TResult>
-    where TQuery : IQueryMany<TResult>
+    where TQuery : IQuerySingle<TResult>
 {
     Task<TResult> ExecuteQueryAsync(CosmoContainer container, TQuery query, OperationContext context);
 }

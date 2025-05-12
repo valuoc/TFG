@@ -76,7 +76,7 @@ public abstract class ServiceTestsBase
         SessionService = new SessionService(_userDatabase, _sessionDatabase);
         var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_userDatabase), new MemoryCache(new MemoryCacheOptions()));
         FollowersService = new FollowersService(_userDatabase, userHandleService);
-        ContentService = new ContentService(_userDatabase, userHandleService);
+        ContentService = new ContentService(_userDatabase, userHandleService, queries);
         FeedService = new FeedService(_userDatabase, userHandleService, queries);
        
         ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(loggerFactory));

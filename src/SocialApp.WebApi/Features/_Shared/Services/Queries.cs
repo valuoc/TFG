@@ -64,7 +64,7 @@ public sealed class Queries : IQueries
     }
     
     public class QuerySingleInvoker<TQuery, TResult> : QuerySingleInvoker<TResult>
-        where TQuery : IQueryMany<TResult>
+        where TQuery : IQuerySingle<TResult>
     {
         private readonly IQuerySingleHandler<TQuery, TResult> _query;
         public QuerySingleInvoker(IQuerySingleHandler<TQuery, TResult> query)

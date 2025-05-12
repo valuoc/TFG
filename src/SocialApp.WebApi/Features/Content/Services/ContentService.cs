@@ -2,6 +2,8 @@ using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Content;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Features._Shared.Tuples;
+using SocialApp.WebApi.Features.Account.Queries;
 using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Content.Containers;
 using SocialApp.WebApi.Features.Content.Exceptions;
@@ -23,12 +25,14 @@ public interface IContentService
 
 public sealed class ContentService : IContentService
 {
+    private readonly IQueries _queries;
     private readonly UserDatabase _userDb;
     private readonly IUserHandleService _userHandleService;
-    public ContentService(UserDatabase userDb, IUserHandleService userHandleService)
+    public ContentService(UserDatabase userDb, IUserHandleService userHandleService, IQueries queries)
     {
         _userDb = userDb;
         _userHandleService = userHandleService;
+        _queries = queries;
     }
 
     private ContentContainer GetContentsContainer()
@@ -267,17 +271,22 @@ public sealed class ContentService : IContentService
         try
         {
             var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
-            var documents = await contents.GetAllConversationDocumentsAsync(conversationUserId, conversationId, lastCommentCount, context);
-            if(documents.Conversation == null)
+            var query = new ConversationQuery()
+            {
+                UserId = conversationUserId,
+                ConversationId = conversationId,
+                LastCommentCount = lastCommentCount,
+            };
+            var tuple = await _queries.ExecuteQuerySingleAsync(contents, query, context);
+            if(tuple?.ConversationTuple == null)
                 throw new ContentException(ContentError.ContentNotFound);
-
             
             var keyFrom = ConversationCountsDocument.Key(conversationUserId, conversationId);
             var uow = contents.CreateUnitOfWork(keyFrom.Pk);
             uow.Increment<ConversationCountsDocument>(keyFrom, c => c.ViewCount);
             await uow.SaveChangesAsync(context);
             
-            return await BuildConversationModelAsync(documents.Conversation, documents.ConversationCounts, documents.Comments, documents.CommentCounts, context);
+            return await BuildConversationModelAsync(tuple.ConversationTuple.Conversation, tuple.ConversationTuple.Counts, tuple.Comments, context);
         }
         catch (CosmosException e)
         {
@@ -291,11 +300,24 @@ public sealed class ContentService : IContentService
         {
             var contents = GetContentsContainer();
             var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
-            var (comments, commentCounts) = await contents.GetPreviousCommentsAsync(conversationUserId, conversationId, commentId, lastCommentCount, context);
-            if (comments == null)
-                return Array.Empty<ConversationComment>();
+            var query = new PreviousCommentsQuery()
+            {
+                UserId = conversationUserId,
+                ConversationId = conversationId,
+                LastCommentCount = lastCommentCount,
+                CommentId = commentId
+            };
+            
+            var list = new ConversationComment[lastCommentCount];
+            var next = lastCommentCount - 1;
+            await foreach (var tuple in _queries.ExecuteQueryManyAsync(contents, query, context))
+            {
+                var comment = await BuildCommentAsync(tuple.Comment, tuple.Counts, context);
+                list[next--] = comment;
+            }
 
-            return await BuildCommentListAsync(comments, commentCounts, context);
+            var missing = next + 1;
+            return new List<ConversationComment>(list.Skip(missing));
         }
         catch (CosmosException e)
         {
@@ -310,18 +332,17 @@ public sealed class ContentService : IContentService
         try
         {
             var conversationUserId = await _userHandleService.GetUserIdAsync(handle, context);
-            var (conversations, conversationCounts) = await contents.GetUserConversationsDocumentsAsync(conversationUserId, beforeConversationId, limit, context);
-            if (conversations == null || conversations.Count == 0)
-                return Array.Empty<ConversationRoot>();
-            
-            var sorted = conversations
-                .Join(conversationCounts, i => i.ConversationId, o => o.ConversationId, (i, o) => (i, o))
-                .OrderByDescending(x => x.i.Sk);
-
-            var conversationsModels = new List<ConversationRoot>(conversations.Count);
-            foreach (var (conversationDoc, conversationCountsDocument) in sorted)
+            var query = new UserConversationsQuery()
             {
-                var conversation = await BuildConversationAsync(conversationDoc, conversationCountsDocument, context);
+                UserId = conversationUserId,
+                BeforeConversationId = beforeConversationId,
+                Limit = limit
+            };
+            
+            var conversationsModels = new List<ConversationRoot>(limit);
+            await foreach (var tuple in _queries.ExecuteQueryManyAsync(contents, query, context))
+            {
+                var conversation = await BuildConversationAsync(tuple.Conversation, tuple.Counts, context);
                 conversationsModels.Add(conversation.Root);
             }
             
@@ -333,35 +354,16 @@ public sealed class ContentService : IContentService
         }
     }
     
-    private async Task<IReadOnlyList<ConversationComment>> BuildCommentListAsync(List<CommentDocument> comments, List<CommentCountsDocument>? commentCounts, OperationContext context)
-    {
-        var sorted = comments
-            .Join(commentCounts, i => i.CommentId, o => o.CommentId, (i, o) => (i, o))
-            .OrderBy(x => x.i.Sk);
-
-        var commentModels = new List<ConversationComment>(comments.Count);
-        foreach (var (commentDoc, countsDoc) in sorted)
-        {
-            var comment = await BuildCommentAsync(commentDoc, countsDoc, context);
-            commentModels.Add(comment);
-        }
-
-        return commentModels;
-    }
     
-    private async Task<Conversation> BuildConversationModelAsync(ConversationDocument conversation, ConversationCountsDocument conversationCounts, List<CommentDocument>? comments, List<CommentCountsDocument>? commentCounts, OperationContext context)
+    private async Task<Conversation> BuildConversationModelAsync(ConversationDocument conversation, ConversationCountsDocument conversationCounts, IReadOnlyList<CommentTuple>? comments, OperationContext context)
     {
         var model = await BuildConversationAsync(conversation, conversationCounts, context);
         model.Root.ViewCount++;
         
         if (comments != null)
         {
-            if (commentCounts == null)
-                throw new InvalidOperationException($"Comments of conversation {conversation.UserId}/{conversation.ConversationId} are present but comment counts is null.");
-
             var sorted = comments
-                .Join(commentCounts, i => i.CommentId, o => o.CommentId, (i, o) => (i, o))
-                .OrderBy(x => x.i.Sk);
+                .OrderBy(x => x.Comment.Sk);
             
             foreach (var (commentDocument, commentCountsDocument) in sorted)
             {
