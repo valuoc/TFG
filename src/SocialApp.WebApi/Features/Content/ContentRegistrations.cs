@@ -14,7 +14,7 @@ public static class ContentRegistrations
         services.AddSingleton<IContentService, ContentService>();
         services.AddSingleton<IFeedService, FeedService>();
         services.AddSingleton<IContentStreamProcessorService, ContentStreamProcessorService>();
-        services.AddSingleton<IQueryMany<UserFeedQuery, FeedConversationTuple>, UserFeedQueryHandler>();
+        services.AddSingleton<IQueryManyHandler<UserFeedQueryMany, FeedConversationTuple>, UserFeedQueryHandler>();
         
     }
 }

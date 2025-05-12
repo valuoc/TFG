@@ -126,7 +126,7 @@ public class AccountService : IAccountService
         var profiles = GetProfileContainer();
         var pendingCount = 0;
 
-        var query = new ExpiredPendingAccountsQuery(){ Limit = timeLimit };
+        var query = new ExpiredPendingAccountsQueryMany(){ Limit = timeLimit };
         await foreach (var pending in _queries.ExecuteQueryManyAsync(accounts, query, context))
         {
             try

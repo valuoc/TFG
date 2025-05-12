@@ -12,7 +12,7 @@ public static class AccountRegistrations
     {
         services.AddSingleton<IAccountService, AccountService>();
         services.AddHostedService<PendingAccountCleanJob>();
-        services.AddSingleton<IQueryMany<ExpiredPendingAccountsQuery, PendingAccountDocument>, ExpiredPendingAccountsCosmosDbQueryMany>();
+        services.AddSingleton<IQueryManyHandler<ExpiredPendingAccountsQueryMany, PendingAccountDocument>, ExpiredPendingAccountsCosmosDbQueryManyHandler>();
 
     }
 }

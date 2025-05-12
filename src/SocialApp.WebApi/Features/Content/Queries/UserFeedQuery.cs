@@ -6,16 +6,16 @@ using SocialApp.WebApi.Features._Shared.Tuples;
 
 namespace SocialApp.WebApi.Features.Content.Queries;
 
-public sealed class UserFeedQuery : IQuery<FeedConversationTuple>
+public sealed class UserFeedQueryMany : IQueryMany<FeedConversationTuple>
 {
     public string UserId { get; set; }
     public string? BeforeConversationId { get; set; }
     public int Limit { get; set; }
 }
 
-public sealed class UserFeedQueryHandler :  IQueryMany<UserFeedQuery, FeedConversationTuple>
+public sealed class UserFeedQueryHandler :  IQueryManyHandler<UserFeedQueryMany, FeedConversationTuple>
 {
-    public async IAsyncEnumerable<FeedConversationTuple> ExecuteQueryAsync(CosmoContainer container, UserFeedQuery query, OperationContext context)
+    public async IAsyncEnumerable<FeedConversationTuple> ExecuteQueryAsync(CosmoContainer container, UserFeedQueryMany queryMany, OperationContext context)
     {
         const string sql = @"
             select * 
@@ -27,12 +27,12 @@ public sealed class UserFeedQueryHandler :  IQueryMany<UserFeedQuery, FeedConver
             order by c.sk desc 
             offset 0 limit @limit";
         
-        var keyStart = FeedConversationDocument.KeyUserFeedStart(query.UserId);
+        var keyStart = FeedConversationDocument.KeyUserFeedStart(queryMany.UserId);
         var cosmos = new QueryDefinition(sql)
             .WithParameter("@pk", keyStart.Pk)
             .WithParameter("@start", keyStart.Id)
-            .WithParameter("@end", query.BeforeConversationId == null ? FeedConversationDocument.KeyUserFeedEnd(query.UserId).Id : FeedConversationDocument.KeyUserFeedFrom(query.UserId, query.BeforeConversationId).Id)
-            .WithParameter("@limit", query.Limit * 2);
+            .WithParameter("@end", queryMany.BeforeConversationId == null ? FeedConversationDocument.KeyUserFeedEnd(queryMany.UserId).Id : FeedConversationDocument.KeyUserFeedFrom(queryMany.UserId, queryMany.BeforeConversationId).Id)
+            .WithParameter("@limit", queryMany.Limit * 2);
 
         FeedConversationCountsDocument? counts = null;
         await foreach (var document in container.ExecuteQueryReaderAsync(cosmos, keyStart.Pk, context))

@@ -34,7 +34,7 @@ public sealed class FeedService : IFeedService
     {
         var feeds = GetFeedContainer();
 
-        var query = new UserFeedQuery
+        var query = new UserFeedQueryMany
         {
             UserId = session.UserId,
             BeforeConversationId = beforeConversationId,
