@@ -32,3 +32,11 @@ variable "key_vault" {
     soft_delete_retention_days = 7
   }
 }
+variable "dns_zone_rg" {
+  type    = string
+  default = "DNSx81"
+}
+variable "dns_zone_name" {
+  type    = string
+  default = "socialapp.x81.io"
+}
