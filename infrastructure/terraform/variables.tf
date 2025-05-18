@@ -10,26 +10,34 @@ variable "secondary_regions" {
   type    = set(string)
   default = ["westus2"]
 }
+variable "geo_mappings" {
+  type = map(list(string))
+  default = {
+    "eastus2" = ["GEO-EU"],
+    "westus2" = ["GEO-NA"]
+  }
+
+}
 variable "acr" {
   type = object({
-    sku = string,
+    sku                     = string,
     zone_redundancy_enabled = bool
   })
   default = {
-    sku = "Premium",
+    sku                     = "Premium",
     zone_redundancy_enabled = false
   }
 }
 variable "key_vault" {
   type = object({
-    sku = string,
+    sku                           = string,
     public_network_access_enabled = bool,
-    soft_delete_retention_days = number
+    soft_delete_retention_days    = number
   })
   default = {
-    sku = "standard",
+    sku                           = "standard",
     public_network_access_enabled = true,
-    soft_delete_retention_days = 7
+    soft_delete_retention_days    = 7
   }
 }
 variable "dns_zone_rg" {
