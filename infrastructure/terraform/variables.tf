@@ -12,11 +12,21 @@ variable "secondary_regions" {
 }
 variable "geo_mappings" {
   type = map(list(string))
+  # https://learn.microsoft.com/en-us/azure/traffic-manager/traffic-manager-geographic-regions
   default = {
-    "eastus2" = ["GEO-EU"],
-    "westus2" = ["GEO-NA"]
+    "eastus2" = [
+      "GEO-AF", # Africa
+      "GEO-EU", # Europe
+      "GEO-ME", # Middle East
+      #"GEO-AS", # Asia
+    ],
+    "westus2" = [
+      "GEO-NA", # North America
+      "GEO-SA", # South America
+      "GEO-AN", # Antarctica
+      "GEO-AP", # Australia/Pacific
+    ]
   }
-
 }
 variable "acr" {
   type = object({
