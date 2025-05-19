@@ -38,7 +38,7 @@ data "azurerm_client_config" "current" {}
 data "azurerm_subscription" "current" {}
 
 locals {
-  environment_name = "test"
+  environment_name = var.environment_name
   resource_prefix  = "${var.solution_name}-${local.environment_name}"
   all_regions = setunion(var.secondary_regions, [var.main_region])
   tags = {

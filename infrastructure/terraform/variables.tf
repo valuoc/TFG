@@ -2,6 +2,10 @@ variable "solution_name" {
   type    = string
   default = "socialapp"
 }
+variable "environment_name" {
+  type    = string
+  default = "test"
+}
 variable "main_region" {
   type    = string
   default = "eastus2"
