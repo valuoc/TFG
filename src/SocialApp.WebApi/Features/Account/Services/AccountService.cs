@@ -1,5 +1,6 @@
 using Microsoft.Azure.Cosmos;
 using SocialApp.Models.Account;
+using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
@@ -83,13 +84,13 @@ public class AccountService : IAccountService
         var emailLock = new EmailLockDocument(email, userId);
         context.Signal("email-lock");
         
-        if(!await accounts.TryCreateIfNotExistsAsync(emailLock, context))
+        if(!await TryCreateIfNotExistsAsync(accounts, emailLock, context))
             throw new AccountException(AccountError.EmailAlreadyRegistered);
         
         
         var handleLock = new HandleLockDocument(handle, userId);
         context.Signal("handle-lock");
-        if(!await accounts.TryCreateIfNotExistsAsync(handleLock, context))
+        if(!await TryCreateIfNotExistsAsync(accounts, handleLock, context))
             throw new AccountException(AccountError.HandleAlreadyRegistered);
 
         try
@@ -119,6 +120,22 @@ public class AccountService : IAccountService
             throw new AccountException(AccountError.UnexpectedError, e);
         }
     }
+    
+    private async Task<bool> TryCreateIfNotExistsAsync<T>(CosmoContainer container, T document, OperationContext context)
+        where T:Document
+    {
+        try
+        {
+            var uow = container.CreateUnitOfWork(document.Pk);
+            uow.Create(document);
+            await uow.SaveChangesAsync(context);
+            return true;
+        }
+        catch (UnitOfWorkException e) when ( e.Error == OperationError.Conflict)
+        {
+            return false;
+        }
+    }
 
     public async Task<int> RemovedExpiredPendingAccountsAsync(TimeSpan timeLimit, OperationContext context)
     {
@@ -127,11 +144,11 @@ public class AccountService : IAccountService
         var pendingCount = 0;
 
         var query = new ExpiredPendingAccountsQueryMany(){ Limit = timeLimit };
-        await foreach (var pending in _queries.ExecuteQueryManyAsync(accounts, query, context))
+        await foreach (var pending in _queries.QueryManyAsync(accounts, query, context))
         {
             try
             {
-                var profile = await profiles.GetProfileAsync(pending.UserId, context);
+                var profile = await _queries.QuerySingleAsync(profiles, new ProfileQuery() { UserId = pending.UserId }, context);
                 if (profile == null)
                 {
                     if (await TryDeleteAccountLocksAsync(accounts, pending, context))

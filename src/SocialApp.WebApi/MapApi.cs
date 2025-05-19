@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
@@ -38,7 +39,18 @@ public static class MapApi
         MapContent(app);
         MapFeed(app);
         
-        app.MapGet("/health", (IConfiguration c) => $"OK: @'{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}'  {c.GetValue("ENVIRONMENT",string.Empty)}#{c.GetValue("REGION",string.Empty)}#{c.GetValue("IMAGE_TAG",string.Empty)}");
+        app.MapGet("/health", GetStatusString);
+    }
+
+    private static JsonObject GetStatusString(IConfiguration c)
+    {
+        var obj = new JsonObject();
+        obj.Add("status", "OK");
+        obj.Add("date", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+        obj.Add("version", c.GetValue("IMAGE_TAG",string.Empty));
+        obj.Add("environment", c.GetValue("ENVIRONMENT",string.Empty));
+        obj.Add("region", c.GetValue("REGION",string.Empty));
+        return obj;
     }
 
     private static void MapContent(WebApplication app)

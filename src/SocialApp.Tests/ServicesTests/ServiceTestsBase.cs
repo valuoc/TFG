@@ -66,18 +66,23 @@ public abstract class ServiceTestsBase
         _userDatabase = new UserDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:User"));
         _sessionDatabase = new SessionDatabase(_cosmosClient, _configuration.GetSection("CosmosDb:Session"));
 
-        var services = new ServiceCollection();
-        services.RegisterAccountServices();
-        services.RegisterContentServices();
+        var serviceCollection = new ServiceCollection();
+        serviceCollection.AddSingleton<IQueries>(s => new QueryResolver(s));
+        serviceCollection.AddSingleton(_accountDatabase);
+        serviceCollection.AddSingleton(_userDatabase);
+        serviceCollection.AddSingleton(_sessionDatabase);
+        serviceCollection.AddSingleton<IMemoryCache>(new MemoryCache(new MemoryCacheOptions()));
+        serviceCollection.RegisterAccountServices();
+        serviceCollection.RegisterContentServices();
 
-        var queries = new Queries(services.BuildServiceProvider());
+        var services = serviceCollection.BuildServiceProvider();
+        var queries = services.GetRequiredService<IQueries>();
         
         AccountService = new AccountService(_accountDatabase, _userDatabase, new Logger<AccountService>(loggerFactory), queries);
-        SessionService = new SessionService(_userDatabase, _sessionDatabase);
-        var userHandleService = new UserHandleServiceCacheDecorator(new UserHandleService(_userDatabase), new MemoryCache(new MemoryCacheOptions()));
-        FollowersService = new FollowersService(_userDatabase, userHandleService);
-        ContentService = new ContentService(_userDatabase, userHandleService, queries);
-        FeedService = new FeedService(_userDatabase, userHandleService, queries);
+        SessionService = new SessionService(_userDatabase, _sessionDatabase, queries);
+        FollowersService = new FollowersService(_userDatabase, services.GetRequiredService<IUserHandleService>());
+        ContentService = new ContentService(_userDatabase,  services.GetRequiredService<IUserHandleService>(), queries);
+        FeedService = new FeedService(_userDatabase,  services.GetRequiredService<IUserHandleService>(), queries);
        
         ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(loggerFactory));
         

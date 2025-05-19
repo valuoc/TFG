@@ -4,6 +4,7 @@ using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
 using SocialApp.WebApi.Features.Account.Exceptions;
+using SocialApp.WebApi.Features.Account.Queries;
 
 namespace SocialApp.WebApi.Features.Account.Services;
 
@@ -17,10 +18,11 @@ public interface IUserHandleService
 public class UserHandleService : IUserHandleService
 {
     private readonly UserDatabase _userDb;
-
-    public UserHandleService(UserDatabase userDb)
+    private readonly IQueries _queries;
+    public UserHandleService(UserDatabase userDb, IQueries queries)
     {
         _userDb = userDb;
+        _queries = queries;
     }
     
     private ProfileContainer GetProfileContainer()
@@ -47,10 +49,18 @@ public class UserHandleService : IUserHandleService
             return [];
         
         var profiles = GetProfileContainer();
-        var dic = await profiles.GetManyAsync<ProfileDocument>(keys, context);
+
+        var dic = new Dictionary<string, ProfileDocument>();
+        await foreach(var tuple in _queries.QueryManyAsync(profiles, new ProfilesQuery() { ProfileKeys = keys }, context))
+        {
+            if(tuple.Item2 == null)
+                continue;
+            dic.Add(tuple.Item2.UserId, tuple.Item2);
+        }
+        
         var result = new string?[userIds.Count];
         for (var i = 0; i < result.Length; i++)
-            result[i] = dic.TryGetValue(keys[i], out var value) ? value?.Handle : null;
+            result[i] = dic.TryGetValue(userIds[i], out var value) ? value?.Handle : null;
         return result;
     }
 

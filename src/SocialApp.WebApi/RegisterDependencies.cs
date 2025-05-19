@@ -5,6 +5,7 @@ using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account;
+using SocialApp.WebApi.Features.Account.Queries;
 using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Content;
 using SocialApp.WebApi.Features.Follow.Services;
@@ -33,12 +34,7 @@ public static class RegisterDependencies
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<IFollowersService, FollowersService>();
         
-        services.AddSingleton<IUserHandleService>(s => new UserHandleServiceCacheDecorator
-        (
-            new UserHandleService(s.GetRequiredService<UserDatabase>()), s.GetRequiredService<IMemoryCache>()
-        ));
-        
-        services.AddSingleton<IQueries, Queries>();
+        services.AddSingleton<IQueries, QueryResolver>();
         services.RegisterAccountServices();
         services.RegisterContentServices();
     }

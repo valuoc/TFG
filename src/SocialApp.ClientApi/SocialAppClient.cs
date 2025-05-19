@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SocialApp.ClientApi.Clients;
 
 namespace SocialApp.ClientApi;
@@ -118,5 +119,13 @@ public sealed class SocialAppClient
         {
             Headers = response.Headers,
         };
+    }
+
+    public async Task<JsonObject> HealthAsync(CancellationToken cancel = default)
+    {
+        using var response = await _httpClient.GetAsync("/health", cancel);
+        response.EnsureSuccessStatusCode();
+        var content = JsonSerializer.Deserialize<JsonObject>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
+        return content;
     }
 }

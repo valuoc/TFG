@@ -3,6 +3,7 @@ using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Containers;
+using SocialApp.WebApi.Features.Account.Queries;
 using SocialApp.WebApi.Features.Session.Containers;
 using SocialApp.WebApi.Features.Session.Exceptions;
 using SocialApp.WebApi.Features.Session.Models;
@@ -22,11 +23,13 @@ public class SessionService : ISessionService
     
     private readonly UserDatabase _userDd;
     private readonly SessionDatabase _sessionDb;
+    private readonly IQueries _queries;
 
-    public SessionService(UserDatabase userDd, SessionDatabase sessionDb)
+    public SessionService(UserDatabase userDd, SessionDatabase sessionDb, IQueries queries)
     {
         _userDd = userDd;
         _sessionDb = sessionDb;
+        _queries = queries;
     }
 
     private SessionContainer GetSessionContainer()
@@ -44,8 +47,8 @@ public class SessionService : ISessionService
             var login = await profiles.GetAsync<PasswordLoginDocument>(key, context);
             if (login == null || login.Password != Passwords.HashPassword(request.Password))
                 return null;
-
-            var profile = await profiles.GetProfileAsync(login.UserId, context);
+            
+            var profile = await _queries.QuerySingleAsync(profiles, new ProfileQuery() { UserId = login.UserId }, context);
 
             if (profile == null)
                 return null;

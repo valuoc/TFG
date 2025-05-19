@@ -42,7 +42,7 @@ public sealed class FeedService : IFeedService
         };
 
         var list = new List<FeedConversationTuple>();
-        await foreach (var conversation in _queries.ExecuteQueryManyAsync(feeds, query, context))
+        await foreach (var conversation in _queries.QueryManyAsync(feeds, query, context))
         {
             list.Add(conversation);
         }

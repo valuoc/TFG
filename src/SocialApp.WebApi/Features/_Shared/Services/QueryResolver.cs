@@ -4,16 +4,16 @@ using SocialApp.WebApi.Data._Shared;
 
 namespace SocialApp.WebApi.Features._Shared.Services;
 
-public sealed class Queries : IQueries
+public sealed class QueryResolver : IQueries
 {
     private readonly IServiceProvider _services;
     private readonly ConcurrentDictionary<Type, object> _manyInvocators = new();
     private readonly ConcurrentDictionary<Type, object> _singleInvocators = new();
 
-    public Queries(IServiceProvider services)
+    public QueryResolver(IServiceProvider services)
         => _services = services;
 
-    public IAsyncEnumerable<TResult> ExecuteQueryManyAsync<TResult>(CosmoContainer container, IQueryMany<TResult> queryMany, OperationContext context)
+    public IAsyncEnumerable<TResult> QueryManyAsync<TResult>(CosmoContainer container, IQueryMany<TResult> queryMany, OperationContext context)
     {
         var queryType = queryMany.GetType();
 
@@ -28,7 +28,7 @@ public sealed class Queries : IQueries
         return wrapper.ExecuteQueryAsync(container, queryMany, context);
     }
 
-    public Task<TResult> ExecuteQuerySingleAsync<TResult>(CosmoContainer container, IQuerySingle<TResult> queryMany, OperationContext context)
+    public Task<TResult> QuerySingleAsync<TResult>(CosmoContainer container, IQuerySingle<TResult> queryMany, OperationContext context)
     {
         var queryType = queryMany.GetType();
 

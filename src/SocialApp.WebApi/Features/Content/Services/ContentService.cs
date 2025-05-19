@@ -277,7 +277,7 @@ public sealed class ContentService : IContentService
                 ConversationId = conversationId,
                 LastCommentCount = lastCommentCount,
             };
-            var tuple = await _queries.ExecuteQuerySingleAsync(contents, query, context);
+            var tuple = await _queries.QuerySingleAsync(contents, query, context);
             if(tuple?.ConversationTuple == null)
                 throw new ContentException(ContentError.ContentNotFound);
             
@@ -310,7 +310,7 @@ public sealed class ContentService : IContentService
             
             var list = new ConversationComment[lastCommentCount];
             var next = lastCommentCount - 1;
-            await foreach (var tuple in _queries.ExecuteQueryManyAsync(contents, query, context))
+            await foreach (var tuple in _queries.QueryManyAsync(contents, query, context))
             {
                 var comment = await BuildCommentAsync(tuple.Comment, tuple.Counts, context);
                 list[next--] = comment;
@@ -340,7 +340,7 @@ public sealed class ContentService : IContentService
             };
             
             var conversationsModels = new List<ConversationRoot>(limit);
-            await foreach (var tuple in _queries.ExecuteQueryManyAsync(contents, query, context))
+            await foreach (var tuple in _queries.QueryManyAsync(contents, query, context))
             {
                 var conversation = await BuildConversationAsync(tuple.Conversation, tuple.Counts, context);
                 conversationsModels.Add(conversation.Root);

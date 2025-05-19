@@ -16,22 +16,6 @@ public abstract class CosmoContainer
         Container = database.GetContainer(name);
     }
     
-    public async Task<bool> TryCreateIfNotExistsAsync<T>(T document, OperationContext context)
-        where T:Document
-    {
-        try
-        {
-            var uow = CreateUnitOfWork(document.Pk);
-            uow.Create(document);
-            await uow.SaveChangesAsync(context);
-            return true;
-        }
-        catch (UnitOfWorkException e) when ( e.Error == OperationError.Conflict)
-        {
-            return false;
-        }
-    }
-    
     public async Task<T?> GetAsync<T>(DocumentKey key, OperationContext context)
         where T:Document
     {
