@@ -11,10 +11,10 @@ public record FeedConversationCountsDocument(string FeedUserId, string Conversat
             Deleted = conversation.Deleted
         };
 
-    public static DocumentKey Key(string feedUserId, string threaUserId, string conversationId)
+    public static DocumentKey Key(string feedUserId, string conversationUserId, string conversationId)
     {
         var pk = "user:"+feedUserId;
-        var id = $"feed:{conversationId}:{threaUserId}:conversation_counts";
+        var id = $"feed:{conversationId}:user:{conversationUserId}:counts";
         return new DocumentKey(pk, id);
     }
 }

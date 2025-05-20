@@ -4,7 +4,7 @@ using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features._Shared.Tuples;
 
-namespace SocialApp.WebApi.Features.Account.Queries;
+namespace SocialApp.WebApi.Features.Content.Queries;
 
 public sealed class PreviousCommentsQuery : IQueryMany<CommentTuple>
 {

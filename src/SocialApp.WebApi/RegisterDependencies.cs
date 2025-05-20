@@ -1,12 +1,9 @@
-using Microsoft.Extensions.Caching.Memory;
 using SocialApp.WebApi.Data._Shared;
 using SocialApp.WebApi.Data.Account;
 using SocialApp.WebApi.Data.Session;
 using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account;
-using SocialApp.WebApi.Features.Account.Queries;
-using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Content;
 using SocialApp.WebApi.Features.Follow.Services;
 using SocialApp.WebApi.Features.Session.Services;

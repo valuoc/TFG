@@ -4,7 +4,7 @@ using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features._Shared.Tuples;
 
-namespace SocialApp.WebApi.Features.Account.Queries;
+namespace SocialApp.WebApi.Features.Content.Queries;
 
 public sealed class ConversationQuery : IQuerySingle<FullConversationTuple?>
 {
@@ -18,13 +18,11 @@ public sealed class ConversationQueryHandler : IQuerySingleHandler<ConversationQ
     public async Task<FullConversationTuple?> ExecuteQueryAsync(CosmoContainer container, ConversationQuery query, OperationContext context)
     {
         var keyFrom = ConversationDocument.KeyConversationsItemsStart(query.UserId, query.ConversationId);
-        var keyTo = ConversationDocument.KeyConversationItemsEnd(query.UserId, query.ConversationId);
-
+        
         const string sql = @"
             select * from c 
             where c.pk = @pk 
-              and c.sk >= @id 
-              and c.sk < @id_end
+              and startswith(c.sk, @id)
               and not is_defined(c.deleted) 
             order by c.sk desc 
             offset 0 limit @limit";
@@ -32,7 +30,6 @@ public sealed class ConversationQueryHandler : IQuerySingleHandler<ConversationQ
         var cosmosDb = new QueryDefinition(sql)
             .WithParameter("@pk", keyFrom.Pk)
             .WithParameter("@id", keyFrom.Id)
-            .WithParameter("@id_end", keyTo.Id)
             .WithParameter("@limit", 2 + query.LastCommentCount * 2 );
         
         ConversationDocument? conversation = null;

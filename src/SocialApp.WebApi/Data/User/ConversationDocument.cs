@@ -10,7 +10,7 @@ public record ConversationDocument(string UserId, string ConversationId, string 
     public static DocumentKey Key(string userId, string conversationId)
     {
         var pk = "user:"+userId;
-        var id = $"conversation:{conversationId}:conversation";
+        var id = $"conversation:{conversationId}:z_conversation";
         return new DocumentKey(pk, id);
     }
     
@@ -25,13 +25,6 @@ public record ConversationDocument(string UserId, string ConversationId, string 
     {
         var pk = "user:"+userId;
         var id = $"conversation:{conversationId}";
-        return new DocumentKey(pk, id);
-    }
-
-    public static DocumentKey KeyConversationItemsEnd(string userId, string conversationId)
-    {
-        var pk = "user:"+userId;
-        var id = $"conversation:{conversationId}:z"; // z as limit
         return new DocumentKey(pk, id);
     }
     

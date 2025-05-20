@@ -1,6 +1,5 @@
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features._Shared.Tuples;
-using SocialApp.WebApi.Features.Account.Queries;
 using SocialApp.WebApi.Features.Content.Queries;
 using SocialApp.WebApi.Features.Content.Services;
 using SocialApp.WebApi.Infrastructure.Jobs;

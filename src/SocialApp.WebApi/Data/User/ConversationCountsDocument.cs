@@ -10,7 +10,7 @@ public record ConversationCountsDocument(string UserId, string ConversationId, i
     public static DocumentKey Key(string userId, string conversationId)
     {
         var pk = "user:"+userId;
-        var id = $"conversation:{conversationId}:conversation_counts";
+        var id = $"conversation:{conversationId}:z_counts";
         return new DocumentKey(pk, id);
     }
 

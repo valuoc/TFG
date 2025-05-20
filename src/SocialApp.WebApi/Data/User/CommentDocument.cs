@@ -8,7 +8,7 @@ public record CommentDocument(string ConversationUserId, string ConversationId, 
     public static DocumentKey Key(string conversationUserId, string conversationId, string commentId)
     {
         var pk = "user:"+conversationUserId;
-        var id = $"conversation:{conversationId}:comment:{commentId}";
+        var id = $"conversation:{conversationId}:comment:{commentId}:comment";
         return new DocumentKey(pk, id);
     }
     

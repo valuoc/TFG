@@ -14,7 +14,7 @@ public record FeedConversationDocument(string FeedUserId, string ConversationUse
     public static DocumentKey Key(string userId, string conversationUserId, string conversationId)
     {
         var pk = "user:"+userId;
-        var id = $"feed:{conversationId}:{conversationUserId}:conversation";
+        var id = $"feed:{conversationId}:user:{conversationUserId}:conversation";
         return new DocumentKey(pk, id);
     }
     
