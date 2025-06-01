@@ -42,15 +42,30 @@ public static class MapApi
         app.MapGet("/health", GetStatusString);
     }
 
-    private static JsonObject GetStatusString(IConfiguration c)
+    private static JsonObject GetStatusString(HttpContext context, IConfiguration configuration)
     {
         var obj = new JsonObject();
         obj.Add("status", "OK");
         obj.Add("date", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
-        obj.Add("version", c.GetValue("IMAGE_TAG",string.Empty));
-        obj.Add("environment", c.GetValue("ENVIRONMENT",string.Empty));
-        obj.Add("region", c.GetValue("REGION",string.Empty));
+        obj.Add("version", configuration.GetValue("IMAGE_TAG",string.Empty));
+        obj.Add("environment", configuration.GetValue("ENVIRONMENT",string.Empty));
+        obj.Add("region", configuration.GetValue("REGION",string.Empty));
+        obj.Add("config", configuration.GetValue("ConfigurationSource","None"));
+        obj.Add("content_service", GetUserContainer(context, configuration));
         return obj;
+    }
+
+    private static string GetUserContainer(HttpContext context, IConfiguration c)
+    {
+        try
+        {
+            context.RequestServices.GetRequiredService<IContentService>();
+            return "yes";
+        }
+        catch (Exception e)
+        {
+            return "no: " + e.Message;
+        }
     }
 
     private static void MapContent(WebApplication app)
