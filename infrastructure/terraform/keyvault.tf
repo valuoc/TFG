@@ -13,3 +13,11 @@ resource "azurerm_key_vault" "key_vault" {
   sku_name                      = var.key_vault.sku
   tags                          = local.tags
 }
+
+resource "azurerm_key_vault_secret" "configuration_source" {
+  for_each     = local.all_regions
+  name         = "ConfigurationSource"
+  value        = "KeyVault"
+  key_vault_id = azurerm_key_vault.key_vault[each.key].id
+  tags         = local.tags
+}
