@@ -72,8 +72,11 @@ public abstract class CosmoDatabase
     public Container GetContainer(string name)
     {
         if (!_containerIdByName.TryGetValue(name, out var id))
-            throw new InvalidOperationException($"There is no configured container named '{name}'.");
-            
+        {
+            var existing = string.Join("', '", _containerIdByName.Keys);
+            throw new InvalidOperationException($"There is no configured container named '{name}'. Existing containers in {DatabaseId}: '{existing}'");
+        }
+
         return CosmosClient.GetContainer(DatabaseId, id);
     }
     
