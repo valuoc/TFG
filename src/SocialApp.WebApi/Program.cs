@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics;
@@ -27,7 +28,7 @@ if (builder.Environment.IsProduction())
         new DefaultAzureCredential(new DefaultAzureCredentialOptions
         {
             ManagedIdentityClientId = builder.Configuration["MANAGED_CLIENT_ID"]
-        }));
+        }), new KeyVaultSecretManager());
 }
 builder.Services.Configure<JsonOptions>(options =>
 {
@@ -87,4 +88,5 @@ app.UseMiddleware<RequestLog>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapApiEndpoints();
+app.UseMiddleware<RequestOperationCost>();
 app.Run("http://*:7000");

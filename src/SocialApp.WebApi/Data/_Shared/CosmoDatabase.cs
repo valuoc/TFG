@@ -7,7 +7,6 @@ namespace SocialApp.WebApi.Data._Shared;
 public abstract class CosmoDatabase
 {
     private readonly IConfiguration _configuration;
-    private readonly Dictionary<string, string> _containerIdByName = new(StringComparer.OrdinalIgnoreCase);
     protected readonly string DatabaseId;
     
     protected CosmosClient CosmosClient { get; }
@@ -17,15 +16,13 @@ public abstract class CosmoDatabase
         _configuration = configuration;
         CosmosClient = cosmosClient;
         DatabaseId = configuration.GetValue<string>("Id") ?? throw new SocialAppConfigurationException("Missing CosmosDb Database Id");
-        var containerIds = _configuration
+    }
+    
+    private IEnumerable<KeyValuePair<string,string>> GetContainerIds()
+        => _configuration
             .GetSection("Containers")
             .GetChildren()
-            .Select(x => (x.Key, x.GetValue<string>("Id") ?? throw new InvalidOperationException($"Missing Container Id in '{x.Key}'.")))
-            .ToArray();
-
-        foreach (var (name, id) in containerIds)
-            _containerIdByName[name] = id;
-    }
+            .Select(x => new KeyValuePair<string,string>(x.Key, x.GetValue<string>("Id") ?? throw new InvalidOperationException($"Missing Container Id in '{x.Key}'.")));
 
     public virtual async Task InitializeAsync()
     {
@@ -45,7 +42,7 @@ public abstract class CosmoDatabase
         foreach(var compositeIndex in GetCompositeIndexes())
             indexingPolicy.CompositeIndexes.Add(compositeIndex);
         
-        foreach (var kv in _containerIdByName)
+        foreach (var kv in GetContainerIds())
         {
             Container container = await database.CreateContainerIfNotExistsAsync(new ContainerProperties
             {
@@ -71,12 +68,9 @@ public abstract class CosmoDatabase
 
     public Container GetContainer(string name)
     {
-        if (!_containerIdByName.TryGetValue(name, out var id))
-        {
-            var existing = string.Join("', '", _containerIdByName.Keys);
-            throw new InvalidOperationException($"There is no configured container named '{name}'. Existing containers in {DatabaseId}: '{existing}'");
-        }
-
+        var id = _configuration.GetValue<string>($"Containers:{name}:Id", string.Empty);
+        if(string.IsNullOrWhiteSpace(id))
+            throw new InvalidOperationException($"There is no configured container named '{name}' in '{DatabaseId}'.");
         return CosmosClient.GetContainer(DatabaseId, id);
     }
     

@@ -23,7 +23,6 @@ public class RequestLog
             sw.Stop();
             
             var operationContext = context.RequestServices.GetRequiredService<OperationContext>();
-
             _logger.LogInformation(
                 "HTTP {Method} {Path} => {StatusCode}, {Elapsed}ms, {Operation}RU",
                 context.Request.Method,

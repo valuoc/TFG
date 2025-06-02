@@ -22,7 +22,7 @@ namespace SocialApp.Tests.ServicesTests;
 
 public abstract class ServiceTestsBase
 {
-    protected bool RemoveContainerAfterTests = false;
+    protected bool RemoveContainerAfterTests = true;
     
     private readonly IConfiguration _configuration;
     

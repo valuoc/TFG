@@ -25,11 +25,6 @@ foreach (var item in configuration.GetSection("Regions").GetChildren())
     }
 }
 
-await root.ProcessAsync(["user", "user1"], initContext);
-await Task.Delay(2_000);
-await root.ProcessAsync(["register"], initContext);
-await root.ProcessAsync(["login"], initContext);
-await root.ProcessAsync(["start-conversation", "waka", "waka"], initContext);
 Console.WriteLine("Configuration loaded!");
 Console.WriteLine();
 

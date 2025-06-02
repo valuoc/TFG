@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using SocialApp.Models.Account;
 using SocialApp.Models.Content;
 using SocialApp.Models.Session;
+using SocialApp.WebApi.Data.User;
 using SocialApp.WebApi.Features._Shared.Services;
 using SocialApp.WebApi.Features.Account.Services;
 using SocialApp.WebApi.Features.Content.Services;
@@ -51,7 +52,7 @@ public static class MapApi
         obj.Add("environment", configuration.GetValue("ENVIRONMENT",string.Empty));
         obj.Add("region", configuration.GetValue("REGION",string.Empty));
         obj.Add("config", configuration.GetValue("ConfigurationSource","None"));
-        obj.Add("content_service", GetUserContainer(context, configuration));
+        obj.Add("user_container", GetUserContainer(context, configuration));
         return obj;
     }
 
@@ -59,11 +60,12 @@ public static class MapApi
     {
         try
         {
-            context.RequestServices.GetRequiredService<IContentService>();
+            context.RequestServices.GetRequiredService<UserDatabase>().GetContainer("contents");
             return "yes";
         }
         catch (Exception e)
         {
+            context.RequestServices.GetRequiredService<ILogger<UserDatabase>>().LogError(e, "Error getting user container.");
             return "no: " + e.Message;
         }
     }
