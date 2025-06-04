@@ -11,9 +11,11 @@ public static class ContentRegistrations
     public static void RegisterContentServices(this IServiceCollection services)
     {
         services.AddHostedService<ContentProcessorJob>();
+        services.AddHostedService<ContentConflictProcessorJob>();
         services.AddSingleton<IContentService, ContentService>();
         services.AddSingleton<IFeedService, FeedService>();
         services.AddSingleton<IContentStreamProcessorService, ContentStreamProcessorService>();
+        services.AddSingleton<IContentConflictResolutionService, ContentConflictResolutionService>();
         services.AddSingleton<IQueryManyHandler<UserFeedQueryMany, FeedConversationTuple>, UserFeedQueryHandler>();
         services.AddSingleton<IQueryManyHandler<UserConversationsQuery, ConversationTuple>, UserConversationsQueryHandler>();
         services.AddSingleton<IQuerySingleHandler<ConversationQuery, FullConversationTuple?>, ConversationQueryHandler>();

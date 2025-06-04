@@ -34,4 +34,10 @@ public sealed class UserDatabase : CosmoDatabase
             }
         ];
     }
+    
+    protected override ConflictResolutionPolicy GetConflictResolutionPolicy()
+        => new()
+        {
+            Mode = ConflictResolutionMode.Custom
+        };
 }

@@ -49,6 +49,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
 
     private async Task ProcessRangeAsync(ContentContainer contents, string range, CancellationToken cancel)
     {
+        _logger.LogInformation("Processing content change feed range: {range} ... ", range);
         var follows = GetFollowContainer();
         await foreach (var (documents, continuation) in contents.ReadFeedAsync(range, null, cancel))
         {
@@ -88,7 +89,7 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                             break;
                         
                         default:
-                            //_logger.LogWarning("Content processor processing unexpected document: '{fullName}'", document.GetType().FullName);
+                            _logger.LogWarning("Content processor processing unexpected document: '{fullName}'", document.GetType().FullName);
                             break;
                     }
                 }

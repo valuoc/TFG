@@ -19,7 +19,7 @@ var initContext = new CommandContext(cancelProgram.Token);
 foreach (var item in configuration.GetSection("Regions").GetChildren())
 {
     await root.ProcessAsync(["region","add", item.Key, item.GetValue<string>("Url")??throw new ArgumentException("Missing region url in config.")], initContext);
-    if(item.GetValue<bool>("Default", false))
+    if(item.GetValue("Default", false))
     {
         await root.ProcessAsync(["region", "set", item.Key], initContext);
     }

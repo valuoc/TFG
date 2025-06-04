@@ -51,10 +51,18 @@ public abstract class CosmoDatabase
                 IndexingPolicy = indexingPolicy,
                 DefaultTimeToLive = -1,
                 PartitionKeyDefinitionVersion = PartitionKeyDefinitionVersion.V2,
+                ConflictResolutionPolicy = GetConflictResolutionPolicy()
             });
             Console.WriteLine("Created Container: {0}\n", container.Id);
         }
     }
+
+    protected virtual ConflictResolutionPolicy GetConflictResolutionPolicy()
+        => new()
+        {
+            Mode = ConflictResolutionMode.LastWriterWins,
+            ResolutionPath = "/_ts"
+        };
 
     protected virtual IEnumerable<Collection<CompositePath>> GetCompositeIndexes()
     {

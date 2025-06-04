@@ -124,7 +124,7 @@ public abstract class CosmoContainer
         }
     }
     
-    public async Task ProcessConflictFeedAsync(IConflictMerger merger, CancellationToken cancel)
+    public async IAsyncEnumerable<ConflictResolutionResult> ProcessConflictFeedAsync(IConflictMerger merger, CancellationToken cancel)
     {
         var conflictFeed = Container.Conflicts.GetConflictQueryIterator<ConflictProperties>();
         while (conflictFeed.HasMoreResults)
@@ -135,14 +135,29 @@ public abstract class CosmoContainer
             {
                 var conflictingJson = Container.Conflicts.ReadConflictContent<JsonElement>(conflict);
                 var remoteConflict = DocumentSerialization.DeserializeDocument(conflictingJson);
+                var remoteKey = remoteConflict != null
+                    ? new DocumentKey(remoteConflict.Pk, remoteConflict.Id)
+                    : DocumentSerialization.DeserializeKey(conflictingJson);
+
+                Document? localConflict = null;
+                if (!remoteKey.HasValue)
+                {
+                    yield return new ConflictResolutionResult(new DocumentKey("unknown", conflict.Id), false);
+                    continue;
+                }
                 
-                var currentItem = await Container.Conflicts.ReadCurrentAsync<JsonElement>(conflict, new PartitionKey(remoteConflict.Pk), cancel);
-                var localConflict = DocumentSerialization.DeserializeDocument(currentItem);
-                
+                var currentItem = await Container.Conflicts.ReadCurrentAsync<JsonElement>(conflict, new PartitionKey(remoteKey.Value.Pk), cancel);
+                localConflict = DocumentSerialization.DeserializeDocument(currentItem);
+
                 if(await merger.MergeAsync(remoteConflict, localConflict, context))
                 {
                     // Delete the conflict
-                    await Container.Conflicts.DeleteAsync(conflict, new PartitionKey(remoteConflict.Pk), cancel);
+                    await Container.Conflicts.DeleteAsync(conflict, new PartitionKey(remoteKey.Value.Pk), cancel);
+                    yield return new ConflictResolutionResult(remoteKey.Value, true);
+                }
+                else
+                {
+                    yield return new ConflictResolutionResult(remoteKey.Value, false);
                 }
             }
         }

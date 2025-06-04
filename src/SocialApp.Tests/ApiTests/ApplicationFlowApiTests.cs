@@ -6,7 +6,7 @@ using SocialApp.Models.Session;
 
 namespace SocialApp.Tests.ApiTests;
 
-public class SessionApiTests : ApiTestBase
+public class ApplicationFlowApiTests : ApiTestBase
 {
     record TestUser(string Email, string Password, string DisplayName, string Handle);
     

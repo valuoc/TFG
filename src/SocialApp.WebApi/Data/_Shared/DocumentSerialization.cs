@@ -30,16 +30,27 @@ public static class DocumentSerialization
 
     public static Document? DeserializeDocument(JsonElement item)
     {
-        var typeKey = item.GetProperty("type").GetString();
+        if (!item.TryGetProperty("type", out var property))
+            return null;
+            
+        var typeKey = property.GetString();
         if(string.IsNullOrWhiteSpace(typeKey))
             return null;
         
         if (_types.TryGetValue(typeKey, out var type))
-        {
             return Deserialize(type, item) as Document;
-        }
 
         return null;
+    }
+    
+    public static DocumentKey? DeserializeKey(JsonElement item)
+    {
+        if (!item.TryGetProperty("_pk", out var pk) || string.IsNullOrWhiteSpace(pk.GetString()))
+            return null;
+        if (!item.TryGetProperty("_id", out var id) || string.IsNullOrWhiteSpace(id.GetString()))
+            return null;
+
+        return new DocumentKey(pk.GetString()!, id.GetString()!);
     }
 
     public static Document? DeserializeDocument(Stream stream)

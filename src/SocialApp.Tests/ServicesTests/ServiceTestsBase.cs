@@ -32,6 +32,7 @@ public abstract class ServiceTestsBase
     protected ContentService ContentService;
     protected FeedService FeedService;
     protected ContentStreamProcessorService ContentStreamProcessorService;
+    protected ContentConflictResolutionService ContentConflictResolutionService;
     
     private AccountDatabase _accountDatabase;
     private UserDatabase _userDatabase;
@@ -42,7 +43,8 @@ public abstract class ServiceTestsBase
     private readonly CancellationTokenSource _changeFeedCancellationToken = new CancellationTokenSource();
     
     public Exception FeedError { get; private set; }
-
+    public Exception ConflictFeedError { get; private set; }
+    
     protected ServiceTestsBase()
     {
         _configuration = new ConfigurationBuilder()
@@ -85,6 +87,7 @@ public abstract class ServiceTestsBase
         FeedService = new FeedService(_userDatabase,  services.GetRequiredService<IUserHandleService>(), queries);
        
         ContentStreamProcessorService = new ContentStreamProcessorService(_userDatabase, new Logger<ContentStreamProcessorService>(loggerFactory));
+        ContentConflictResolutionService = new ContentConflictResolutionService(_userDatabase, _configuration, new Logger<ContentConflictResolutionService>(loggerFactory));
         
         await _userDatabase.InitializeAsync();
         
@@ -102,11 +105,24 @@ public abstract class ServiceTestsBase
             FeedError = e;
         }
     }
+    
+    private async Task ProcessConflictFeedAsync()
+    {
+        try
+        {
+            await ContentConflictResolutionService.ProcessConflictResolutionFeedAsync(_changeFeedCancellationToken.Token);
+        }
+        catch (Exception e)
+        {
+            ConflictFeedError = e;
+        }
+    }
 
     [OneTimeTearDown]
     public async Task TearDown()
     {
         var feedError = FeedError;
+        var conflictFeedError = ConflictFeedError;
         await _changeFeedCancellationToken.CancelAsync();
         _changeFeedCancellationToken.Dispose();
         if(RemoveContainerAfterTests)
@@ -114,6 +130,8 @@ public abstract class ServiceTestsBase
         _cosmosClient.Dispose();
         if(feedError != null)
             throw feedError;
+        if(conflictFeedError != null)
+            throw conflictFeedError;
     }
     
     protected async Task<UserSession> CreateUserAsync(string username = "")
