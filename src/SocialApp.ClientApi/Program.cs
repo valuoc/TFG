@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.Extensions.Configuration;
 using SocialApp.ClientApi;
 using SocialApp.ClientApi.Cli;

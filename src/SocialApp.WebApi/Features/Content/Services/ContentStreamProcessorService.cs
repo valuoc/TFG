@@ -50,63 +50,88 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
     private async Task ProcessRangeAsync(ContentContainer contents, string range, CancellationToken cancel)
     {
         _logger.LogInformation("Processing content change feed range: {range} ... ", range);
+
+        var continuation = await GetContinuationTokenAsync(contents, range, cancel);
+        
         var follows = GetFollowContainer();
-        await foreach (var (documents, continuation) in contents.ReadFeedAsync(range, null, cancel))
+        await foreach (var (documents, updatedContinuation) in contents.ReadFeedAsync(range, continuation, cancel))
         {
-            await Parallel.ForEachAsync(documents, cancel, async (document, c) =>
+            await Parallel.ForEachAsync(documents, cancel, async (document, c) 
+                => await ProcessDocumentAsync(contents, follows, document, c));
+            
+            // Avoid infinite loop updates
+            if(!documents.All(d => d is ChangeFeedProgressDocument))
+                await SaveContinuationTokenAsync(contents, range, updatedContinuation, cancel);
+        }
+    }
+
+    private async Task<string?> GetContinuationTokenAsync(ContentContainer contents, string range, CancellationToken cancel)
+    {
+        var key = ChangeFeedProgressDocument.Key("ContentFeedProcessor", range);
+        var document = await contents.GetAsync<ChangeFeedProgressDocument>(key, new OperationContext(cancel));
+        return document?.Continuation;
+    }
+    
+    private async Task SaveContinuationTokenAsync(ContentContainer contents, string range, string updatedContinuation, CancellationToken cancel)
+    {
+        var progress = new ChangeFeedProgressDocument("ContentFeedProcessor", range, updatedContinuation);
+        var uow = contents.CreateUnitOfWork(progress.Pk);
+        uow.CreateOrUpdate(progress);
+        await uow.SaveChangesAsync(new OperationContext(cancel));
+    }
+
+    private async Task ProcessDocumentAsync(ContentContainer contents, FollowContainer follows, Document document, CancellationToken cancel)
+    {
+        var context = new OperationContext(cancel);
+        var error = StreamProcessingError.UnexpectedError;
+        try
+        {
+            switch (document)
             {
-                var context = new OperationContext(c);
-                var error = StreamProcessingError.UnexpectedError;
-                try
-                {
-                    switch (document)
-                    {
-                        case ConversationDocument doc:
-                            error = StreamProcessingError.ConversationToParentComment;
-                            await SyncConversationToParentCommentAsync(contents, doc, context);
-                            error = StreamProcessingError.ConversationToFeed;
-                            await PropagateConversationToFollowersFeedsAsync(GetFeedContainer(), follows, doc, context);
-                            break;
+                case ConversationDocument doc:
+                    error = StreamProcessingError.ConversationToParentComment;
+                    await SyncConversationToParentCommentAsync(contents, doc, context);
+                    error = StreamProcessingError.ConversationToFeed;
+                    await PropagateConversationToFollowersFeedsAsync(GetFeedContainer(), follows, doc, context);
+                    break;
 
-                        case ConversationCountsDocument doc:
-                            error = StreamProcessingError.ConversationCountToParentComment;
-                            await SyncConversationCountsToParentCommentAsync(contents, doc, context);
-                            error = StreamProcessingError.ConversationCountToFeed;
-                            await PropagateConversationCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, context);
-                            break;
+                case ConversationCountsDocument doc:
+                    error = StreamProcessingError.ConversationCountToParentComment;
+                    await SyncConversationCountsToParentCommentAsync(contents, doc, context);
+                    error = StreamProcessingError.ConversationCountToFeed;
+                    await PropagateConversationCountsToFollowersFeedAsync(GetFeedContainer(), follows, doc, context);
+                    break;
 
-                        case CommentDocument doc:
-                            error = StreamProcessingError.VerifyChildConversationCreation;
-                            await EnsureChildConversationIsCreatedOnCommentAsync(contents, doc, context);
-                            break;
+                case CommentDocument doc:
+                    error = StreamProcessingError.VerifyChildConversationCreation;
+                    await EnsureChildConversationIsCreatedOnCommentAsync(contents, doc, context);
+                    break;
 
-                        case ConversationUserLikeDocument doc:
-                            error = StreamProcessingError.VerifyLikePropagation;
-                            await EnsureLikeHasPropagatedAsync(contents, doc, context);
-                            break;
+                case ConversationUserLikeDocument doc:
+                    error = StreamProcessingError.VerifyLikePropagation;
+                    await EnsureLikeHasPropagatedAsync(contents, doc, context);
+                    break;
                         
-                        case CommentCountsDocument doc:
-                            break;
+                case CommentCountsDocument doc:
+                    break;
                         
-                        default:
-                            _logger.LogWarning("Content processor processing unexpected document: '{fullName}'", document.GetType().FullName);
-                            break;
-                    }
-                }
-                catch (CosmosException e)
-                {
-                    context.AddRequestCharge(e.RequestCharge);
-                    throw new StreamProcessingException(error, document.Pk, document.Id, e);
-                }
-                catch (Exception e)
-                {
-                    throw new StreamProcessingException(error, document.Pk, document.Id, e);
-                }
-                finally
-                {
-                    ReportOperationCharge(document, context);
-                }
-            });
+                default:
+                    _logger.LogWarning("Content processor processing unexpected document: '{fullName}'", document.GetType().FullName);
+                    break;
+            }
+        }
+        catch (CosmosException e)
+        {
+            context.AddRequestCharge(e.RequestCharge);
+            throw new StreamProcessingException(error, document.Pk, document.Id, e);
+        }
+        catch (Exception e)
+        {
+            throw new StreamProcessingException(error, document.Pk, document.Id, e);
+        }
+        finally
+        {
+            ReportOperationCharge(document, context);
         }
     }
 
