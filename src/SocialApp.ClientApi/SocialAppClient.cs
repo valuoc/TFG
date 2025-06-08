@@ -1,4 +1,4 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -60,8 +60,9 @@ public sealed class SocialAppClient
     internal async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
     {
         PrintRequest("POST", path);
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return new Response<TResponse>
@@ -74,8 +75,9 @@ public sealed class SocialAppClient
     internal async Task<Response<TResponse>> GetAsync<TResponse>(string path, CancellationToken cancel)
     {
         PrintRequest("GET", path);
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.GetAsync(path, cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return new Response<TResponse>
@@ -88,8 +90,9 @@ public sealed class SocialAppClient
     internal async Task<Response> PostAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
         PrintRequest("POST", path);
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -100,8 +103,9 @@ public sealed class SocialAppClient
     internal async Task<Response> DeleteAsync(string path, CancellationToken cancel)
     {
         PrintRequest("DELETE", path);
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.DeleteAsync(path, cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -112,8 +116,9 @@ public sealed class SocialAppClient
     internal async Task<Response> PostAsync(string path, CancellationToken cancel)
     {
         PrintRequest("POST", path);
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.PostAsync(path, null, cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -124,8 +129,9 @@ public sealed class SocialAppClient
     internal async Task<Response> PutAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
         PrintRequest("PUT", path);
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.PutAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -136,8 +142,9 @@ public sealed class SocialAppClient
     internal async Task<Response> PutAsync(string path, CancellationToken cancel)
     {
         PrintRequest("PUT", path);
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.PutAsync(path, null, cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -148,17 +155,23 @@ public sealed class SocialAppClient
     public async Task<JsonObject> HealthAsync(CancellationToken cancel = default)
     {
         PrintRequest("GET", "/health");
+        var sw = Stopwatch.StartNew();
         using var response = await _httpClient.GetAsync("/health", cancel);
-        PrintResponse(response.StatusCode);
+        PrintResponse(response, sw);
         await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<JsonObject>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return content;
     }
 
-    private void PrintResponse(HttpStatusCode responseStatusCode)
+    private void PrintResponse(HttpResponseMessage response, Stopwatch sw)
     {
+        var cost = response.Headers.TryGetValues("X-OperationCharge", out var values)
+            ? values.FirstOrDefault()
+            : null;
+        cost = cost != null ? $"{cost} RUs" : string.Empty;
+        
         Console.ForegroundColor = ConsoleColor.DarkYellow;
-        Console.Write($" {(int)responseStatusCode} ({responseStatusCode})\n");
+        Console.Write($" HTTP_{(int)response.StatusCode} {response.StatusCode}, {(int)sw.ElapsedMilliseconds} ms, {cost} \n");
         Console.ResetColor();
     }
 

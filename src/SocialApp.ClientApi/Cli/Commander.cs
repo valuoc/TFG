@@ -128,7 +128,10 @@ public abstract class Commander
     protected (string handle, string conversationId) ParseConversationLocator(string command)
     {
         var conversationLocator = command.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var handle = conversationLocator[0][1..];
+        var handle = conversationLocator[0];
+        if(!handle.StartsWith("@"))
+            throw new ArgumentException("Invalid handle. It must start with '@'.");
+        handle = handle[1..];
         var conversationId = conversationLocator[1];
         return (handle, conversationId);
     }
