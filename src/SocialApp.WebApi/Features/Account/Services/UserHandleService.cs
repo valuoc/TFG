@@ -31,8 +31,8 @@ public class UserHandleService : IUserHandleService
     public async Task<string> GetUserIdAsync(string handle, OperationContext context)
     {
         var profiles = GetProfileContainer();
-        var key = HandleLockDocument.Key(handle);
-        var response = await profiles.GetAsync<HandleLockDocument>(new DocumentKey(key.Pk, key.Id), context);
+        var key = HandleDocument.Key(handle);
+        var response = await profiles.GetAsync<HandleDocument>(new DocumentKey(key.Pk, key.Id), context);
         if (string.IsNullOrWhiteSpace(response?.UserId))
             throw new AccountException(AccountError.HandleNotFound);
         return response.UserId;

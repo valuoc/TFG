@@ -70,8 +70,15 @@ public class UserCommander : Commander
                 selected = user;
         }
         
-        Print(2, $"User created {selected.UserName} (@{selected.Handle})", context);
+        PrintUser(selected, context);
         return selected;
+    }
+
+    private void PrintUser(User? selected, CommandContext context)
+    {
+        Print(2, $"User created {selected.UserName} (@{selected.Handle},{selected.Email})", context);
+        Print(4, $"-> Handle: @{selected.Handle}", context);
+        Print(4, $"->  Email: {selected.Email}", context);
     }
 
     private User CreateUser(string userName, string regionName, CommandContext context)
@@ -91,7 +98,7 @@ public class UserCommander : Commander
                 selected = user;
         }
         
-        Print(2, $"User created {selected.UserName} (@{selected.Handle})", context);
+        PrintUser(selected, context);
         return selected;
     }
 

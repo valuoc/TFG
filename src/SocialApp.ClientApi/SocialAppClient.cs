@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -53,12 +54,14 @@ public sealed class SocialAppClient
             return;
         
         var content = await response.Content.ReadAsStringAsync();
-        throw new InvalidOperationException($"HTTP Error: {response.StatusCode}\n{content}");
+        throw new HttpRequestException($"HTTP {(int)response.StatusCode} ({response.StatusCode}):\n\t{content}");
     }
 
     internal async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
     {
+        PrintRequest("POST", path);
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return new Response<TResponse>
@@ -70,7 +73,9 @@ public sealed class SocialAppClient
     
     internal async Task<Response<TResponse>> GetAsync<TResponse>(string path, CancellationToken cancel)
     {
+        PrintRequest("GET", path);
         using var response = await _httpClient.GetAsync(path, cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return new Response<TResponse>
@@ -82,7 +87,9 @@ public sealed class SocialAppClient
     
     internal async Task<Response> PostAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
+        PrintRequest("POST", path);
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -92,7 +99,9 @@ public sealed class SocialAppClient
     
     internal async Task<Response> DeleteAsync(string path, CancellationToken cancel)
     {
+        PrintRequest("DELETE", path);
         using var response = await _httpClient.DeleteAsync(path, cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -102,7 +111,9 @@ public sealed class SocialAppClient
     
     internal async Task<Response> PostAsync(string path, CancellationToken cancel)
     {
+        PrintRequest("POST", path);
         using var response = await _httpClient.PostAsync(path, null, cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -112,7 +123,9 @@ public sealed class SocialAppClient
 
     internal async Task<Response> PutAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
+        PrintRequest("PUT", path);
         using var response = await _httpClient.PutAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -122,7 +135,9 @@ public sealed class SocialAppClient
     
     internal async Task<Response> PutAsync(string path, CancellationToken cancel)
     {
+        PrintRequest("PUT", path);
         using var response = await _httpClient.PutAsync(path, null, cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         return new Response
         {
@@ -132,10 +147,26 @@ public sealed class SocialAppClient
 
     public async Task<JsonObject> HealthAsync(CancellationToken cancel = default)
     {
+        PrintRequest("GET", "/health");
         using var response = await _httpClient.GetAsync("/health", cancel);
+        PrintResponse(response.StatusCode);
         await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<JsonObject>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return content;
+    }
+
+    private void PrintResponse(HttpStatusCode responseStatusCode)
+    {
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.Write($" {(int)responseStatusCode} ({responseStatusCode})\n");
+        Console.ResetColor();
+    }
+
+    private void PrintRequest(string method, string path)
+    {
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.Write($" -> {method} {_httpClient.BaseAddress}{path[1..]} ... ");
+        Console.ResetColor();
     }
 }
 

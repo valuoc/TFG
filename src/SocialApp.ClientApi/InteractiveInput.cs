@@ -25,7 +25,7 @@ public static class InteractiveInput
             buffer.Clear();
             while (keyInfo.Key != ConsoleKey.Enter)
             {
-                keyInfo = ProcessControlKey(buffer, history, ref historyIndex);
+                keyInfo = ProcessKey(buffer, history, ref historyIndex);
             }
 
             historyIndex = 0;
@@ -78,9 +78,10 @@ public static class InteractiveInput
             }
             catch (Exception e)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
+                Console.ForegroundColor = ConsoleColor.DarkRed;
                 Console.WriteLine(e.GetType().Name + ":" + e.Message);
-                Console.WriteLine(e.StackTrace);
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("  " + e.StackTrace);
                 Console.ResetColor();
                 current = root;
             }
@@ -89,7 +90,7 @@ public static class InteractiveInput
         }
     }
 
-    private static ConsoleKeyInfo ProcessControlKey(StringBuilder buffer, List<string> history, ref int historyIndex)
+    private static ConsoleKeyInfo ProcessKey(StringBuilder buffer, List<string> history, ref int historyIndex)
     {
         var keyInfo = Console.ReadKey(false);
         if (keyInfo.Key == ConsoleKey.Backspace)
