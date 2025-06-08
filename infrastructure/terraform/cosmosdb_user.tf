@@ -103,6 +103,22 @@ resource "azurerm_cosmosdb_sql_container" "user_profiles" {
   }
 }
 
+resource "azurerm_key_vault_secret" "cosmosdb_user_authkey" {
+  depends_on = [
+    azurerm_key_vault_secret.cosmosdb_user_id,
+    azurerm_key_vault_secret.cosmosdb_user_endpoint,
+    azurerm_key_vault_secret.cosmosdb_user_contents_container,
+    azurerm_key_vault_secret.cosmosdb_user_profiles_container,
+    azurerm_key_vault_secret.cosmosdb_user_follows_container,
+    azurerm_key_vault_secret.cosmosdb_user_feeds_container
+  ]
+  for_each     = local.all_regions
+  name         = "CosmosDb--User--AuthKey"
+  value        = azurerm_cosmosdb_account.user.primary_key
+  key_vault_id = azurerm_key_vault.key_vault[each.key].id
+  tags         = local.tags
+}
+
 resource "azurerm_key_vault_secret" "cosmosdb_user_id" {
   for_each     = local.all_regions
   name         = "CosmosDb--User--Id"
@@ -115,14 +131,6 @@ resource "azurerm_key_vault_secret" "cosmosdb_user_endpoint" {
   for_each     = local.all_regions
   name         = "CosmosDb--User--Endpoint"
   value        = azurerm_cosmosdb_account.user.endpoint
-  key_vault_id = azurerm_key_vault.key_vault[each.key].id
-  tags         = local.tags
-}
-
-resource "azurerm_key_vault_secret" "cosmosdb_user_authkey" {
-  for_each     = local.all_regions
-  name         = "CosmosDb--User--AuthKey"
-  value        = azurerm_cosmosdb_account.user.primary_key
   key_vault_id = azurerm_key_vault.key_vault[each.key].id
   tags         = local.tags
 }

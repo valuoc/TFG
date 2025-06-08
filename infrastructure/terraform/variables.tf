@@ -62,3 +62,7 @@ variable "dns_zone_name" {
   type    = string
   default = "socialapp.x81.io"
 }
+variable "image_tag" {
+  type    = string
+  default = null
+}

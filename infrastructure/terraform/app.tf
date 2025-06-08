@@ -20,6 +20,12 @@ resource "azurerm_subnet" "subnet" {
 }
 
 resource "azurerm_container_app_environment" "app" {
+  depends_on = [
+    shell_script.publish,
+    azurerm_key_vault_secret.cosmosdb_session_authkey,
+    azurerm_key_vault_secret.cosmosdb_account_authkey,
+    azurerm_key_vault_secret.cosmosdb_user_authkey
+  ]
   for_each                   = toset([var.main_region])
   name                       = "${local.resource_prefix}-${each.key}"
   location                   = azurerm_resource_group.region_rgs[each.key].location
@@ -31,12 +37,6 @@ resource "azurerm_container_app_environment" "app" {
 
 resource "azurerm_container_app" "app" {
   for_each = toset([var.main_region])
-  depends_on = [
-    shell_script.deploy,
-    azurerm_key_vault_secret.cosmosdb_session_authkey,
-    azurerm_key_vault_secret.cosmosdb_account_authkey,
-    azurerm_key_vault_secret.cosmosdb_user_authkey
-  ]
   name                         = "${local.resource_prefix}-${each.key}-app"
   resource_group_name          = azurerm_resource_group.region_rgs[each.key].name
   container_app_environment_id = azurerm_container_app_environment.app[each.key].id

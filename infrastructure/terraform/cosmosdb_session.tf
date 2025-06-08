@@ -50,6 +50,19 @@ resource "azurerm_cosmosdb_sql_container" "session" {
   }
 }
 
+resource "azurerm_key_vault_secret" "cosmosdb_session_authkey" {
+  depends_on = [
+    azurerm_key_vault_secret.cosmosdb_session_id,
+    azurerm_key_vault_secret.cosmosdb_session_endpoint,
+    azurerm_key_vault_secret.cosmosdb_session_container
+  ]
+  for_each     = local.all_regions
+  name         = "CosmosDb--Session--AuthKey"
+  value        = azurerm_cosmosdb_account.session[each.key].primary_key
+  key_vault_id = azurerm_key_vault.key_vault[each.key].id
+  tags         = local.tags
+}
+
 resource "azurerm_key_vault_secret" "cosmosdb_session_id" {
   for_each     = local.all_regions
   name         = "CosmosDb--Session--Id"
@@ -62,14 +75,6 @@ resource "azurerm_key_vault_secret" "cosmosdb_session_endpoint" {
   for_each     = local.all_regions
   name         = "CosmosDb--Session--Endpoint"
   value        = azurerm_cosmosdb_account.session[each.key].endpoint
-  key_vault_id = azurerm_key_vault.key_vault[each.key].id
-  tags         = local.tags
-}
-
-resource "azurerm_key_vault_secret" "cosmosdb_session_authkey" {
-  for_each     = local.all_regions
-  name         = "CosmosDb--Session--AuthKey"
-  value        = azurerm_cosmosdb_account.session[each.key].primary_key
   key_vault_id = azurerm_key_vault.key_vault[each.key].id
   tags         = local.tags
 }

@@ -12,14 +12,14 @@ Microsoft.ContainerInstance                              RegistrationRequired  R
 */
 
 resource "azurerm_container_group" "aci" {
-  for_each = var.secondary_regions
   depends_on = [
-    shell_script.deploy,
+    shell_script.publish,
     azurerm_role_assignment.acr_permission,
     azurerm_key_vault_secret.cosmosdb_session_authkey,
     azurerm_key_vault_secret.cosmosdb_account_authkey,
     azurerm_key_vault_secret.cosmosdb_user_authkey
   ]
+  for_each = var.secondary_regions
   name                = "${local.resource_prefix}-${each.key}"
   location            = azurerm_resource_group.region_rgs[each.key].location
   resource_group_name = azurerm_resource_group.region_rgs[each.key].name
