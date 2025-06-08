@@ -16,8 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.RegisterServices();
 builder.Services.AddAuthorizationBuilder()
     .AddDefaultPolicy("test", policy => policy.RequireClaim(ClaimTypes.Sid));
-builder.Configuration.AddJsonFile("appsettings.json", false, false);
-builder.Configuration.AddJsonFile("appsettings.Development.json", false, false);
+builder.Configuration.AddJsonFile("appsettings.json", false, true);
+builder.Configuration.AddJsonFile("appsettings.Development.json", true, true);
 builder.Configuration.AddJsonFile("appsettings.Local.json", true, true);
 builder.Configuration.AddEnvironmentVariables();
 
@@ -28,7 +28,10 @@ if (builder.Environment.IsProduction())
         new DefaultAzureCredential(new DefaultAzureCredentialOptions
         {
             ManagedIdentityClientId = builder.Configuration["MANAGED_CLIENT_ID"]
-        }), new KeyVaultSecretManager());
+        }), new AzureKeyVaultConfigurationOptions
+        {
+            ReloadInterval = TimeSpan.FromMinutes(1)
+        });
 }
 builder.Services.Configure<JsonOptions>(options =>
 {

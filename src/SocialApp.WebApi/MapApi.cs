@@ -58,16 +58,8 @@ public static class MapApi
 
     private static string GetUserContainer(HttpContext context, IConfiguration c)
     {
-        try
-        {
-            context.RequestServices.GetRequiredService<UserDatabase>().GetContainer("contents");
-            return "yes";
-        }
-        catch (Exception e)
-        {
-            context.RequestServices.GetRequiredService<ILogger<UserDatabase>>().LogError(e, "Error getting user container.");
-            return "no: " + e.Message;
-        }
+        context.RequestServices.GetRequiredService<UserDatabase>().GetContainer("contents");
+        return "yes";
     }
 
     private static void MapContent(WebApplication app)

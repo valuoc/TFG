@@ -47,10 +47,19 @@ public sealed class SocialAppClient
         Feed = new FeedClient(this);
     }
 
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
+    {
+        if(response.IsSuccessStatusCode)
+            return;
+        
+        var content = await response.Content.ReadAsStringAsync();
+        throw new InvalidOperationException($"HTTP Error: {response.StatusCode}\n{content}");
+    }
+
     internal async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return new Response<TResponse>
         {
@@ -62,7 +71,7 @@ public sealed class SocialAppClient
     internal async Task<Response<TResponse>> GetAsync<TResponse>(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.GetAsync(path, cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<TResponse>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return new Response<TResponse>
         {
@@ -74,7 +83,7 @@ public sealed class SocialAppClient
     internal async Task<Response> PostAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         return new Response
         {
             Headers = response.Headers,
@@ -84,7 +93,7 @@ public sealed class SocialAppClient
     internal async Task<Response> DeleteAsync(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.DeleteAsync(path, cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         return new Response
         {
             Headers = response.Headers,
@@ -94,7 +103,7 @@ public sealed class SocialAppClient
     internal async Task<Response> PostAsync(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.PostAsync(path, null, cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         return new Response
         {
             Headers = response.Headers,
@@ -104,7 +113,7 @@ public sealed class SocialAppClient
     internal async Task<Response> PutAsync<TRequest>(string path, TRequest request, CancellationToken cancel)
     {
         using var response = await _httpClient.PutAsync(path, new StringContent(JsonSerializer.Serialize(request, _jOptions), Encoding.UTF8, "application/json"), cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         return new Response
         {
             Headers = response.Headers,
@@ -114,7 +123,7 @@ public sealed class SocialAppClient
     internal async Task<Response> PutAsync(string path, CancellationToken cancel)
     {
         using var response = await _httpClient.PutAsync(path, null, cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         return new Response
         {
             Headers = response.Headers,
@@ -124,8 +133,9 @@ public sealed class SocialAppClient
     public async Task<JsonObject> HealthAsync(CancellationToken cancel = default)
     {
         using var response = await _httpClient.GetAsync("/health", cancel);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         var content = JsonSerializer.Deserialize<JsonObject>(await response.Content.ReadAsStreamAsync(cancel), _jOptions);
         return content;
     }
 }
+

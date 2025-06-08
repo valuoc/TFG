@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Microsoft.Azure.Cosmos;
 using SocialApp.WebApi.Features._Shared.Services;
+using SocialApp.WebApi.Infrastructure;
 
 namespace SocialApp.WebApi.Data._Shared;
 
@@ -76,9 +77,10 @@ public abstract class CosmoDatabase
 
     public Container GetContainer(string name)
     {
-        var id = _configuration.GetValue<string>($"Containers:{name}:Id", string.Empty);
+        var key = $"Containers:{name}:Id";
+        var id = _configuration.GetValue<string>(key, string.Empty);
         if(string.IsNullOrWhiteSpace(id))
-            throw new InvalidOperationException($"There is no configured container named '{name}' in '{DatabaseId}'.");
+            throw new MissingConfigurationException($"There is no configured container named '{name}' in '{DatabaseId}'.", key, _configuration);
         return CosmosClient.GetContainer(DatabaseId, id);
     }
     
