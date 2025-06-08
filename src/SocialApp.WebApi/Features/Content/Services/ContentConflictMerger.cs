@@ -83,9 +83,9 @@ public class ContentConflictMerger : IConflictMerger
         
         var merged = current with
         {
-            CommentCount = (remoteConflict.CommentCount - current.CommentCount) + (localConflict.CommentCount - current.CommentCount),
-            ViewCount = (remoteConflict.ViewCount - current.ViewCount) + (localConflict.ViewCount - current.ViewCount),
-            LikeCount = (remoteConflict.LikeCount - current.LikeCount) + (localConflict.LikeCount - current.LikeCount)
+            CommentCount = current.CommentCount + (remoteConflict.CommentCount - current.CommentCount) + (localConflict.CommentCount - current.CommentCount),
+            ViewCount = current.ViewCount + (remoteConflict.ViewCount - current.ViewCount) + (localConflict.ViewCount - current.ViewCount),
+            LikeCount = current.LikeCount + (remoteConflict.LikeCount - current.LikeCount) + (localConflict.LikeCount - current.LikeCount)
         };
         return (true, merged);
     }

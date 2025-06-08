@@ -111,11 +111,17 @@ public sealed class ContentStreamProcessorService : IContentStreamProcessorServi
                     error = StreamProcessingError.VerifyLikePropagation;
                     await EnsureLikeHasPropagatedAsync(contents, doc, context);
                     break;
+                
+                case CommentLikeDocument _:
+                    // Do nothing. 
+                    break;
                         
-                case CommentCountsDocument doc:
+                case CommentCountsDocument _:
+                    // Do nothing.
                     break;
                         
                 default:
+                    // Document should not be in container.
                     _logger.LogWarning("Content processor processing unexpected document: '{fullName}'", document.GetType().FullName);
                     break;
             }
