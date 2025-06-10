@@ -22,7 +22,7 @@ public static class RegisterDependencies
             var http = s.GetRequiredService<IHttpContextAccessor>().HttpContext;
             return new OperationContext(http.RequestAborted);
         });
-        services.AddScoped<SessionGetter>();
+        services.AddScoped<SessionManager>();
         
         services.AddSingleton(GetAccountDatabase);
         services.AddSingleton(GetUserDatabase);

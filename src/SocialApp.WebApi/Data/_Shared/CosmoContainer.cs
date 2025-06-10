@@ -9,11 +9,27 @@ namespace SocialApp.WebApi.Data._Shared;
 
 public abstract class CosmoContainer
 {
+    private readonly string _containerName;
     protected readonly Container Container;
     
-    protected CosmoContainer(CosmoDatabase database, string name)
+    protected CosmoContainer(CosmoDatabase database, string containerName)
     {
-        Container = database.GetContainer(name);
+        _containerName = containerName;
+        Container = database.GetContainer(containerName);
+    }
+    
+    private ItemRequestOptions GetItemRequestOptions(OperationContext context)
+    {
+        if (!string.IsNullOrWhiteSpace(context.SessionTokens?.GetValueOrDefault(_containerName)))
+            return new ItemRequestOptions{ SessionToken = context.SessionTokens[_containerName] };
+        return new ItemRequestOptions();
+    }
+    
+    private ReadManyRequestOptions GetReadManyRequestOptions(OperationContext context)
+    {
+        if (!string.IsNullOrWhiteSpace(context.SessionTokens?.GetValueOrDefault(_containerName)))
+            return new ReadManyRequestOptions{ SessionToken = context.SessionTokens[_containerName] };
+        return new ReadManyRequestOptions();
     }
     
     public async Task<T?> GetAsync<T>(DocumentKey key, OperationContext context)
@@ -21,8 +37,10 @@ public abstract class CosmoContainer
     {
         try
         {
-            var response = await Container.ReadItemAsync<T>(key.Id, new PartitionKey(key.Pk), cancellationToken:context.Cancellation);
+            var response = await Container.ReadItemAsync<T>(key.Id, new PartitionKey(key.Pk), GetItemRequestOptions(context), cancellationToken:context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
+            context.SessionTokens ??= new Dictionary<string, string>();
+            context.SessionTokens[_containerName] = response.Headers?.Session;
             return response.Resource;
         }
         catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
@@ -31,15 +49,16 @@ public abstract class CosmoContainer
             return null;
         }
     }
-    
+
     public async Task<IReadOnlyDictionary<DocumentKey,T>> GetManyAsync<T>(IEnumerable<DocumentKey> keys, OperationContext context)
         where T:Document
     {
         try
         {
-            var response = await Container.ReadManyItemsAsync<T>(keys.Select(k => (k.Id, new PartitionKey(k.Pk))).ToList(), cancellationToken: context.Cancellation);
+            var response = await Container.ReadManyItemsAsync<T>(keys.Select(k => (k.Id, new PartitionKey(k.Pk))).ToList(), GetReadManyRequestOptions(context), cancellationToken: context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
-
+            context.SessionTokens ??= new Dictionary<string, string>();
+            context.SessionTokens[_containerName] = response.Headers?.Session;
             return response.Resource.ToDictionary(x => new DocumentKey(x.Pk, x.Id), x => x);
         }
         catch (CosmosException e)
@@ -51,7 +70,7 @@ public abstract class CosmoContainer
 
     public IUnitOfWork CreateUnitOfWork(string pk)
     {
-        return new CosmosUnitOfWork(Container.CreateTransactionalBatch(new PartitionKey(pk)));
+        return new CosmosUnitOfWork(Container.CreateTransactionalBatch(new PartitionKey(pk)), _containerName);
     }
     
     public async IAsyncEnumerable<Document> ExecuteQueryReaderAsync(QueryDefinition query, string partitionKey, OperationContext context)
@@ -62,6 +81,7 @@ public abstract class CosmoContainer
             EnableScanInQuery = false,
             PartitionKey = new PartitionKey(partitionKey),
             EnableOptimisticDirectExecution = true,
+            SessionToken = context.SessionTokens?.GetValueOrDefault(_containerName),
             MaxItemCount = 1_000 // ??
         });
 
@@ -71,6 +91,8 @@ public abstract class CosmoContainer
             context.AddRequestCharge(items.RequestCharge);
             context.SaveDebugMetrics(items.IndexMetrics);
             context.SaveQueryMetrics(items.Diagnostics.GetQueryMetrics());
+            context.SessionTokens ??= new Dictionary<string, string>();
+            context.SessionTokens[_containerName] = items.Headers?.Session;
             
             foreach (var item in items)
             {

@@ -15,9 +15,10 @@ public interface ISessionService
     Task<UserSession?> LoginWithPasswordAsync(LoginRequest request, OperationContext context);
     Task<UserSession?> GetSessionAsync(string sessionId, OperationContext context);
     Task EndSessionAsync(UserSession session, OperationContext context);
+    Task UpdateSessionAsync(string sessionId, OperationContext context);
 }
 
-public class SessionService : ISessionService
+public sealed class SessionService : ISessionService
 {
     private int _sessionLengthSeconds = 60*60;
     
@@ -114,5 +115,17 @@ public class SessionService : ISessionService
         {
             throw new SessionException(SessionError.UnexpectedError, e);
         }
+    }
+
+    public async Task UpdateSessionAsync(string sessionId, OperationContext context)
+    {
+        if(context.SessionTokens == null)
+            return;
+        
+        var sessions = GetSessionContainer();
+        var sessionKey = SessionDocument.Key(sessionId);
+        var uow = sessions.CreateUnitOfWork(sessionKey.Pk);
+        uow.Set<SessionDocument>(sessionKey, x => x.SessionTokens, context.SessionTokens);
+        await uow.SaveChangesAsync(context);
     }
 }

@@ -19,9 +19,9 @@ namespace SocialApp.WebApi;
 
 public static class MapApi
 {
-    private static  async Task<(UserSession? session, IResult? problem)> GetUserIdOrProblemAsync(SessionGetter sessions, OperationContext context)
+    private static  async Task<(UserSession? session, IResult? problem)> LoadSessionOrProblemAsync(SessionManager sessions, OperationContext context)
     {
-        var session = await sessions.GetUserSessionAsync(context);
+        var session = await sessions.LoadUserSessionAsync(context);
         if (session == null)
         {
             return (null, Results.Unauthorized());
@@ -30,6 +30,11 @@ public static class MapApi
         {
             return (session, null);
         }
+    }
+    
+    private static  async Task<UserSession?> TryLoadSessionAsync(SessionManager sessionManager, OperationContext context)
+    {
+        return await sessionManager.LoadUserSessionAsync(context);
     }
     
     public static void MapApiEndpoints(this WebApplication app)
@@ -43,93 +48,133 @@ public static class MapApi
         app.MapGet("/health", GetStatusString);
     }
 
-    private static JsonObject GetStatusString(HttpContext context, IConfiguration configuration)
-    {
-        var obj = new JsonObject();
-        obj.Add("status", "OK");
-        obj.Add("date", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
-        obj.Add("version", configuration.GetValue("IMAGE_TAG",string.Empty));
-        obj.Add("environment", configuration.GetValue("ENVIRONMENT",string.Empty));
-        obj.Add("region", configuration.GetValue("REGION",string.Empty));
-        obj.Add("config", configuration.GetValue("ConfigurationSource","None"));
-        obj.Add("user_container", GetUserContainer(context, configuration));
-        return obj;
-    }
-
-    private static string GetUserContainer(HttpContext context, IConfiguration c)
-    {
-        context.RequestServices.GetRequiredService<UserDatabase>().GetContainer("contents");
-        return "yes";
-    }
-
     private static void MapContent(WebApplication app)
     {
         var group = app.MapGroup("/conversation").RequireAuthorization();
 
-        group.MapPost("/", async (ContentRequest request, SessionGetter sessionGetter, IContentService contents, OperationContext context, HttpContext http) =>
+        group.MapPost("/", async (ContentRequest request, SessionManager sessionManager, IContentService contents, OperationContext context, HttpContext http) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            var conversationId = await contents.StartConversationAsync(session!, request.Content, context);
-            http.Response.Headers.Location = $"/conversation/{session!.Handle}/{conversationId}";
-            return Results.Ok();
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                var conversationId = await contents.StartConversationAsync(session!, request.Content, context);
+                http.Response.Headers.Location = $"/conversation/{session!.Handle}/{conversationId}";
+                return Results.Ok();
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         });
             
-        group.MapGet("/{handle}/{conversationId}", async (string handle, string conversationId, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}/{conversationId}", async (string handle, string conversationId, SessionManager sessionManager, IContentService contents, OperationContext context) =>
         {
-            return Results.Ok(await contents.GetConversationAsync(handle, conversationId, 5, context));
+            var session = await TryLoadSessionAsync(sessionManager, context);
+            try
+            {
+                return Results.Ok(await contents.GetConversationAsync(handle, conversationId, 5, context));
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).AllowAnonymous();
         
-        group.MapGet("/{handle}/{conversationId}/comments", async (string handle, string conversationId, string? before, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}/{conversationId}/comments", async (string handle, string conversationId, string? before, SessionManager sessionManager, IContentService contents, OperationContext context) =>
         {
-            return Results.Ok(await contents.GetPreviousCommentsAsync(handle, conversationId, before, 5, context));
+            var session = await TryLoadSessionAsync(sessionManager, context);
+            try
+            {
+                return Results.Ok(await contents.GetPreviousCommentsAsync(handle, conversationId, before, 5, context));
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).AllowAnonymous();
         
-        group.MapPut("/{handle}/{conversationId}", async (string handle, string conversationId, ContentRequest request, SessionGetter sessionGetter, IContentService contents, OperationContext context) =>
+        group.MapPut("/{handle}/{conversationId}", async (string handle, string conversationId, ContentRequest request, SessionManager sessionManager, IContentService contents, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            if (session!.Handle != handle)
-                return Results.Unauthorized();
-            await contents.UpdateConversationAsync(session, conversationId, request.Content, context);
-            return Results.Ok();
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                if (session!.Handle != handle)
+                    return Results.Unauthorized();
+                await contents.UpdateConversationAsync(session, conversationId, request.Content, context);
+                return Results.Ok();
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         });
         
-        group.MapPut("/{handle}/{conversationId}/like", async (string handle, string conversationId, ReactRequest request, SessionGetter sessionGetter, IContentService contents, OperationContext context) =>
+        group.MapPut("/{handle}/{conversationId}/like", async (string handle, string conversationId, ReactRequest request, SessionManager sessionManager, IContentService contents, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            await contents.ReactToConversationAsync(session!, handle, conversationId, request.Like, context);
-            return Results.Ok();
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                await contents.ReactToConversationAsync(session!, handle, conversationId, request.Like, context);
+                return Results.Ok();
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         });
         
-        group.MapDelete("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, IContentService contents, OperationContext context) =>
+        group.MapDelete("/{handle}/{conversationId}", async (string handle, string conversationId, SessionManager sessionManager, IContentService contents, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            if (session!.Handle != handle)
-                return Results.Unauthorized();
-            await contents.DeleteConversationAsync(session!, conversationId, context);
-            return Results.Ok();
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                if (session!.Handle != handle)
+                    return Results.Unauthorized();
+                await contents.DeleteConversationAsync(session!, conversationId, context);
+                return Results.Ok();
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         });
         
-        group.MapPost("/{handle}/{conversationId}", async (string handle, string conversationId, SessionGetter sessionGetter, ContentRequest request, IContentService contents, OperationContext context, HttpContext http) =>
+        group.MapPost("/{handle}/{conversationId}", async (string handle, string conversationId, SessionManager sessionManager, ContentRequest request, IContentService contents, OperationContext context, HttpContext http) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            var commentId = await contents.CommentAsync(session!, handle, conversationId, request.Content, context);
-            http.Response.Headers.Location = $"/conversation/{handle}/{conversationId}/comments/{commentId}";
-            return Results.Ok();
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                var commentId = await contents.CommentAsync(session!, handle, conversationId, request.Content, context);
+                http.Response.Headers.Location = $"/conversation/{handle}/{conversationId}/comments/{commentId}";
+                return Results.Ok();
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         });
         
-        group.MapGet("/{handle}", async (string handle, string? before, IContentService contents, OperationContext context) =>
+        group.MapGet("/{handle}", async (string handle, string? before, SessionManager sessionManager, IContentService contents, OperationContext context) =>
         {
-            return Results.Ok(await contents.GetUserConversationsAsync(handle, before, 10, context));
+            var session = await TryLoadSessionAsync(sessionManager, context);
+            try
+            {
+                return Results.Ok(await contents.GetUserConversationsAsync(handle, before, 10, context));
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).AllowAnonymous();
     }
     
@@ -144,13 +189,20 @@ public static class MapApi
     
     private static void MapFeed(WebApplication app)
     {
-        app.MapGet("/feed", async (string? before, SessionGetter sessionGetter, IFeedService feeds, OperationContext context) =>
+        app.MapGet("/feed", async (string? before, SessionManager sessionManager, IFeedService feeds, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            var posts = await feeds.GetFeedAsync(session!, before, context);
-            return Results.Ok(posts);
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                var posts = await feeds.GetFeedAsync(session!, before, context);
+                return Results.Ok(posts);
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).RequireAuthorization();
     }
     
@@ -172,9 +224,9 @@ public static class MapApi
             return Results.Ok();
         });
         
-        app.MapPost("/logout", async (SessionGetter sessionGetter, ISessionService sessions, OperationContext context, HttpContext http) =>
+        app.MapPost("/logout", async (SessionManager sessionManager, ISessionService sessions, OperationContext context, HttpContext http) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
             if (problem != null)
                 return problem;
             await sessions.EndSessionAsync(session!, context);
@@ -185,38 +237,85 @@ public static class MapApi
     
     private static void MapFollowers(WebApplication app)
     {
-        app.MapGet("/followers/", async (SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
+        app.MapGet("/followers/", async (SessionManager sessionManager, IFollowersService follows, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            return Results.Ok(await follows.GetFollowersAsync(session!, context));
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                return Results.Ok(await follows.GetFollowersAsync(session!, context));
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).RequireAuthorization();
         
-        app.MapGet("/follow/", async (SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
+        app.MapGet("/follow/", async (SessionManager sessionManager, IFollowersService follows, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            return Results.Ok(await follows.GetFollowingsAsync(session!, context));
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                return Results.Ok(await follows.GetFollowingsAsync(session!, context));
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).RequireAuthorization();
         
-        app.MapPost("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
+        app.MapPost("/follow/{handle}", async ([FromRoute]string handle, SessionManager sessionManager, IFollowersService follows, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            await follows.FollowAsync(session!, handle, context);
-            return Results.Ok();
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                await follows.FollowAsync(session!, handle, context);
+                return Results.Ok();
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).RequireAuthorization();
         
-        app.MapDelete("/follow/{handle}", async ([FromRoute]string handle, SessionGetter sessionGetter, IFollowersService follows, OperationContext context) =>
+        app.MapDelete("/follow/{handle}", async ([FromRoute]string handle, SessionManager sessionManager, IFollowersService follows, OperationContext context) =>
         {
-            var (session, problem) = await GetUserIdOrProblemAsync(sessionGetter, context);
-            if (problem != null)
-                return problem;
-            await follows.UnfollowAsync(session!, handle, context);
-            return Results.Ok();
+            var (session, problem) = await LoadSessionOrProblemAsync(sessionManager, context);
+            try
+            {
+                if (problem != null)
+                    return problem;
+                await follows.UnfollowAsync(session!, handle, context);
+                return Results.Ok();
+            }
+            finally
+            {
+                await sessionManager.UpdateSessionAsync(session, context);
+            }
         }).RequireAuthorization();
+    }
+    
+    private static JsonObject GetStatusString(HttpContext context, IConfiguration configuration)
+    {
+        var obj = new JsonObject();
+        obj.Add("status", "OK");
+        obj.Add("date", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+        obj.Add("version", configuration.GetValue("IMAGE_TAG",string.Empty));
+        obj.Add("environment", configuration.GetValue("ENVIRONMENT",string.Empty));
+        obj.Add("region", configuration.GetValue("REGION",string.Empty));
+        obj.Add("config", configuration.GetValue("ConfigurationSource","None"));
+        obj.Add("user_container", GetUserContainer(context, configuration));
+        return obj;
+    }
+
+    private static string GetUserContainer(HttpContext context, IConfiguration c)
+    {
+        context.RequestServices.GetRequiredService<UserDatabase>().GetContainer("contents");
+        return "yes";
     }
 }

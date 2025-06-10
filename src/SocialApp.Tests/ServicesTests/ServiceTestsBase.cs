@@ -53,6 +53,13 @@ public abstract class ServiceTestsBase
             .Build();
     }
     
+    protected static OperationContext CreateContextWithSession(OperationContext? context)
+    {
+        var newcontext = OperationContext.New();
+        newcontext.SessionTokens = context?.SessionTokens;
+        return newcontext;
+    }
+    
     [OneTimeSetUp]
     public async Task Setup()
     {

@@ -15,7 +15,7 @@ public class ContentServiceTests: ServiceTestsBase
         var conversation1Id = await ContentService.StartConversationAsync(user1, "This is a conversation.", context);
         Console.WriteLine(context.OperationCharge);
 
-        context = OperationContext.New();
+        context = CreateContextWithSession(context);
         var conversation1 = await ContentService.GetConversationAsync(user1.Handle, conversation1Id, 5, context);
         Console.WriteLine(context.OperationCharge);
 

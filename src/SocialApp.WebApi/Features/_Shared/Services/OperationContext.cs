@@ -32,6 +32,8 @@ public sealed class OperationContext
     private StringBuilder _debugMetricsBuilder;
     public string DebugMetrics => _debugMetricsBuilder?.ToString() ?? string.Empty;
 
+    public Dictionary<string,string>? SessionTokens { get; set; }
+
     [DebuggerStepThrough]
     public static OperationContext New() => new(CancellationToken.None);
 

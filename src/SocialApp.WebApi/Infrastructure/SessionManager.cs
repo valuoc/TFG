@@ -5,17 +5,18 @@ using SocialApp.WebApi.Features.Session.Services;
 
 namespace SocialApp.WebApi.Infrastructure;
 
-public class SessionGetter
+public class SessionManager
 {
     private readonly ISessionService _sessions;
     private readonly IHttpContextAccessor _http;
-    public SessionGetter(ISessionService sessions, IHttpContextAccessor http)
+
+    public SessionManager(ISessionService sessions, IHttpContextAccessor http)
     {
         _sessions = sessions;
         _http = http;
     }
 
-    public async Task<UserSession?> GetUserSessionAsync(OperationContext context)
+    public async Task<UserSession?> LoadUserSessionAsync(OperationContext context)
     {
         var http = _http.HttpContext;
         
@@ -23,7 +24,14 @@ public class SessionGetter
 
         if (sessionId == null)
             return null;
-        var session =  await _sessions.GetSessionAsync(sessionId, context);
-        return session;
+        return await _sessions.GetSessionAsync(sessionId, context);
+    }
+
+    public async Task UpdateSessionAsync(UserSession? session, OperationContext context)
+    {
+        if(session == null)
+            return;
+        
+        await _sessions.UpdateSessionAsync(session.SessionId, context);
     }
 }

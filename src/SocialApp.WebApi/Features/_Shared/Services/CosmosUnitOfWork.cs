@@ -11,10 +11,12 @@ public class CosmosUnitOfWork : IUnitOfWork
     private static readonly TransactionalBatchPatchItemRequestOptions _noResponseOptions = new() {EnableContentResponseOnWrite = true};
     
     private readonly TransactionalBatch _batch;
+    private readonly string _containerName;
     private readonly List<UnitOfWorkOperation> _operations;
-    public CosmosUnitOfWork(TransactionalBatch batch)
+    public CosmosUnitOfWork(TransactionalBatch batch, string containerName)
     {
         _batch = batch;
+        _containerName = containerName;
         _operations = new List<UnitOfWorkOperation>();
     }
 
@@ -131,6 +133,8 @@ public class CosmosUnitOfWork : IUnitOfWork
             
             var response = await _batch.ExecuteAsync(context.Cancellation);
             context.AddRequestCharge(response.RequestCharge);
+            context.SessionTokens ??= new Dictionary<string, string>();
+            context.SessionTokens[_containerName] = response.Headers?.Session;
             ProcessTransactionResponse(response);
             _operations.Clear();
         }

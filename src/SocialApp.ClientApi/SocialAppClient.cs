@@ -54,7 +54,7 @@ public sealed class SocialAppClient
             return;
         
         var content = await response.Content.ReadAsStringAsync();
-        throw new HttpRequestException($"HTTP {(int)response.StatusCode} ({response.StatusCode}):\n\t{content}");
+        throw new HttpRequestException($"HTTP {(int)response.StatusCode} ({response.StatusCode}):\n\t{content}", null, response.StatusCode) ;
     }
 
     internal async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken cancel)
